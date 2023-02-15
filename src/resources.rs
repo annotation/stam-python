@@ -274,6 +274,16 @@ impl PyTextSelection {
             store: self.store.clone(),
         })
     }
+
+    /// Return the absolute begin position in unicode points
+    fn begin(&self) -> usize {
+        self.textselection.begin()
+    }
+
+    /// Return the absolute end position in unicode points (non-inclusive)
+    fn end(&self) -> usize {
+        self.textselection.end()
+    }
 }
 
 impl PyTextSelection {

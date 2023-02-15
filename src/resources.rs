@@ -54,7 +54,7 @@ impl PyTextResource {
 
     /// Returns a TextSelection instance referring to the specified offset
     fn text_selection(&self, offset: &PyOffset) -> PyResult<PyTextSelection> {
-        self.map(|res| Ok(self.wrap_textselection(res.text_selection(&offset.offset)?)))
+        self.map(|res| Ok(self.wrap_textselection(res.textselection(&offset.offset)?)))
     }
 
     /// Returns a Selector (ResourceSelector) pointing to this TextResource
@@ -92,7 +92,7 @@ impl PyTextResource {
     fn wrap_textselection(&self, textselection: TextSelection) -> PyTextSelection {
         PyTextSelection {
             textselection,
-            handle: self.handle,
+            resource_handle: self.handle,
             store: self.store.clone(),
         }
     }
@@ -235,7 +235,7 @@ impl PyOffset {
 #[derive(Clone)]
 pub(crate) struct PyTextSelection {
     pub(crate) textselection: TextSelection,
-    pub(crate) handle: TextResourceHandle,
+    pub(crate) resource_handle: TextResourceHandle,
     pub(crate) store: Arc<RwLock<AnnotationStore>>,
 }
 
@@ -243,16 +243,21 @@ pub(crate) struct PyTextSelection {
 impl PyTextSelection {
     /// Resolves a text selection to the actual underlying text
     fn __str__<'py>(&self, py: Python<'py>) -> PyResult<&'py PyString> {
-        self.map(|res| Ok(PyString::new(py, res.text_of(&(self.textselection.into())))))
+        self.map(|res| {
+            Ok(PyString::new(
+                py,
+                res.text_of(&(self.textselection.into()))?,
+            ))
+        })
     }
 
     fn __richcmp__(&self, other: PyRef<Self>, op: CompareOp) -> Py<PyAny> {
         let py = other.py();
         match op {
-            CompareOp::Eq => (self.handle == other.handle
+            CompareOp::Eq => (self.resource_handle == other.resource_handle
                 && self.textselection == other.textselection)
                 .into_py(py),
-            CompareOp::Ne => (self.handle != other.handle
+            CompareOp::Ne => (self.resource_handle != other.resource_handle
                 || self.textselection != other.textselection)
                 .into_py(py),
             CompareOp::Lt => (self.textselection < other.textselection).into_py(py),
@@ -265,7 +270,7 @@ impl PyTextSelection {
     /// Returns the resource this textselections points at
     fn resource(&self) -> PyResult<PyTextResource> {
         Ok(PyTextResource {
-            handle: self.handle,
+            handle: self.resource_handle,
             store: self.store.clone(),
         })
     }
@@ -278,7 +283,7 @@ impl PyTextSelection {
     {
         if let Ok(store) = self.store.read() {
             let resource: &TextResource = store
-                .resource(&self.handle.into())
+                .resource(&self.resource_handle.into())
                 .ok_or_else(|| PyRuntimeError::new_err("Failed to resolve textresource"))?;
             f(resource).map_err(|err| PyStamError::new_err(format!("{}", err)))
         } else {

@@ -97,7 +97,7 @@ impl PyAnnotation {
                         py,
                         PyTextSelection {
                             textselection,
-                            handle: reshandle,
+                            resource_handle: reshandle,
                             store: self.store.clone(),
                         },
                     )

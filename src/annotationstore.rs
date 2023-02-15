@@ -247,12 +247,30 @@ impl PyAnnotationStore {
             .into_ref(py)),
             Selector::TextSelector(handle, offset) => self.map(|store| {
                 let resource: &TextResource = store.get(*handle)?;
-                let textselection = resource.text_selection(offset)?;
+                let textselection = resource.textselection(offset)?;
                 let pytextselection: &'py PyAny = Py::new(
                     py,
                     PyTextSelection {
-                        handle: *handle,
+                        resource_handle: *handle,
                         textselection,
+                        store: self.store.clone(),
+                    },
+                )
+                .expect("creating PyTextSelection")
+                .into_ref(py);
+                Ok(pytextselection)
+            }),
+            Selector::InternalTextSelector {
+                resource: handle,
+                textselection: textselection_handle,
+            } => self.map(|store| {
+                let resource: &TextResource = store.get(*handle)?;
+                let textselection: &TextSelection = resource.get(*textselection_handle)?;
+                let pytextselection: &'py PyAny = Py::new(
+                    py,
+                    PyTextSelection {
+                        resource_handle: *handle,
+                        textselection: *textselection,
                         store: self.store.clone(),
                     },
                 )
@@ -280,7 +298,7 @@ impl PyAnnotationStore {
                                 Py::new(
                                     py,
                                     PyTextSelection {
-                                        handle: resource,
+                                        resource_handle: resource,
                                         textselection,
                                         store: self.store.clone(),
                                     },
@@ -306,6 +324,40 @@ impl PyAnnotationStore {
                     Ok(result)
                 })
             }
+            Selector::InternalAnnotationTextSelector {
+                annotation: handle,
+                resource: resource_handle,
+                textselection: textselection_handle,
+            } => {
+                self.map(|store| {
+                    let result = PyList::empty(py); //TODO: I want a tuple rather than a list but didn't succeed
+                    let pyannotation: &PyAny = Py::new(
+                        py,
+                        PyAnnotation {
+                            handle: *handle,
+                            store: self.store.clone(),
+                        },
+                    )
+                    .unwrap()
+                    .into_ref(py);
+                    let resource: &TextResource = store.get(*resource_handle)?;
+                    let textselection: &TextSelection = resource.get(*textselection_handle)?;
+                    let pytextselection: &PyAny = Py::new(
+                        py,
+                        PyTextSelection {
+                            resource_handle: *resource_handle,
+                            textselection: *textselection, //copy
+                            store: self.store.clone(),
+                        },
+                    )
+                    .unwrap()
+                    .into_ref(py);
+                    result.append(pyannotation).expect("adding to result"); //TODO: should go into tuple rather than list
+                    result.append(pytextselection).expect("adding to result");
+                    let result: &PyAny = result.into();
+                    Ok(result)
+                })
+            }
             Selector::MultiSelector(v)
             | Selector::CompositeSelector(v)
             | Selector::DirectionalSelector(v) => {
@@ -319,6 +371,113 @@ impl PyAnnotationStore {
                     )?;
                     result.append(subresult)?;
                 }
+                let result: &PyAny = result.into();
+                Ok(result)
+            }
+            Selector::InternalRangedResourceSelector { .. } => {
+                let result = self.map(|store| {
+                    let results = PyList::empty(py);
+                    let iter: TargetIter<TextResource> =
+                        TargetIter::new(selector.selector.iter(store, false, false));
+                    for resource in iter {
+                        let handle = resource.handle().expect("must have handle");
+                        let pyresource: &PyAny = Py::new(
+                            py,
+                            PyTextResource {
+                                handle,
+                                store: self.store.clone(),
+                            },
+                        )
+                        .unwrap()
+                        .into_ref(py);
+                        results
+                            .append(pyresource)
+                            .map_err(|_| StamError::OtherError("append failed"))?;
+                    }
+                    Ok(results)
+                })?;
+
+                let result: &PyAny = result.into();
+                Ok(result)
+            }
+            Selector::InternalRangedAnnotationSelector { .. } => {
+                let result = self.map(|store| {
+                    let results = PyList::empty(py);
+                    let iter: TargetIter<Annotation> =
+                        TargetIter::new(selector.selector.iter(store, false, false));
+                    for annotation in iter {
+                        let handle = annotation.handle().expect("must have handle");
+                        let pyannotation: &PyAny = Py::new(
+                            py,
+                            PyAnnotation {
+                                handle,
+                                store: self.store.clone(),
+                            },
+                        )
+                        .unwrap()
+                        .into_ref(py);
+                        results
+                            .append(pyannotation)
+                            .map_err(|_| StamError::OtherError("append failed"))?;
+                    }
+                    Ok(results)
+                })?;
+
+                let result: &PyAny = result.into();
+                Ok(result)
+            }
+            Selector::InternalRangedDataSetSelector { .. } => {
+                let result = self.map(|store| {
+                    let results = PyList::empty(py);
+                    let iter: TargetIter<AnnotationDataSet> =
+                        TargetIter::new(selector.selector.iter(store, false, false));
+                    for dataset in iter {
+                        let handle = dataset.handle().expect("must have handle");
+                        let pydataset: &PyAny = Py::new(
+                            py,
+                            PyAnnotationDataSet {
+                                handle,
+                                store: self.store.clone(),
+                            },
+                        )
+                        .unwrap()
+                        .into_ref(py);
+                        results
+                            .append(pydataset)
+                            .map_err(|_| StamError::OtherError("append failed"))?;
+                    }
+                    Ok(results)
+                })?;
+
+                let result: &PyAny = result.into();
+                Ok(result)
+            }
+            Selector::InternalRangedTextSelector {
+                resource: resource_handle,
+                ..
+            } => {
+                let result = self.map(|store| {
+                    let results = PyList::empty(py);
+                    let iter: TargetIter<TextSelection> =
+                        TargetIter::new(selector.selector.iter(store, false, false));
+                    for textselection in iter {
+                        let pyresource: &PyAny = Py::new(
+                            py,
+                            PyTextSelection {
+                                resource_handle: *resource_handle,
+                                textselection: *textselection, //copy
+                                store: self.store.clone(),
+                            },
+                        )
+                        .unwrap()
+                        .into_ref(py);
+                        results
+                            .append(pyresource)
+                            .map_err(|_| StamError::OtherError("append failed"))?;
+                    }
+                    Ok(results)
+                })?;
+
                 let result: &PyAny = result.into();
                 Ok(result)
             }

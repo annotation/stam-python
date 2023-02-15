@@ -177,6 +177,12 @@ impl PySelector {
                     })
                 }
             }
+            SelectorKind::InternalRangedSelector => {
+                //TODO: implement?
+                Err(PyValueError::new_err(
+                    "Construction of InternalRangedSelector is not implemented (yet)",
+                ))
+            }
         }
     }
 

@@ -5,6 +5,7 @@ use pyo3::types::*;
 use std::ops::FnOnce;
 use std::sync::{Arc, RwLock};
 
+use crate::annotationstore::MapStore;
 use crate::error::PyStamError;
 use crate::selector::PySelector;
 use stam::*;
@@ -62,13 +63,48 @@ impl PyTextResource {
         self.map(|res| res.selector().map(|sel| sel.into()))
     }
 
-    // Iterates over all known textselections in this resource
-    //fn textselections(self) -> PyTextSelectionIter {}
+    // Iterates over all known textselections in this resource, shortcut for __iter__()
+    fn textselections(&self) -> PyTextSelectionIter {
+        self.__iter__()
+    }
 
-    // Shortcut for textselections()
-    //fn __iter__(self) -> PyTextSelectionIter {
-    //    self.textselections()
-    //}
+    // Iterates over all known textselections in this resource, in sorted order
+    fn __iter__(&self) -> PyTextSelectionIter {
+        PyTextSelectionIter {
+            positions: self
+                .map(|res| Ok(res.positions().map(|x| *x).collect::<Vec<usize>>()))
+                .unwrap(),
+            index: 0,
+            subindex: 0,
+            resource_handle: self.handle,
+            store: self.store.clone(),
+        }
+    }
+
+    /// Iterates over all known textselections that start in the spceified range, in sorted order
+    //TODO:  this should be __getitem__() with a proper python slice
+    fn range(&self, begin: usize, end: usize) -> PyResult<PyTextSelectionIter> {
+        Ok(PyTextSelectionIter {
+            positions: self
+                .map(|res| {
+                    Ok(res
+                        .positions()
+                        .filter_map(|x| {
+                            if *x >= begin && *x < end {
+                                Some(*x)
+                            } else {
+                                None
+                            }
+                        })
+                        .collect::<Vec<usize>>())
+                })
+                .unwrap(),
+            index: 0,
+            subindex: 0,
+            resource_handle: self.handle,
+            store: self.store.clone(),
+        })
+    }
 }
 
 impl PyTextResource {
@@ -231,7 +267,7 @@ impl PyOffset {
     }
 }
 
-#[pyclass(name = "TextSelection", frozen, freelist = 64)]
+#[pyclass(name = "TextSelection")]
 #[derive(Clone)]
 pub(crate) struct PyTextSelection {
     pub(crate) textselection: TextSelection,
@@ -307,5 +343,61 @@ impl PyTextSelection {
 impl From<PyTextSelection> for TextSelection {
     fn from(other: PyTextSelection) -> Self {
         other.textselection
+    }
+}
+
+#[pyclass(name = "TextSelectionIter")]
+// this isn't based off the TextSelectionIter in the Rust library because that one holds a
+// reference which we can't in Python. This one will have somewhat more overhead and only supports
+// forward iteration
+pub(crate) struct PyTextSelectionIter {
+    pub(crate) positions: Vec<usize>,
+    pub(crate) index: usize,
+    pub(crate) subindex: usize,
+    pub(crate) resource_handle: TextResourceHandle,
+    pub(crate) store: Arc<RwLock<AnnotationStore>>,
+}
+
+#[pymethods]
+impl PyTextSelectionIter {
+    fn __next__(&mut self) -> Option<PyTextSelection> {
+        self.next()
+    }
+}
+
+impl Iterator for PyTextSelectionIter {
+    type Item = PyTextSelection;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if let Ok(store) = self.store.read() {
+            if let Some(resource) = store.resource(&AnyId::Handle(self.resource_handle)) {
+                loop {
+                    if let Some(position) = self.positions.get(self.index) {
+                        if let Some(positionitem) = resource.position(*position) {
+                            if let Some((_, handle)) =
+                                positionitem.iter_begin2end().nth(self.subindex)
+                            {
+                                self.subindex += 1;
+                                let textselection: Result<&TextSelection, _> =
+                                    resource.get(*handle);
+                                if let Ok(textselection) = textselection {
+                                    return Some(PyTextSelection {
+                                        textselection: textselection.clone(),
+                                        resource_handle: self.resource_handle,
+                                        store: self.store.clone(),
+                                    });
+                                }
+                            }
+                        }
+                        self.index += 1;
+                        self.subindex = 0;
+                        //rely on loop to 'recurse'
+                    } else {
+                        break;
+                    }
+                }
+            }
+        }
+        None
     }
 }

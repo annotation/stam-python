@@ -364,6 +364,26 @@ class Test3b(unittest.TestCase):
         #test all sanity
         common_sanity(self)
 
+class Test4(unittest.TestCase):
+    def setUp(self):
+        """Create some data from scratch"""
+        #this is the very same data as in Test1, but constructed more implicitly via annotate()
+        self.store = AnnotationStore(id="test")
+        resource = self.store.add_resource(id="testres", text="Hello world")
+        self.store.annotate(id="A1", 
+                            target=Selector.text(resource, Offset.simple(6,11)),
+                            data=[AnnotationDataBuilder(id="D1", key="pos", value="noun", annotationset="testdataset")])
+        self.store.annotate(id="A2", 
+                            target=Selector.text(resource, Offset.simple(0,5)),
+                            data=[AnnotationDataBuilder(id="D2", key="pos", value="interjection", annotationset="testdataset")])
+
+    def test_textselections_iter(self):
+        resource = self.store.resource("testres")
+        textselections = list(iter(resource))
+        self.assertEqual(len(textselections), 2)
+        self.assertEqual(str(textselections[0]), "Hello")
+        self.assertEqual(str(textselections[1]), "world")
+
 if __name__ == "__main__":
     unittest.main()
 

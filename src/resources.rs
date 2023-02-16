@@ -360,6 +360,10 @@ pub(crate) struct PyTextSelectionIter {
 
 #[pymethods]
 impl PyTextSelectionIter {
+    fn __iter__(pyself: PyRef<'_, Self>) -> PyRef<'_, Self> {
+        pyself
+    }
+
     fn __next__(&mut self) -> Option<PyTextSelection> {
         self.next()
     }

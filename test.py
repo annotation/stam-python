@@ -376,6 +376,12 @@ class Test4(unittest.TestCase):
         self.store.annotate(id="A2", 
                             target=Selector.text(resource, Offset.simple(0,5)),
                             data=[AnnotationDataBuilder(id="D2", key="pos", value="interjection", annotationset="testdataset")])
+        self.store.annotate(id="Word",
+                            target=Selector.multi(
+                                Selector.annotation(self.store.annotation("A1"), Offset.whole()),
+                                Selector.annotation(self.store.annotation("A2"), Offset.whole()),
+                            ),
+                            data=[AnnotationDataBuilder(id="D3", key="type", value="word", annotationset="testdataset")])
 
     def test_textselections_iter(self):
         resource = self.store.resource("testres")
@@ -383,6 +389,9 @@ class Test4(unittest.TestCase):
         self.assertEqual(len(textselections), 2)
         self.assertEqual(str(textselections[0]), "Hello")
         self.assertEqual(str(textselections[1]), "world")
+
+    def test_test_multiselector(self):
+        pass #TODO
 
 if __name__ == "__main__":
     unittest.main()

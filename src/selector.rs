@@ -240,6 +240,7 @@ impl PySelector {
 
     #[staticmethod]
     /// Shortcut static method to construct a MultiSelector
+    #[pyo3(signature = (*subselectors))]
     fn multi(subselectors: Vec<PyRef<PySelector>>) -> PyResult<Self> {
         PySelector::new(
             &PySelectorKind::MULTISELECTOR,
@@ -253,6 +254,7 @@ impl PySelector {
 
     #[staticmethod]
     /// Shortcut static method to construct a CompositeSelector
+    #[pyo3(signature = (*subselectors))]
     fn composite(subselectors: Vec<PyRef<PySelector>>) -> PyResult<Self> {
         PySelector::new(
             &PySelectorKind::COMPOSITESELECTOR,
@@ -266,6 +268,7 @@ impl PySelector {
 
     #[staticmethod]
     /// Shortcut static method to construct a DirectionalSelector
+    #[pyo3(signature = (*subselectors))]
     fn directional(subselectors: Vec<PyRef<PySelector>>) -> PyResult<Self> {
         PySelector::new(
             &PySelectorKind::DIRECTIONALSELECTOR,

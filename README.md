@@ -145,15 +145,7 @@ native Python. The trick is in letting the binding work for you as much as
 possible, use higher-level methods whenever they are available rather than
 implementing your logic in Python.
 
+## Acknowledgements
 
-
-
-
-
-
-
-
-
-
-
+This work is conducted at the [KNAW Humanities Cluster](https://huc.knaw.nl/)'s [Digital Infrastructure department](https://di.huc.knaw.nl/), and funded by the [CLARIAH](https://clariah.nl) project (CLARIAH-PLUS, NWO grant 184.034.023) as part of the FAIR Annotations track.
 

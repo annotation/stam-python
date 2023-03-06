@@ -26,7 +26,7 @@ store = stam.AnnotationStore(file="example.stam.json")
 
 The annotation store is your workspace, it holds all resources, annotation sets
 (i.e. keys and annotation data) and of course the actual annotations. It is a
-memory-based store and you can as much as you like into it (as long as it fits
+memory-based store and you can put as much as you like into it (as long as it fits
 in memory:).
 
 Retrieving anything by ID:
@@ -36,7 +36,7 @@ annotation = store.annotation("my-annotation")
 resource = store.resource("my-resource")
 annotationset = store.annotationset("my-annotationset")
 key = annotationset.key("my-key")
-data = = annotationset.annotationdata("my-data")
+data = annotationset.annotationdata("my-data")
 ```
 
 Iterating through all annotations in the store, and outputting a simple tab separated format:
@@ -49,7 +49,7 @@ for annotation in store.annotations():
     except stam.StamError:
         text = "n/a"
     for data in annotation:
-        print("\t".join(( annotation.id, data.key().id, str(data.value()), text)));
+        print("\t".join(( annotation.id, data.key().id, str(data.value()), text)))
 ```
 
 
@@ -73,7 +73,7 @@ store.annotate(id="A1",
 
 In the above example, the `AnnotationDataSet` , `DataKey` and `AnnotationData`
 are created on-the-fly. You can also create them explicitly, as shown in the
-next snippet, results in the exact same store:
+next snippet, resulting in the exact same store:
 
 
 ```python
@@ -82,15 +82,15 @@ resource = store.add_resource(id="testres", text="Hello world")
 annotationset = store.add_annotationset(id="testdataset")
 annotationset.add_key("pos")
 data = annotationset.add_data("pos","noun","D1")
-self.store.annotate(id="A1", 
+store.annotate(id="A1", 
     target=Selector.text(resource, Offset.simple(6,11)),
     data=[AnnotationDataBuilder.link(data)])
 ```
 
 Here we use `AnnotationDataBuilder.link()` to link to the existing annotation.
-Providing the full `AnnotationDataBuilder` as in the example before would have
-also worked fine with the same end result, but would be less performant. The
-implementation will ensure to reuse any already existing `AnnotationData` if
+Providing the full `AnnotationDataBuilder` as in the earlier example would have
+also worked fine, with the same end result, but would be less performant. The
+implementation will ensure any already existing `AnnotationData` will be reused if
 possible, as not duplicating data is one of the core characteristics of the
 STAM model.
 
@@ -115,7 +115,7 @@ instantiated directly, but always via an `add_*()` or `annotate()` method which
 will add them and return the reference. 
 
 These instances play a bigger role in the Python API than their equivalents in
-the Rust API (which distinguishes owned data, borrowed data aka references and
+the Rust API (which distinguishes owned data, borrowed data aka references, and
 so-called handles). In the Rust API, methods for search are mostly implemented on the main
 `AnnotationStore` or `AnnotationDataSet`, reflecting the underlying ownership model more strictly.
 In the Python API, they are implemented on the types themselves. Here's a comparison of some common methods:

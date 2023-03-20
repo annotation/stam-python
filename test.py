@@ -396,24 +396,46 @@ class Test4(unittest.TestCase):
         annotation = self.store.annotation("Word")
 
         #extract annotations we point to
-        for i, targetannotation in enumerate(annotation.annotations()):
+        count = 0
+        for targetannotation in annotation.annotations():
+            count += 1
             self.assertIsInstance( targetannotation, Annotation)
-            if i == 0:
+            if count == 1:
                 self.assertTrue( targetannotation.has_id("A1"))
-            elif i == 1:
+            elif count == 2:
                 self.assertTrue( targetannotation.has_id("A2"))
             else:
                 assert False
+        self.assertEqual(count,2)
+
 
         #extract textselections we point to
-        for i, textselection in enumerate(annotation.textselections()):
+        count = 0
+        for textselection in annotation.textselections():
+            count += 1 
             self.assertIsInstance( textselection, TextSelection)
-            if i == 0: #yes,. we defined them in reverse order so this is okay
+            if count == 1: #yes,. we defined them in reverse order so this is okay
                 self.assertEqual(str(textselection), "world")
-            elif i == 1:
+            elif count == 2:
                 self.assertEqual(str(textselection), "Hello")
             else:
                 assert False
+        self.assertEqual(count,2)
+
+    def test_multiselector_target(self):
+        annotation = self.store.annotation("Word")
+
+        #return the selector
+        selector = annotation.target()
+        count = 0
+        for targets in self.store.select(selector):
+            count += 1
+            if count == 1: #yes,. we defined them in reverse order so this is okay
+                self.assertTrue( targets[0].has_id("A1"))
+            elif count == 2:
+                self.assertTrue( targets[0].has_id("A2"))
+        self.assertEqual(count,2)
+
 
 if __name__ == "__main__":
     unittest.main()

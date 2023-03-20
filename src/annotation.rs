@@ -174,6 +174,16 @@ impl PyAnnotation {
             Ok(PyTuple::new(py, elements))
         })
     }
+
+    /// Returns the target selector for this annotation
+    fn target(&self) -> PyResult<PySelector> {
+        self.map_store(|store| {
+            let annotation: &Annotation = store.get(self.handle)?;
+            Ok(PySelector {
+                selector: annotation.target().clone(),
+            })
+        })
+    }
 }
 
 #[pyclass(name = "DataIter")]

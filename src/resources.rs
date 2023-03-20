@@ -72,7 +72,12 @@ impl PyTextResource {
     fn __iter__(&self) -> PyTextSelectionIter {
         PyTextSelectionIter {
             positions: self
-                .map(|res| Ok(res.positions().map(|x| *x).collect::<Vec<usize>>()))
+                .map(|res| {
+                    Ok(res
+                        .positions(PositionMode::Begin)
+                        .map(|x| *x)
+                        .collect::<Vec<usize>>())
+                })
                 .unwrap(),
             index: 0,
             subindex: 0,
@@ -88,7 +93,7 @@ impl PyTextResource {
             positions: self
                 .map(|res| {
                     Ok(res
-                        .positions()
+                        .positions(PositionMode::Begin)
                         .filter_map(|x| {
                             if *x >= begin && *x < end {
                                 Some(*x)
@@ -381,10 +386,17 @@ impl Iterator for PyTextSelectionIter {
                             if let Some((_, handle)) =
                                 positionitem.iter_begin2end().nth(self.subindex)
                             {
+                                //increment for next run
                                 self.subindex += 1;
+                                if self.subindex >= positionitem.len_begin2end() {
+                                    self.index += 1;
+                                    self.subindex = 0;
+                                }
+
                                 let textselection: Result<&TextSelection, _> =
                                     resource.get(*handle);
                                 if let Ok(textselection) = textselection {
+                                    //forward iteration only
                                     return Some(PyTextSelection {
                                         textselection: textselection.clone(),
                                         resource_handle: self.resource_handle,

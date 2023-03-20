@@ -377,12 +377,12 @@ class Test4(unittest.TestCase):
         self.store.annotate(id="A2", 
                             target=Selector.text(resource, Offset.simple(0,5)),
                             data=[AnnotationDataBuilder(id="D2", key="pos", value="interjection", annotationset="testdataset")])
-        #self.store.annotate(id="Word",
-        #                    target=Selector.multi(
-        #                        Selector.annotation(self.store.annotation("A1"), Offset.whole()),
-        #                        Selector.annotation(self.store.annotation("A2"), Offset.whole()),
-        #                    ),
-        #                    data=[AnnotationDataBuilder(id="D3", key="type", value="word", annotationset="testdataset")])
+        self.store.annotate(id="Word",
+                            target=Selector.multi(
+                                Selector.annotation(self.store.annotation("A1"), Offset.whole()),
+                                Selector.annotation(self.store.annotation("A2"), Offset.whole()),
+                            ),
+                            data=[AnnotationDataBuilder(id="D3", key="type", value="word", annotationset="testdataset")])
 
     def test_textselections_iter(self):
         resource = self.store.resource("testres")
@@ -392,8 +392,28 @@ class Test4(unittest.TestCase):
         self.assertEqual(str(textselections[0]), "Hello")
         self.assertEqual(str(textselections[1]), "world")
 
-    def test_test_multiselector(self):
-        pass #TODO
+    def test_multiselector_iter(self):
+        annotation = self.store.annotation("Word")
+
+        #extract annotations we point to
+        for i, targetannotation in enumerate(annotation.annotations()):
+            self.assertIsInstance( targetannotation, Annotation)
+            if i == 0:
+                self.assertTrue( targetannotation.has_id("A1"))
+            elif i == 1:
+                self.assertTrue( targetannotation.has_id("A2"))
+            else:
+                assert False
+
+        #extract textselections we point to
+        for i, textselection in enumerate(annotation.textselections()):
+            self.assertIsInstance( textselection, TextSelection)
+            if i == 0: #yes,. we defined them in reverse order so this is okay
+                self.assertEqual(str(textselection), "world")
+            elif i == 1:
+                self.assertEqual(str(textselection), "Hello")
+            else:
+                assert False
 
 if __name__ == "__main__":
     unittest.main()

@@ -276,7 +276,7 @@ class Test2(unittest.TestCase):
  
 EXAMPLE3JSON = """{
     "@type": "AnnotationStore",
-    "annotationsets": {
+    "annotationsets": [{
         "@type": "AnnotationDataSet",
         "@id": "testdataset",
         "keys": [
@@ -296,7 +296,7 @@ EXAMPLE3JSON = """{
                 }
             }
         ]
-    },
+    }],
     "resources": [{
         "@id": "testres",
         "text": "Hello world"

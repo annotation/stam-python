@@ -1,4 +1,4 @@
-use pyo3::exceptions::{PyException, PyIndexError, PyKeyError, PyRuntimeError, PyValueError};
+use pyo3::exceptions::PyRuntimeError;
 use pyo3::prelude::*;
 use pyo3::types::*;
 use std::ops::FnOnce;
@@ -7,6 +7,7 @@ use std::sync::{Arc, RwLock};
 use crate::annotation::PyAnnotation;
 use crate::annotationdata::PyAnnotationDataBuilder;
 use crate::annotationdataset::PyAnnotationDataSet;
+use crate::config::get_config;
 use crate::error::PyStamError;
 use crate::resources::{PyTextResource, PyTextSelection};
 use crate::selector::PySelector;
@@ -22,14 +23,28 @@ pub struct PyAnnotationStore {
 impl PyAnnotationStore {
     #[new]
     #[args(kwargs = "**")]
-    fn new(kwargs: Option<&PyDict>) -> PyResult<Self> {
+    fn new<'py>(kwargs: Option<&PyDict>, py: Python<'py>) -> PyResult<Self> {
         if let Some(kwargs) = kwargs {
+            let mut config: &PyDict = PyDict::new(py);
             for (key, value) in kwargs {
                 if let Some(key) = key.extract().unwrap() {
                     match key {
+                        "config" => {
+                            if let Ok(Some(value)) = value.extract() {
+                                config = value;
+                            }
+                        }
+                        _ => continue,
+                    }
+                }
+            }
+            for (key, value) in kwargs {
+                if let Some(key) = key.extract().unwrap() {
+                    match key {
+                        "config" => continue, //already handled
                         "file" => {
                             if let Ok(Some(value)) = value.extract() {
-                                return match AnnotationStore::from_file(value) {
+                                return match AnnotationStore::from_file(value, get_config(config)) {
                                     Ok(store) => Ok(PyAnnotationStore {
                                         store: Arc::new(RwLock::new(store)),
                                     }),
@@ -39,7 +54,7 @@ impl PyAnnotationStore {
                         }
                         "string" => {
                             if let Ok(Some(value)) = value.extract() {
-                                return match AnnotationStore::from_str(value) {
+                                return match AnnotationStore::from_str(value, get_config(config)) {
                                     Ok(store) => Ok(PyAnnotationStore {
                                         store: Arc::new(RwLock::new(store)),
                                     }),
@@ -51,7 +66,9 @@ impl PyAnnotationStore {
                             if let Ok(Some(value)) = value.extract() {
                                 return Ok(PyAnnotationStore {
                                     store: Arc::new(RwLock::new(
-                                        AnnotationStore::default().with_id(value),
+                                        AnnotationStore::default()
+                                            .with_id(value)
+                                            .with_config(get_config(config)),
                                     )),
                                 });
                             }
@@ -77,9 +94,9 @@ impl PyAnnotationStore {
         self.map(|store| store.to_file(filename))
     }
 
-    /// Returns the annotation store to one big STAM JSON string
-    fn to_string(&self) -> PyResult<String> {
-        self.map(|store| store.to_string())
+    /// Returns the annotation store as one big STAM JSON string
+    fn to_json(&self) -> PyResult<String> {
+        self.map(|store| store.to_json())
     }
 
     /// Returns an AnnotationDataSet by ID

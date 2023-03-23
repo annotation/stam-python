@@ -4,6 +4,7 @@ mod annotation;
 mod annotationdata;
 mod annotationdataset;
 mod annotationstore;
+mod config;
 mod error;
 mod resources;
 mod selector;

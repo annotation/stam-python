@@ -22,7 +22,7 @@ pub struct PyAnnotationStore {
 #[pymethods]
 impl PyAnnotationStore {
     #[new]
-    #[args(kwargs = "**")]
+    #[pyo3(signature = (**kwargs))]
     fn new<'py>(kwargs: Option<&PyDict>, py: Python<'py>) -> PyResult<Self> {
         if let Some(kwargs) = kwargs {
             let mut config: &PyDict = PyDict::new(py);

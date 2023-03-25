@@ -184,7 +184,7 @@ impl PySelector {
 
     #[staticmethod]
     /// Shortcut static method to construct a TextSelector
-    fn text(resource: PyRef<PyTextResource>, offset: PyRef<PyOffset>) -> PyResult<Self> {
+    fn textselector(resource: PyRef<PyTextResource>, offset: PyRef<PyOffset>) -> PyResult<Self> {
         PySelector::new(
             &PySelectorKind::TEXTSELECTOR,
             Some(resource),
@@ -197,7 +197,10 @@ impl PySelector {
 
     #[staticmethod]
     /// Shortcut static method to construct a AnnotationSelector
-    fn annotation(annotation: PyRef<PyAnnotation>, offset: PyRef<PyOffset>) -> PyResult<Self> {
+    fn annotationselector(
+        annotation: PyRef<PyAnnotation>,
+        offset: PyRef<PyOffset>,
+    ) -> PyResult<Self> {
         PySelector::new(
             &PySelectorKind::ANNOTATIONSELECTOR,
             None,
@@ -210,7 +213,7 @@ impl PySelector {
 
     #[staticmethod]
     /// Shortcut static method to construct a ResourceSelector
-    fn resource(resource: PyRef<PyTextResource>) -> PyResult<Self> {
+    fn resourceselector(resource: PyRef<PyTextResource>) -> PyResult<Self> {
         PySelector::new(
             &PySelectorKind::RESOURCESELECTOR,
             Some(resource),
@@ -223,7 +226,7 @@ impl PySelector {
 
     #[staticmethod]
     /// Shortcut static method to construct a DataSetSelector
-    fn dataset(annotationset: PyRef<PyAnnotationDataSet>) -> PyResult<Self> {
+    fn datasetselector(annotationset: PyRef<PyAnnotationDataSet>) -> PyResult<Self> {
         PySelector::new(
             &PySelectorKind::DATASETSELECTOR,
             None,
@@ -237,7 +240,7 @@ impl PySelector {
     #[staticmethod]
     /// Shortcut static method to construct a MultiSelector
     #[pyo3(signature = (*subselectors))]
-    fn multi(subselectors: Vec<PyRef<PySelector>>) -> PyResult<Self> {
+    fn multiselector(subselectors: Vec<PyRef<PySelector>>) -> PyResult<Self> {
         PySelector::new(
             &PySelectorKind::MULTISELECTOR,
             None,
@@ -251,7 +254,7 @@ impl PySelector {
     #[staticmethod]
     /// Shortcut static method to construct a CompositeSelector
     #[pyo3(signature = (*subselectors))]
-    fn composite(subselectors: Vec<PyRef<PySelector>>) -> PyResult<Self> {
+    fn compositeselector(subselectors: Vec<PyRef<PySelector>>) -> PyResult<Self> {
         PySelector::new(
             &PySelectorKind::COMPOSITESELECTOR,
             None,
@@ -265,7 +268,7 @@ impl PySelector {
     #[staticmethod]
     /// Shortcut static method to construct a DirectionalSelector
     #[pyo3(signature = (*subselectors))]
-    fn directional(subselectors: Vec<PyRef<PySelector>>) -> PyResult<Self> {
+    fn directionalselector(subselectors: Vec<PyRef<PySelector>>) -> PyResult<Self> {
         PySelector::new(
             &PySelectorKind::DIRECTIONALSELECTOR,
             None,

@@ -47,7 +47,7 @@ class Test1(unittest.TestCase):
         dataset.add_key("pos")
         data = dataset.add_data("pos","noun","D1")
         self.store.annotate(id="A1", 
-                            target=Selector.text(resource, Offset.simple(6,11)),
+                            target=Selector.textselector(resource, Offset.simple(6,11)),
                             data=[AnnotationDataBuilder.link(data)])
 
     def test_sanity_1(self):
@@ -239,7 +239,7 @@ class Test2(unittest.TestCase):
         self.store = AnnotationStore(id="test")
         resource = self.store.add_resource(id="testres", text="Hello world")
         self.store.annotate(id="A1", 
-                            target=Selector.text(resource, Offset.simple(6,11)),
+                            target=Selector.textselector(resource, Offset.simple(6,11)),
                             data=[AnnotationDataBuilder(id="D1", key="pos", value="noun", annotationset="testdataset")])
 
     def test_sanity_1(self):
@@ -372,15 +372,15 @@ class Test4(unittest.TestCase):
         self.store = AnnotationStore(id="test")
         resource = self.store.add_resource(id="testres", text="Hello world")
         self.store.annotate(id="A1", 
-                            target=Selector.text(resource, Offset.simple(6,11)),
+                            target=Selector.textselector(resource, Offset.simple(6,11)),
                             data=[AnnotationDataBuilder(id="D1", key="pos", value="noun", annotationset="testdataset")])
         self.store.annotate(id="A2", 
-                            target=Selector.text(resource, Offset.simple(0,5)),
+                            target=Selector.textselector(resource, Offset.simple(0,5)),
                             data=[AnnotationDataBuilder(id="D2", key="pos", value="interjection", annotationset="testdataset")])
         self.store.annotate(id="Word",
-                            target=Selector.multi(
-                                Selector.annotation(self.store.annotation("A1"), Offset.whole()),
-                                Selector.annotation(self.store.annotation("A2"), Offset.whole()),
+                            target=Selector.multiselector(
+                                Selector.annotationselector(self.store.annotation("A1"), Offset.whole()),
+                                Selector.annotationselector(self.store.annotation("A2"), Offset.whole()),
                             ),
                             data=[AnnotationDataBuilder(id="D3", key="type", value="word", annotationset="testdataset")])
 

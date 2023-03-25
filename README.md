@@ -67,7 +67,7 @@ from stam import AnnotationStore, Selector, AnnotationDataBuilder
 store = AnnotationStore(id="test")
 resource = store.add_resource(id="testres", text="Hello world")
 store.annotate(id="A1", 
-                target=Selector.text(resource, Offset.simple(6,11)),
+                target=Selector.textselector(resource, Offset.simple(6,11)),
                 data=[AnnotationDataBuilder(id="D1", key="pos", value="noun", annotationset="testdataset")])
 ```
 
@@ -83,7 +83,7 @@ annotationset = store.add_annotationset(id="testdataset")
 annotationset.add_key("pos")
 data = annotationset.add_data("pos","noun","D1")
 store.annotate(id="A1", 
-    target=Selector.text(resource, Offset.simple(6,11)),
+    target=Selector.textselector(resource, Offset.simple(6,11)),
     data=[AnnotationDataBuilder.link(data)])
 ```
 

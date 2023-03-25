@@ -20,11 +20,6 @@ crate-type = ["cdylib"]
 pyo3 = "0.18.2"
 stam = "0.3.0"
 
-#compile against development version: (doesn't work when building with maturin for pypi)
-[patch.crates-io]
-stam = { git = 'https://github.com/annotation/stam-rust.git' } #from git
-#stam = { path = '../stam-rust' } #local
-
 [features]
 default = ["pyo3/extension-module"]
 

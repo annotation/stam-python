@@ -17,7 +17,7 @@ name = "stam"
 crate-type = ["cdylib"]
 
 [dependencies]
-pyo3 = "0.18.0"
+pyo3 = "0.18.2"
 stam = "0.3.0"
 
 #compile against development version: (doesn't work when building with maturin for pypi)

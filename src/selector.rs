@@ -1,13 +1,9 @@
-use pyo3::exceptions::{PyException, PyIndexError, PyKeyError, PyRuntimeError, PyValueError};
+use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 use pyo3::pyclass::CompareOp;
-use pyo3::types::*;
-use std::ops::FnOnce;
-use std::sync::{Arc, RwLock};
 
 use crate::annotation::PyAnnotation;
 use crate::annotationdataset::PyAnnotationDataSet;
-use crate::error::PyStamError;
 use crate::resources::{PyOffset, PyTextResource};
 use stam::*;
 

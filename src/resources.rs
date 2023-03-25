@@ -1,11 +1,10 @@
-use pyo3::exceptions::{PyException, PyIndexError, PyKeyError, PyRuntimeError, PyValueError};
+use pyo3::exceptions::{PyRuntimeError, PyValueError};
 use pyo3::prelude::*;
 use pyo3::pyclass::CompareOp;
 use pyo3::types::*;
 use std::ops::FnOnce;
 use std::sync::{Arc, RwLock};
 
-use crate::annotationstore::MapStore;
 use crate::error::PyStamError;
 use crate::selector::PySelector;
 use stam::*;

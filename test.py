@@ -272,7 +272,7 @@ class Test2(unittest.TestCase):
         self.store.to_file(filename)
 
     def test_serialisation_string(self):
-        self.assertTrue(self.store.to_string()) #doesn't test the actual output!
+        self.assertTrue(self.store.to_json()) #doesn't test the actual output!
  
 EXAMPLE3JSON = """{
     "@type": "AnnotationStore",

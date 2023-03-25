@@ -1,8 +1,8 @@
 all: wheels
 
 wheels:
-	docker pull konstin2/maturin
-	docker run --rm -v $(shell pwd):/io konstin2/maturin build --release
+	docker pull ghcr.io/pyo3/maturin
+	docker run --rm -v $(shell pwd):/io ghcr.io/pyo3/maturin build --release
 
 build:
 	cargo build --release

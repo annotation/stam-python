@@ -4,6 +4,7 @@ use pyo3::pyclass::CompareOp;
 
 use crate::annotation::PyAnnotation;
 use crate::annotationdataset::PyAnnotationDataSet;
+use crate::annotationstore::{MapStore, PyAnnotationStore};
 use crate::resources::{PyOffset, PyTextResource};
 use stam::*;
 
@@ -343,6 +344,50 @@ impl PySelector {
         match self.selector {
             Selector::CompositeSelector(_) => true,
             _ => false,
+        }
+    }
+
+    /// Return offset information in the selector.
+    /// Works for TextSelector and AnnotationSelector, returns None for others.
+    fn offset(&self) -> PyResult<Option<PyOffset>> {
+        match &self.selector {
+            Selector::TextSelector(_, offset) => Ok(Some(PyOffset {
+                offset: offset.clone(),
+            })),
+            Selector::AnnotationSelector(_, Some(offset)) => Ok(Some(PyOffset {
+                offset: offset.clone(),
+            })),
+            _ => Ok(None),
+        }
+    }
+
+    /// Returns the resource this selector points at, ff any.
+    /// Works only for TextSelector and ResourceSelector, returns None otherwise.
+    /// Requires to explicitly pass the store so the resource can be found.
+    fn resource(&self, store: PyRef<PyAnnotationStore>) -> PyResult<Option<PyTextResource>> {
+        match &self.selector {
+            Selector::TextSelector(resource_handle, _) => Ok(Some(PyTextResource {
+                handle: *resource_handle,
+                store: store.get_store().clone(),
+            })),
+            Selector::ResourceSelector(resource_handle) => Ok(Some(PyTextResource {
+                handle: *resource_handle,
+                store: store.get_store().clone(),
+            })),
+            _ => Ok(None),
+        }
+    }
+
+    /// Returns the annotation dataset this selector points at, ff any.
+    /// Works only for DataSetSelector, returns None otherwise.
+    /// Requires to explicitly pass the store so the resource can be found.
+    fn dataset(&self, store: PyRef<PyAnnotationStore>) -> PyResult<Option<PyAnnotationDataSet>> {
+        match &self.selector {
+            Selector::DataSetSelector(handle) => Ok(Some(PyAnnotationDataSet {
+                handle: *handle,
+                store: store.get_store().clone(),
+            })),
+            _ => Ok(None),
         }
     }
 

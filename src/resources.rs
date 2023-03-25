@@ -287,7 +287,7 @@ impl PyTextSelection {
         self.map(|res| {
             Ok(PyString::new(
                 py,
-                res.text_of(&(self.textselection.into()))?,
+                res.text_by_textselection(&(self.textselection.into()))?,
             ))
         })
     }

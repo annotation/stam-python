@@ -153,6 +153,7 @@ impl PyAnnotationStore {
             let mut resource = TextResource::new(
                 id.unwrap_or_else(|| filename.expect("filename"))
                     .to_string(),
+                store.config().clone(),
             );
             if let Some(text) = text {
                 resource = resource.with_string(text);
@@ -169,7 +170,7 @@ impl PyAnnotationStore {
     fn add_annotationset(&mut self, id: String) -> PyResult<PyAnnotationDataSet> {
         let store_clone = self.store.clone();
         self.map_mut(|store| {
-            let annotationset = AnnotationDataSet::new().with_id(id);
+            let annotationset = AnnotationDataSet::new(store.config().clone()).with_id(id);
             let handle = store.insert(annotationset)?;
             Ok(PyAnnotationDataSet {
                 handle,

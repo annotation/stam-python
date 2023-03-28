@@ -94,6 +94,10 @@ impl PyAnnotationStore {
         self.map(|store| store.to_file(filename))
     }
 
+    fn save(&self) -> PyResult<()> {
+        self.map(|store| store.save())
+    }
+
     /// Returns the annotation store as one big STAM JSON string
     fn to_json(&self) -> PyResult<String> {
         self.map(|store| store.to_json())
@@ -163,6 +167,13 @@ impl PyAnnotationStore {
                 handle,
                 store: store_clone,
             })
+        })
+    }
+
+    fn set_filename(&mut self, filename: &str) -> PyResult<()> {
+        self.map_mut(|store| {
+            store.set_filename(filename);
+            Ok(())
         })
     }
 

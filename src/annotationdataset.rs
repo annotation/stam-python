@@ -40,7 +40,12 @@ impl PyAnnotationDataSet {
 
     /// Save the annotation dataset to a STAM JSON file
     fn to_file(&self, filename: &str) -> PyResult<()> {
-        self.map(|annotationset| annotationset.to_file(filename))
+        self.map(|annotationset| annotationset.to_file(filename, annotationset.config()))
+    }
+
+    /// Returns the annotation stdataset as one big STAM JSON string
+    fn to_json(&self) -> PyResult<String> {
+        self.map(|annotationset| annotationset.serialize_to_string(annotationset.config()))
     }
 
     /// Get a DataKey instance by ID, raises an exception if not found

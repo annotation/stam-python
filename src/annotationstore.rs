@@ -91,7 +91,7 @@ impl PyAnnotationStore {
 
     /// Saves the annotation store to file using STAM JSON
     fn to_file(&self, filename: &str) -> PyResult<()> {
-        self.map(|store| store.to_file(filename))
+        self.map(|store| store.to_file(filename, store.config()))
     }
 
     fn save(&self) -> PyResult<()> {
@@ -100,7 +100,7 @@ impl PyAnnotationStore {
 
     /// Returns the annotation store as one big STAM JSON string
     fn to_json(&self) -> PyResult<String> {
-        self.map(|store| store.to_json())
+        self.map(|store| store.serialize_to_string(store.config()))
     }
 
     /// Returns an AnnotationDataSet by ID

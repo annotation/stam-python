@@ -9,37 +9,37 @@ pub fn get_config(kwargs: &PyDict) -> Config {
             match key {
                 "use_include" => {
                     if let Ok(Some(value)) = value.extract() {
-                        config.use_include = value;
+                        config = config.with_use_include(value);
                     }
                 }
                 "debug" => {
                     if let Ok(Some(value)) = value.extract() {
-                        config.debug = value;
+                        config = config.with_debug(value);
                     }
                 }
                 "textrelationmap" => {
                     if let Ok(Some(value)) = value.extract() {
-                        config.textrelationmap = value;
+                        config = config.with_textrelationmap(value);
                     }
                 }
                 "resource_annotation_map" => {
                     if let Ok(Some(value)) = value.extract() {
-                        config.resource_annotation_map = value;
+                        config = config.with_resource_annotation_map(value);
                     }
                 }
                 "dataset_annotation_map" => {
                     if let Ok(Some(value)) = value.extract() {
-                        config.dataset_annotation_map = value;
+                        config = config.with_dataset_annotation_map(value);
                     }
                 }
                 "annotation_annotation_map" => {
                     if let Ok(Some(value)) = value.extract() {
-                        config.annotation_annotation_map = value;
+                        config = config.with_annotation_annotation_map(value);
                     }
                 }
                 "generate_ids" => {
                     if let Ok(Some(value)) = value.extract() {
-                        config.generate_ids = value;
+                        config = config.with_generate_ids(value);
                     }
                 }
                 _ => eprintln!("Ignored unknown kwargs option {}", key),

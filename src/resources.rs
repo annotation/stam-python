@@ -57,6 +57,48 @@ impl PyTextResource {
         self.map(|res| Ok(self.wrap_textselection(res.textselection(&offset.offset)?)))
     }
 
+    /// Searches for the text fragment and returns a [`TextSelection`] to the first match.
+    ///
+    /// An `offset` can be specified to work on a sub-part rather than the entire text (like an existing [`PyTextSelection`]).
+    pub fn find(
+        &self,
+        fragment: &str,
+        offset: Option<&PyOffset>,
+    ) -> PyResult<Option<PyTextSelection>> {
+        self.map(|res| {
+            Ok(res
+                .find(fragment, offset.map(|o| &o.offset))
+                .map(|textselection| PyTextSelection {
+                    textselection,
+                    resource_handle: self.handle,
+                    store: self.store.clone(),
+                }))
+        })
+    }
+
+    /// Searches for the text fragment and returns a list with all matching [`TextSelection`] instances
+    ///
+    /// An `offset` can be specified to work on a sub-part rather than the entire text (like an existing [`PyTextSelection`]).
+    pub fn find_all(
+        &self,
+        fragment: &str,
+        offset: Option<&PyOffset>,
+    ) -> PyResult<Vec<PyTextSelection>> {
+        self.map(|res| {
+            Ok(res
+                .find_all(fragment, offset.map(|o| &o.offset))
+                .into_iter()
+                .map(|textselection| PyTextSelection {
+                    textselection,
+                    resource_handle: self.handle,
+                    store: self.store.clone(),
+                })
+                .collect())
+        })
+    }
+
+    //TODO: Implement search_text()
+
     /// Returns a Selector (ResourceSelector) pointing to this TextResource
     fn selector(&self) -> PyResult<PySelector> {
         self.map(|res| res.selector().map(|sel| sel.into()))

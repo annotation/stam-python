@@ -60,16 +60,16 @@ impl PyDataKey {
     /// The results will be returned in a tuple.
     fn annotationdata<'py>(&self, py: Python<'py>) -> PyResult<&'py PyTuple> {
         self.map_store(|store| {
-            let annotationset: &AnnotationDataSet = store.get(self.set)?;
+            let annotationset = store
+                .annotationset(&self.set.into())
+                .ok_or_else(|| StamError::HandleError("handle not found"))?;
             let elements: Vec<Py<PyAnnotationData>> = annotationset
-                .data_by_key(self.handle)
-                .unwrap_or(&Vec::new())
-                .iter()
-                .map(|handle| {
+                .data()
+                .map(|data| {
                     Py::new(
                         py,
                         PyAnnotationData {
-                            handle: *handle,
+                            handle: data.handle().expect("data must have handle"),
                             set: self.set,
                             store: self.store.clone(),
                         },
@@ -88,7 +88,7 @@ impl PyDataKey {
         let annotationset = self.annotationset()?;
         annotationset.map(|set| {
             let value = py_into_datavalue(value)?;
-            if let Some(annotationdata) = set.find_data(AnyId::Handle(self.handle), &value) {
+            if let Some(annotationdata) = set.find_data(self.handle.into(), &value) {
                 Ok(Some(PyAnnotationData {
                     handle: annotationdata
                         .handle()
@@ -115,13 +115,13 @@ impl MapStore for PyDataKey {
 impl PyDataKey {
     fn map<T, F>(&self, f: F) -> Result<T, PyErr>
     where
-        F: FnOnce(&DataKey) -> Result<T, StamError>,
+        F: FnOnce(WrappedItem<DataKey>) -> Result<T, StamError>,
     {
         if let Ok(store) = self.store.read() {
-            let annotationset: &AnnotationDataSet = store
+            let annotationset = store
                 .annotationset(&self.set.into())
                 .ok_or_else(|| PyRuntimeError::new_err("Failed to resolved annotationset"))?;
-            let datakey: &DataKey = annotationset
+            let datakey = annotationset
                 .key(&self.handle.into())
                 .ok_or_else(|| PyRuntimeError::new_err("Failed to resolved annotationset"))?;
             f(datakey).map_err(|err| PyStamError::new_err(format!("{}", err)))
@@ -295,7 +295,7 @@ impl PyAnnotationData {
         self.map(|annotationdata| {
             Ok(PyDataKey {
                 set: self.set,
-                handle: annotationdata.key(),
+                handle: annotationdata.key().handle().expect("key must have handle"),
                 store: self.store.clone(),
             })
         })
@@ -384,13 +384,13 @@ impl MapStore for PyAnnotationData {
 impl PyAnnotationData {
     fn map<T, F>(&self, f: F) -> Result<T, PyErr>
     where
-        F: FnOnce(&AnnotationData) -> Result<T, StamError>,
+        F: FnOnce(WrappedItem<AnnotationData>) -> Result<T, StamError>,
     {
         if let Ok(store) = self.store.read() {
-            let annotationset: &AnnotationDataSet = store
+            let annotationset = store
                 .annotationset(&self.set.into())
                 .ok_or_else(|| PyRuntimeError::new_err("Failed to resolve annotationset"))?;
-            let data: &AnnotationData = annotationset
+            let data = annotationset
                 .annotationdata(&self.handle.into())
                 .ok_or_else(|| PyRuntimeError::new_err("Failed to resolve annotationset"))?;
             f(data).map_err(|err| PyStamError::new_err(format!("{}", err)))
@@ -404,7 +404,7 @@ impl PyAnnotationData {
 
 #[pyclass(name = "AnnotationDataBuilder")]
 pub(crate) struct PyAnnotationDataBuilder {
-    pub(crate) builder: AnnotationDataBuilder,
+    pub(crate) builder: AnnotationDataBuilder<'a>,
 }
 
 impl From<PyAnnotationDataBuilder> for AnnotationDataBuilder {

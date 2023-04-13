@@ -40,64 +40,43 @@ impl PyTextResource {
 
     /// Returns the full text of the resource (by value, aka a copy)
     fn __str__<'py>(&self, py: Python<'py>) -> PyResult<&'py PyString> {
+        self.text(py)
+    }
+
+    /// Returns the full text of the resource (by value, aka a copy)
+    fn text<'py>(&self, py: Python<'py>) -> PyResult<&'py PyString> {
         self.map(|resource| Ok(PyString::new(py, resource.text())))
     }
 
-    /// Returns the text slice at the specified offset, or of the text as a whole if omitted
-    fn text<'py>(&self, offset: Option<&PyOffset>, py: Python<'py>) -> PyResult<&'py PyString> {
-        if let Some(offset) = offset {
-            self.map(|res| Ok(PyString::new(py, res.text_slice(&offset.offset)?)))
-        } else {
-            self.__str__(py)
-        }
-    }
-
-    /// Returns a TextSelection instance referring to the specified offset
+    /// Returns a TextSelection instance covering the specified offset
     fn textselection(&self, offset: &PyOffset) -> PyResult<PyTextSelection> {
-        self.map(|res| Ok(self.wrap_textselection(res.textselection(&offset.offset)?)))
-    }
-
-    /// Searches for the text fragment and returns a [`TextSelection`] to the first match.
-    ///
-    /// An `offset` can be specified to work on a sub-part rather than the entire text (like an existing [`PyTextSelection`]).
-    pub fn find(
-        &self,
-        fragment: &str,
-        offset: Option<&PyOffset>,
-    ) -> PyResult<Option<PyTextSelection>> {
         self.map(|res| {
-            Ok(res
-                .find(fragment, offset.map(|o| &o.offset))
-                .map(|textselection| PyTextSelection {
-                    textselection,
-                    resource_handle: self.handle,
-                    store: self.store.clone(),
-                }))
+            let textselection = res.textselection(&offset.offset)?;
+            Ok(PyTextSelection {
+                textselection: if textselection.is_ref() {
+                    textselection.unwrap().clone()
+                } else {
+                    textselection.unwrap_owned()
+                },
+                resource_handle: self.handle,
+                store: self.store.clone(),
+            })
         })
     }
 
-    /// Searches for the text fragment and returns a list with all matching [`TextSelection`] instances
-    ///
-    /// An `offset` can be specified to work on a sub-part rather than the entire text (like an existing [`PyTextSelection`]).
-    pub fn find_all(
-        &self,
-        fragment: &str,
-        offset: Option<&PyOffset>,
-    ) -> PyResult<Vec<PyTextSelection>> {
+    /// Searches for the text fragment and returns a tuple of [`TextSelection`] instances for each match.
+    pub fn find_text(&self, fragment: &str) -> PyResult<Vec<PyTextSelection>> {
         self.map(|res| {
             Ok(res
-                .find_all(fragment, offset.map(|o| &o.offset))
-                .into_iter()
+                .find_text(fragment)
                 .map(|textselection| PyTextSelection {
-                    textselection,
+                    textselection: textselection.unwrap().clone(),
                     resource_handle: self.handle,
                     store: self.store.clone(),
                 })
                 .collect())
         })
     }
-
-    //TODO: Implement search_text()
 
     /// Returns a Selector (ResourceSelector) pointing to this TextResource
     fn selector(&self) -> PyResult<PySelector> {
@@ -157,10 +136,10 @@ impl PyTextResource {
     /// Map function to act on the actual underlying store, helps reduce boilerplate
     fn map<T, F>(&self, f: F) -> Result<T, PyErr>
     where
-        F: FnOnce(&TextResource) -> Result<T, StamError>,
+        F: FnOnce(WrappedItem<TextResource>) -> Result<T, StamError>,
     {
         if let Ok(store) = self.store.read() {
-            let resource: &TextResource = store
+            let resource = store
                 .resource(&self.handle.into())
                 .ok_or_else(|| PyRuntimeError::new_err("Failed to resolve textresource"))?;
             f(resource).map_err(|err| PyStamError::new_err(format!("{}", err)))
@@ -326,10 +305,8 @@ impl PyTextSelection {
     /// Resolves a text selection to the actual underlying text
     fn __str__<'py>(&self, py: Python<'py>) -> PyResult<&'py PyString> {
         self.map(|res| {
-            Ok(PyString::new(
-                py,
-                res.text_by_textselection(&(self.textselection.into()))?,
-            ))
+            let textselection = res.wrap(&self.textselection).expect("wrap must succeed");
+            Ok(PyString::new(py, textselection.text()))
         })
     }
 
@@ -371,10 +348,10 @@ impl PyTextSelection {
 impl PyTextSelection {
     fn map<T, F>(&self, f: F) -> Result<T, PyErr>
     where
-        F: FnOnce(&TextResource) -> Result<T, StamError>,
+        F: FnOnce(WrappedItem<TextResource>) -> Result<T, StamError>,
     {
         if let Ok(store) = self.store.read() {
-            let resource: &TextResource = store
+            let resource = store
                 .resource(&self.resource_handle.into())
                 .ok_or_else(|| PyRuntimeError::new_err("Failed to resolve textresource"))?;
             f(resource).map_err(|err| PyStamError::new_err(format!("{}", err)))
@@ -420,7 +397,7 @@ impl Iterator for PyTextSelectionIter {
 
     fn next(&mut self) -> Option<Self::Item> {
         if let Ok(store) = self.store.read() {
-            if let Some(resource) = store.resource(&AnyId::Handle(self.resource_handle)) {
+            if let Some(resource) = store.resource(&self.resource_handle.into()) {
                 loop {
                     if let Some(position) = self.positions.get(self.index) {
                         if let Some(positionitem) = resource.position(*position) {
@@ -435,7 +412,7 @@ impl Iterator for PyTextSelectionIter {
                                 }
 
                                 let textselection: Result<&TextSelection, _> =
-                                    resource.get(*handle);
+                                    resource.get(&handle.into());
                                 if let Ok(textselection) = textselection {
                                     //forward iteration only
                                     return Some(PyTextSelection {

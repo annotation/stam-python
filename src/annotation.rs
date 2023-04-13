@@ -64,8 +64,11 @@ impl PyAnnotation {
     /// If you are sure an annotation only reference a single contingent text slice or are okay with slices being concatenated, then you can use `str()` instead.
     fn text<'py>(&self, py: Python<'py>) -> PyResult<&'py PyTuple> {
         self.map_store(|store| {
-            let annotation: &Annotation = store.get(self.handle)?;
-            let elements: Vec<&str> = store.text_by_annotation(annotation).collect();
+            let elements: Vec<&str> = store
+                .annotation(&self.handle.into())
+                .ok_or_else(|| StamError::HandleError("Failed to resolved annotationset"))?
+                .text()
+                .collect();
             Ok(PyTuple::new(py, elements))
         })
     }
@@ -77,8 +80,11 @@ impl PyAnnotation {
     /// Use `text()` instead to retrieve a tuple
     fn __str__(&self) -> PyResult<String> {
         self.map_store(|store| {
-            let annotation: &Annotation = store.get(self.handle)?;
-            let elements: Vec<&str> = store.text_by_annotation(annotation).collect();
+            let elements: Vec<&str> = store
+                .annotation(&self.handle.into())
+                .ok_or_else(|| StamError::HandleError("Failed to resolved annotationset"))?
+                .text()
+                .collect();
             let result: String = elements.join(" ");
             Ok(result)
         })
@@ -89,15 +95,19 @@ impl PyAnnotation {
     /// as an annotation may reference multiple text selections.
     fn textselections<'py>(&self, py: Python<'py>) -> PyResult<&'py PyTuple> {
         self.map_store(|store| {
-            let annotation: &Annotation = store.get(self.handle)?;
             let elements: Vec<Py<PyTextSelection>> = store
-                .textselections_by_annotation(annotation)
-                .map(|(reshandle, textselection)| {
+                .annotation(&self.handle.into())
+                .ok_or_else(|| StamError::HandleError("Failed to resolved annotationset"))?
+                .textselections()
+                .map(|textselection| {
                     Py::new(
                         py,
                         PyTextSelection {
-                            textselection,
-                            resource_handle: reshandle,
+                            textselection: textselection.unwrap().clone(),
+                            resource_handle: textselection
+                                .resource()
+                                .handle()
+                                .expect("TextSelection must have handle"),
                             store: self.store.clone(),
                         },
                     )
@@ -113,9 +123,35 @@ impl PyAnnotation {
     #[pyo3(signature = (recursive=false))]
     fn annotations<'py>(&self, recursive: bool, py: Python<'py>) -> PyResult<&'py PyTuple> {
         self.map_store(|store| {
-            let annotation: &Annotation = store.get(self.handle)?;
             let elements: Vec<Py<PyAnnotation>> = store
-                .annotations_by_annotation(annotation, recursive, false)
+                .annotation(&self.handle.into())
+                .ok_or_else(|| StamError::HandleError("Failed to resolved annotation"))?
+                .annotations(recursive, false)
+                .map(|targetitem| {
+                    Py::new(
+                        py,
+                        PyAnnotation {
+                            handle: targetitem.handle().expect("must have handle"),
+                            store: self.store.clone(),
+                        },
+                    )
+                    .expect("Annotation.annotations() wrapping PyAnnotation")
+                })
+                .collect();
+            Ok(PyTuple::new(py, elements))
+        })
+    }
+
+    /// Returns the annotations that are referring to this annotation (i.e. others using an AnnotationSelector)
+    /// They will be returned in a tuple.
+    fn annotations_reverse<'py>(&self, py: Python<'py>) -> PyResult<&'py PyTuple> {
+        self.map_store(|store| {
+            let elements: Vec<Py<PyAnnotation>> = store
+                .annotation(&self.handle.into())
+                .ok_or_else(|| StamError::HandleError("Failed to resolved annotation"))?
+                .annotations_reverse()
+                .into_iter() //into_iter().flatten() handles unpacking our Option<impl Iterator>
+                .flatten()
                 .map(|targetitem| {
                     Py::new(
                         py,
@@ -135,9 +171,10 @@ impl PyAnnotation {
     /// They will be returned in a tuple.
     fn resources<'py>(&self, py: Python<'py>) -> PyResult<&'py PyTuple> {
         self.map_store(|store| {
-            let annotation: &Annotation = store.get(self.handle)?;
             let elements: Vec<Py<PyTextResource>> = store
-                .resources_by_annotation(annotation)
+                .annotation(&self.handle.into())
+                .ok_or_else(|| StamError::HandleError("Failed to resolved annotation"))?
+                .resources()
                 .map(|targetitem| {
                     Py::new(
                         py,
@@ -157,9 +194,10 @@ impl PyAnnotation {
     /// They will be returned in a tuple.
     fn annotationsets<'py>(&self, py: Python<'py>) -> PyResult<&'py PyTuple> {
         self.map_store(|store| {
-            let annotation: &Annotation = store.get(self.handle)?;
             let elements: Vec<Py<PyAnnotationDataSet>> = store
-                .annotationsets_by_annotation(annotation)
+                .annotation(&self.handle.into())
+                .ok_or_else(|| StamError::HandleError("Failed to resolved annotationset"))?
+                .annotationsets()
                 .map(|targetitem| {
                     Py::new(
                         py,
@@ -178,7 +216,7 @@ impl PyAnnotation {
     /// Returns the target selector for this annotation
     fn target(&self) -> PyResult<PySelector> {
         self.map_store(|store| {
-            let annotation: &Annotation = store.get(self.handle)?;
+            let annotation: &Annotation = store.get(&self.handle.into())?;
             Ok(PySelector {
                 selector: annotation.target().clone(),
             })
@@ -219,7 +257,7 @@ impl PyDataIter {
 impl PyDataIter {
     fn map<T, F>(&self, f: F) -> Option<T>
     where
-        F: FnOnce(&Annotation) -> Option<T>,
+        F: FnOnce(WrappedItem<'_, Annotation>) -> Option<T>,
     {
         if let Ok(store) = self.store.read() {
             if let Some(annotation) = store.annotation(&self.handle.into()) {
@@ -246,10 +284,10 @@ impl PyAnnotation {
     /// Map function to act on the actual underlying store, helps reduce boilerplate
     fn map<T, F>(&self, f: F) -> Result<T, PyErr>
     where
-        F: FnOnce(&Annotation) -> Result<T, StamError>,
+        F: FnOnce(WrappedItem<'_, Annotation>) -> Result<T, StamError>,
     {
         if let Ok(store) = self.store.read() {
-            let annotation: &Annotation = store
+            let annotation: WrappedItem<'_, Annotation> = store
                 .annotation(&self.handle.into())
                 .ok_or_else(|| PyRuntimeError::new_err("Failed to resolve textresource"))?;
             f(annotation).map_err(|err| PyStamError::new_err(format!("{}", err)))
@@ -267,8 +305,8 @@ impl PyAnnotation {
     {
         if let Ok(mut store) = self.store.write() {
             let annotation: &mut Annotation = store
-                .annotation_mut(&self.handle.into())
-                .ok_or_else(|| PyRuntimeError::new_err("Failed to resolve textresource"))?;
+                .get_mut(&self.handle.into())
+                .map_err(|_| PyRuntimeError::new_err("Failed to resolve textresource"))?;
             f(annotation).map_err(|err| PyStamError::new_err(format!("{}", err)))
         } else {
             Err(PyRuntimeError::new_err(

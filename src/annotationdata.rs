@@ -406,13 +406,19 @@ impl PyAnnotationData {
 /// Expects a Python dictionary with fields "id", "key","set", "value" (or a subpart thereof). The field values
 /// may be STAM data types or plain strings with public IDs.
 pub(crate) fn annotationdata_builder<'a>(data: &'a PyAny) -> PyResult<AnnotationDataBuilder<'a>> {
-    if let Ok(true) = data.is_instance_of::<PyDict>() {
+    let mut builder = AnnotationDataBuilder::new();
+    if let Ok(true) = data.is_instance_of::<PyAnnotationData>() {
+        let adata: PyRef<'_, PyAnnotationData> = data.extract()?;
+        builder = builder.with_id(adata.handle.into());
+        builder = builder.with_annotationset(adata.set.into());
+        Ok(builder)
+    } else if let Ok(true) = data.is_instance_of::<PyDict>() {
         let data = data.downcast::<PyDict>()?;
-        let mut builder = AnnotationDataBuilder::new();
         if let Some(id) = data.get_item("id") {
             if let Ok(true) = id.is_instance_of::<PyAnnotationData>() {
                 let adata: PyRef<'_, PyAnnotationData> = id.extract()?;
                 builder = builder.with_id(adata.handle.into());
+                builder = builder.with_annotationset(adata.set.into());
             } else {
                 let id: String = id.extract()?;
                 builder = builder.with_id(id.into());
@@ -439,7 +445,7 @@ pub(crate) fn annotationdata_builder<'a>(data: &'a PyAny) -> PyResult<Annotation
         if let Some(value) = data.get_item("value") {
             builder = builder.with_value(
                 py_into_datavalue(value)
-                    .map_err(|e| PyValueError::new_err("Invalid type for value"))?,
+                    .map_err(|_e| PyValueError::new_err("Invalid type for value"))?,
             )
         }
         Ok(builder)
@@ -448,7 +454,7 @@ pub(crate) fn annotationdata_builder<'a>(data: &'a PyAny) -> PyResult<Annotation
         Ok(AnnotationDataBuilder::new().with_id(id.to_str()?.into()))
     } else {
         Err(PyValueError::new_err(
-            "Argument to build AnnotationData must be a dictionary or string",
+            "Argument to build AnnotationData must be a dictionary (with fields id, key, set, value), a string (with a public ID), or an AnnotationData instance. A list containing any multiple of those types is also allowed in certain circumstances.",
         ))
     }
 }

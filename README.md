@@ -18,18 +18,25 @@ Import the library
 import stam
 ```
 
-Loading a STAM JSON file containing an annotation store:
+Loading a STAM JSON (or CSV) file containing an annotation store:
 
 ```python
 store = stam.AnnotationStore(file="example.stam.json")
 ```
 
+
 The annotation store is your workspace, it holds all resources, annotation sets
 (i.e. keys and annotation data) and of course the actual annotations. It is a
 memory-based store and you can put as much as you like into it (as long as it fits
-in memory:).
+in memory).
 
-Retrieving anything by ID:
+You can optionally pass configuration parameters upon loading a store, as follows:
+
+```python
+store = stam.AnnotationStore(file="example.stam.json", config={"debug": True})
+```
+
+Once loaded, you can retrieving anything by its public ID:
 
 ```python
 annotation = store.annotation("my-annotation")
@@ -39,7 +46,7 @@ key = annotationset.key("my-key")
 data = annotationset.annotationdata("my-data")
 ```
 
-Iterating through all annotations in the store, and outputting a simple tab separated format:
+You can also iterating through all annotations in the store, and outputting a simple tab separated format:
 
 ```python
 for annotation in store.annotations():
@@ -68,11 +75,11 @@ store = AnnotationStore(id="test")
 resource = store.add_resource(id="testres", text="Hello world")
 store.annotate(id="A1", 
                 target=Selector.textselector(resource, Offset.simple(6,11)),
-                data=[AnnotationDataBuilder(id="D1", key="pos", value="noun", annotationset="testdataset")])
+                data={ "id": "D1", "key": "pos", "value": "noun", "set": "testdataset"})
 ```
 
 In the above example, the `AnnotationDataSet` , `DataKey` and `AnnotationData`
-are created on-the-fly. You can also create them explicitly, as shown in the
+are created on-the-fly. You can also create them explicitly within the set first, as shown in the
 next snippet, resulting in the exact same store:
 
 
@@ -84,13 +91,12 @@ annotationset.add_key("pos")
 data = annotationset.add_data("pos","noun","D1")
 store.annotate(id="A1", 
     target=Selector.textselector(resource, Offset.simple(6,11)),
-    data=[AnnotationDataBuilder.link(data)])
+    data=data)
 ```
 
-Here we use `AnnotationDataBuilder.link()` to link to the existing annotation.
-Providing the full `AnnotationDataBuilder` as in the earlier example would have
-also worked fine, with the same end result, but would be less performant. The
-implementation will ensure any already existing `AnnotationData` will be reused if
+Providing the full data dictionary as in the earlier example would have
+also worked fine, with the same end result, but would be less performant than passing an `AnnotationData` instance directly.
+The implementation will always ensure any already existing `AnnotationData` will be reused if
 possible, as not duplicating data is one of the core characteristics of the
 STAM model.
 
@@ -108,33 +114,9 @@ This results in a higher-level API that hides some of the lower-level details
 that are present in the Rust library. This approach does come at the cost of causing
 some additional runtime overhead. 
 
-In this Python binding, most classes of the model (`Annotation`,
-`AnnotationData`, `DataKey`, etc..) are references to the annotation store
-(self-containing also a reference to the store itself). None of them can be
-instantiated directly, but always via an `add_*()` or `annotate()` method which
-will add them and return the reference. 
-
-These instances play a bigger role in the Python API than their equivalents in
-the Rust API (which distinguishes owned data, borrowed data aka references, and
-so-called handles). In the Rust API, methods for search are mostly implemented on the main
-`AnnotationStore` or `AnnotationDataSet`, reflecting the underlying ownership model more strictly.
-In the Python API, they are implemented on the types themselves. Here's a comparison of some common methods:
-
-| Python API                       | Rust API                                            |
-|--------------------------------  | --------------------------------------------------- |
-| `Annotation.annotations()`       | `AnnotationStore::annotations_by_annotation()`      |
-| `Annotation.resources()`         | `AnnotationStore::resources_by_annotation()`        |
-| `Annotation.textselections()`    | `AnnotationStore::textselections_by_annotation()`   |
-| `Annotation.text()`              | `AnnotationStore::text_by_annotation()`             |
-| `TextResource.annotations()`     | `AnnotationStore::annotations_by_resource()`        |
-| `TextSelection.annotations()`    | `AnnotationStore::annotations_by_textselection()`   |
-| `DataKey.data()`                 | `AnnotationDataSet::data_by_key()`                  |
-| `DataKey.annotationset()`        | n/a                                                 |
-| `AnnotationData.annotationset()` | n/a                                                 |
-
-The Rust methods will return iterators, references or handles whenever they
+The Rust methods will often return iterators, references or handles whenever they
 can, moreover it will do so safely. The Python API is often forced to make a
-local copy. For iterators it sometimes decides to let the entire underlying Rust
+local copy. For iterators we often decide to let the entire underlying Rust
 iterator run its course and then return the result as a whole as a tuple, rather than
 return a Python generator. Here you gain some speed at the cost of some memory.
 
@@ -148,4 +130,3 @@ implementing your logic in Python.
 ## Acknowledgements
 
 This work is conducted at the [KNAW Humanities Cluster](https://huc.knaw.nl/)'s [Digital Infrastructure department](https://di.huc.knaw.nl/), and funded by the [CLARIAH](https://clariah.nl) project (CLARIAH-PLUS, NWO grant 184.034.023) as part of the FAIR Annotations track.
-

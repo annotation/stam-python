@@ -210,16 +210,9 @@ impl PyAnnotationStore {
                 let databuilder = annotationdata_builder(databuilder)?;
                 builder = builder.with_data_builder(databuilder);
             }
-        } else if let Ok(true) = data.is_instance_of::<PyDict>() {
-            let databuilder = annotationdata_builder(data)?;
-            builder = builder.with_data_builder(databuilder);
-        } else if let Ok(true) = data.is_instance_of::<PyString>() {
-            let databuilder = annotationdata_builder(data)?;
-            builder = builder.with_data_builder(databuilder);
         } else {
-            return Err(PyValueError::new_err(
-                "Data argument must be a list of dictionaries or annotationdata IDs (string), or a single dictionary or annotationdata ID",
-            ));
+            let databuilder = annotationdata_builder(data)?;
+            builder = builder.with_data_builder(databuilder);
         }
         let store_clone = self.store.clone(); //just a smart pointer clone, not the whole store
         self.map_mut(|store| {
@@ -297,7 +290,7 @@ impl PyAnnotationStore {
                     py,
                     PyTextSelection {
                         resource_handle: *handle,
-                        textselection: if textselection.is_ref() {
+                        textselection: if textselection.is_borrowed() {
                             textselection.unwrap().clone()
                         } else {
                             textselection.unwrap_owned()
@@ -352,7 +345,7 @@ impl PyAnnotationStore {
                                             .resource()
                                             .handle()
                                             .expect("resource must have handle"),
-                                        textselection: if textselection.is_ref() {
+                                        textselection: if textselection.is_borrowed() {
                                             textselection.unwrap().clone()
                                         } else {
                                             textselection.unwrap_owned()

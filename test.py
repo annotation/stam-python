@@ -6,7 +6,7 @@ import os.path
 import unittest
 
 #    v-- a single stam should work just as well but for some reason my linter (pyright) stumbles over it
-from stam.stam import AnnotationStore, Offset, AnnotationData, AnnotationDataBuilder, Selector, TextResource, DataKey, DataValue, AnnotationDataSet, Annotation, StamError, TextSelection, Cursor
+from stam.stam import AnnotationStore, Offset, AnnotationData, Selector, TextResource, DataKey, DataValue, AnnotationDataSet, Annotation, StamError, TextSelection, Cursor
 
 
 class Test0(unittest.TestCase):
@@ -48,7 +48,7 @@ class Test1(unittest.TestCase):
         data = dataset.add_data("pos","noun","D1")
         self.store.annotate(id="A1", 
                             target=Selector.textselector(resource, Offset.simple(6,11)),
-                            data=[AnnotationDataBuilder.link(data)])
+                            data=data)
 
     def test_sanity_1(self):
         self.assertIsInstance( self.store, AnnotationStore)
@@ -110,14 +110,14 @@ class Test1(unittest.TestCase):
     def test_resource_text_slice(self):
         """Get the text of a slice of a resource"""
         resource = self.store.resource("testres")
-        text = resource.text(Offset.simple(0,5))
-        self.assertEqual( text, "Hello")
+        textselection = resource.textselection(Offset.simple(0,5))
+        self.assertEqual( str(textselection), "Hello")
 
-    def test_resource_text_slice_outofbounds(self):
-        """Get the text of a slice of a resource"""
+    def test_resource_slice_outofbounds(self):
+        """Get an out of bound textselection"""
         resource = self.store.resource("testres")
         with self.assertRaises(StamError):
-            resource.text(Offset.simple(0,999))
+            resource.textselection(Offset.simple(0,999))
 
     def test_annotation_text(self):
         """Get the text of an annotation"""
@@ -240,7 +240,7 @@ class Test2(unittest.TestCase):
         resource = self.store.add_resource(id="testres", text="Hello world")
         self.store.annotate(id="A1", 
                             target=Selector.textselector(resource, Offset.simple(6,11)),
-                            data=[AnnotationDataBuilder(id="D1", key="pos", value="noun", annotationset="testdataset")])
+                            data={ "id": "D1", "key": "pos", "value": "noun", "set": "testdataset"})
 
     def test_sanity_1(self):
         self.assertIsInstance( self.store, AnnotationStore)
@@ -373,16 +373,16 @@ class Test4(unittest.TestCase):
         resource = self.store.add_resource(id="testres", text="Hello world")
         self.store.annotate(id="A1", 
                             target=Selector.textselector(resource, Offset.simple(6,11)),
-                            data=[AnnotationDataBuilder(id="D1", key="pos", value="noun", annotationset="testdataset")])
+                            data={ "id": "D1", "key": "pos", "value": "noun", "set": "testdataset"})
         self.store.annotate(id="A2", 
                             target=Selector.textselector(resource, Offset.simple(0,5)),
-                            data=[AnnotationDataBuilder(id="D2", key="pos", value="interjection", annotationset="testdataset")])
+                            data={ "id": "D2", "key": "pos", "value": "interjection", "set": "testdataset"})
         self.store.annotate(id="Word",
                             target=Selector.multiselector(
                                 Selector.annotationselector(self.store.annotation("A1"), Offset.whole()),
                                 Selector.annotationselector(self.store.annotation("A2"), Offset.whole()),
                             ),
-                            data=[AnnotationDataBuilder(id="D3", key="type", value="word", annotationset="testdataset")])
+                            data={ "id": "D3", "key": "pos", "value": "word", "set": "testdataset"})
 
     def test_textselections_iter(self):
         resource = self.store.resource("testres")

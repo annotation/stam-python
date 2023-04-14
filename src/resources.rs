@@ -53,7 +53,7 @@ impl PyTextResource {
         self.map(|res| {
             let textselection = res.textselection(&offset.offset)?;
             Ok(PyTextSelection {
-                textselection: if textselection.is_ref() {
+                textselection: if textselection.is_borrowed() {
                     textselection.unwrap().clone()
                 } else {
                     textselection.unwrap_owned()
@@ -305,7 +305,9 @@ impl PyTextSelection {
     /// Resolves a text selection to the actual underlying text
     fn __str__<'py>(&self, py: Python<'py>) -> PyResult<&'py PyString> {
         self.map(|res| {
-            let textselection = res.wrap(&self.textselection).expect("wrap must succeed");
+            let textselection = res
+                .wrap_owned(self.textselection)
+                .expect("wrap of textselection must succeed");
             Ok(PyString::new(py, textselection.text()))
         })
     }

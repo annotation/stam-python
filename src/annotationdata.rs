@@ -1,4 +1,4 @@
-use pyo3::exceptions::PyRuntimeError;
+use pyo3::exceptions::{PyRuntimeError, PyValueError};
 use pyo3::prelude::*;
 use pyo3::pyclass::CompareOp;
 use pyo3::types::*;
@@ -402,67 +402,53 @@ impl PyAnnotationData {
     }
 }
 
-#[pyclass(name = "AnnotationDataBuilder")]
-pub(crate) struct PyAnnotationDataBuilder {
-    pub(crate) builder: AnnotationDataBuilder<'a>,
-}
-
-impl From<PyAnnotationDataBuilder> for AnnotationDataBuilder {
-    fn from(other: PyAnnotationDataBuilder) -> Self {
-        other.builder
-    }
-}
-
-#[pymethods]
-impl PyAnnotationDataBuilder {
-    #[new]
-    /// Holds a build recipe to build AnnotationData.
-    /// It is typically passed to the annotate() function of the AnnotationStore.
-    ///
-    /// If you already have existing AnnotationData or DataKey objects, then consider
-    /// using the `link()` respectively `link_key()` static methods instead, as those will be quicker.
-    fn new(
-        annotationset: String,
-        key: String,
-        value: &PyAny,
-        id: Option<String>,
-    ) -> PyResult<Self> {
-        let mut builder = AnnotationDataBuilder::default();
-        if let Some(id) = id {
-            builder = builder.with_id(AnyId::from(id));
+/// Build an AnnotationDataBuilder from a python dictionary (or string referring to an existing public ID)
+/// Expects a Python dictionary with fields "id", "key","set", "value" (or a subpart thereof). The field values
+/// may be STAM data types or plain strings with public IDs.
+pub(crate) fn annotationdata_builder<'a>(data: &'a PyAny) -> PyResult<AnnotationDataBuilder<'a>> {
+    if let Ok(true) = data.is_instance_of::<PyDict>() {
+        let data = data.downcast::<PyDict>()?;
+        let mut builder = AnnotationDataBuilder::new();
+        if let Some(id) = data.get_item("id") {
+            if let Ok(true) = id.is_instance_of::<PyAnnotationData>() {
+                let adata: PyRef<'_, PyAnnotationData> = id.extract()?;
+                builder = builder.with_id(adata.handle.into());
+            } else {
+                let id: String = id.extract()?;
+                builder = builder.with_id(id.into());
+            }
         }
-        builder = builder.with_annotationset(AnyId::from(annotationset));
-        builder = builder.with_key(AnyId::from(key));
-        builder = builder.with_value(
-            py_into_datavalue(value).map_err(|err| PyStamError::new_err(format!("{}", err)))?,
-        );
-        Ok(PyAnnotationDataBuilder { builder })
-    }
-
-    #[staticmethod]
-    /// If you already have an existing AnnotationData you want to use, then
-    /// using this method is much quicker than using the normal constructor
-    fn link(reference: &PyAnnotationData) -> PyResult<Self> {
-        Ok(PyAnnotationDataBuilder {
-            builder: AnnotationDataBuilder::default()
-                .with_id(AnyId::from(reference.handle))
-                .with_annotationset(AnyId::from(reference.set)),
-        })
-    }
-
-    #[staticmethod]
-    /// If you already have an existing PyDataKey you want to use, then
-    /// using this method is much quicker than using the normal constructor
-    fn link_key(key: &PyDataKey, value: &PyAny, id: Option<String>) -> PyResult<Self> {
-        let mut builder = AnnotationDataBuilder::default()
-            .with_annotationset(AnyId::from(key.set))
-            .with_key(AnyId::from(key.handle))
-            .with_value(
-                py_into_datavalue(value).map_err(|err| PyStamError::new_err(format!("{}", err)))?,
-            );
-        if let Some(id) = id {
-            builder = builder.with_id(AnyId::from(id));
+        if let Some(key) = data.get_item("key") {
+            if let Ok(true) = key.is_instance_of::<PyDataKey>() {
+                let key: PyRef<'_, PyDataKey> = key.extract()?;
+                builder = builder.with_key(key.handle.into());
+            } else {
+                let key: String = key.extract()?;
+                builder = builder.with_key(key.into());
+            }
         }
-        Ok(PyAnnotationDataBuilder { builder })
+        if let Some(set) = data.get_item("set") {
+            if let Ok(true) = set.is_instance_of::<PyAnnotationDataSet>() {
+                let set: PyRef<'_, PyAnnotationDataSet> = set.extract()?;
+                builder = builder.with_annotationset(set.handle.into());
+            } else {
+                let set: String = set.extract()?;
+                builder = builder.with_annotationset(set.into());
+            }
+        }
+        if let Some(value) = data.get_item("value") {
+            builder = builder.with_value(
+                py_into_datavalue(value)
+                    .map_err(|e| PyValueError::new_err("Invalid type for value"))?,
+            )
+        }
+        Ok(builder)
+    } else if let Ok(true) = data.is_instance_of::<PyString>() {
+        let id = data.downcast::<PyString>()?;
+        Ok(AnnotationDataBuilder::new().with_id(id.to_str()?.into()))
+    } else {
+        Err(PyValueError::new_err(
+            "Argument to build AnnotationData must be a dictionary or string",
+        ))
     }
 }

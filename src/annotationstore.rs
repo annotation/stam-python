@@ -1,11 +1,11 @@
-use pyo3::exceptions::PyRuntimeError;
+use pyo3::exceptions::{PyRuntimeError, PyValueError};
 use pyo3::prelude::*;
 use pyo3::types::*;
 use std::ops::FnOnce;
 use std::sync::{Arc, RwLock};
 
 use crate::annotation::PyAnnotation;
-use crate::annotationdata::PyAnnotationDataBuilder;
+use crate::annotationdata::annotationdata_builder;
 use crate::annotationdataset::PyAnnotationDataSet;
 use crate::config::get_config;
 use crate::error::PyStamError;
@@ -196,7 +196,7 @@ impl PyAnnotationStore {
     fn annotate(
         &mut self,
         target: PySelector,
-        data: Vec<PyRef<PyAnnotationDataBuilder>>,
+        data: &PyAny, //dictionary or list of dictionaries
         id: Option<String>,
     ) -> PyResult<PyAnnotation> {
         let mut builder = AnnotationBuilder::new();
@@ -204,8 +204,22 @@ impl PyAnnotationStore {
             builder = builder.with_id(id);
         }
         builder = builder.with_selector(target.selector);
-        for databuilder in data.iter() {
-            builder = builder.with_data_builder(databuilder.builder.clone()); //MAYBE TODO: I don't like needing an extra clone here, but it can't move out of the PyRef
+        if let Ok(true) = data.is_instance_of::<PyList>() {
+            let data: &PyList = data.downcast().unwrap();
+            for databuilder in data.iter() {
+                let databuilder = annotationdata_builder(databuilder)?;
+                builder = builder.with_data_builder(databuilder);
+            }
+        } else if let Ok(true) = data.is_instance_of::<PyDict>() {
+            let databuilder = annotationdata_builder(data)?;
+            builder = builder.with_data_builder(databuilder);
+        } else if let Ok(true) = data.is_instance_of::<PyString>() {
+            let databuilder = annotationdata_builder(data)?;
+            builder = builder.with_data_builder(databuilder);
+        } else {
+            return Err(PyValueError::new_err(
+                "Data argument must be a list of dictionaries or annotationdata IDs (string), or a single dictionary or annotationdata ID",
+            ));
         }
         let store_clone = self.store.clone(); //just a smart pointer clone, not the whole store
         self.map_mut(|store| {

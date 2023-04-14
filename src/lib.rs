@@ -10,7 +10,7 @@ mod resources;
 mod selector;
 
 use crate::annotation::PyAnnotation;
-use crate::annotationdata::{PyAnnotationData, PyAnnotationDataBuilder, PyDataKey, PyDataValue};
+use crate::annotationdata::{PyAnnotationData, PyDataKey, PyDataValue};
 use crate::annotationdataset::PyAnnotationDataSet;
 use crate::annotationstore::PyAnnotationStore;
 use crate::error::PyStamError;
@@ -23,7 +23,6 @@ fn stam(py: Python<'_>, m: &PyModule) -> PyResult<()> {
     m.add_class::<PyAnnotationStore>()?;
     m.add_class::<PyAnnotationDataSet>()?;
     m.add_class::<PyAnnotationData>()?;
-    m.add_class::<PyAnnotationDataBuilder>()?;
     m.add_class::<PyAnnotation>()?;
     m.add_class::<PyDataKey>()?;
     m.add_class::<PyDataValue>()?;

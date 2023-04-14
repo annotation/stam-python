@@ -11,7 +11,10 @@ use crate::annotationstore::MapStore;
 use crate::error::PyStamError;
 use stam::*;
 
-#[pyclass(name = "DataKey")]
+#[pyclass(dict, module = "stam", name = "DataKey")]
+/// The DataKey class defines a vocabulary field, it
+/// belongs to a certain :obj:`AnnotationDataSet`. An :obj:`AnnotationData` instance
+/// in turn makes reference to a DataKey and assigns it a value.
 pub(crate) struct PyDataKey {
     pub(crate) set: AnnotationDataSetHandle,
     pub(crate) handle: DataKeyHandle,
@@ -133,7 +136,18 @@ impl PyDataKey {
     }
 }
 
-#[pyclass(name = "AnnotationData")]
+#[pyclass(dict, module = "stam", name = "AnnotationData")]
+/// AnnotationData holds the actual content of an annotation; a key/value pair. (the
+/// term *feature* is regularly seen for this in certain annotation paradigms).
+/// Annotation Data is deliberately decoupled from the actual :obj:`Annotation`
+/// instances so multiple annotation instances can point to the same content
+/// without causing any overhead in storage. Moreover, it facilitates indexing and
+/// searching. The annotation data is part of an `AnnotationDataSet`, which
+/// effectively defines a certain user-defined vocabulary.
+///
+/// Once instantiated, instances of this type are, by design, largely immutable.
+/// The key and value can not be changed. Create a new AnnotationData and new Annotation for edits.
+/// This class is not instantiated directly.
 pub(crate) struct PyAnnotationData {
     pub(crate) set: AnnotationDataSetHandle,
     pub(crate) handle: AnnotationDataHandle,
@@ -192,7 +206,7 @@ pub(crate) fn datavalue_into_py<'py>(
     }
 }
 
-#[pyclass(name = "DataValue")]
+#[pyclass(dict, module = "stam", name = "DataValue")]
 #[derive(Clone, Debug)]
 /// Encapsulates a value and its type. Held by `AnnotationData`. This type is not a reference but holds the actual value.
 pub(crate) struct PyDataValue {

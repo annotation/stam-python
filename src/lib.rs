@@ -18,7 +18,7 @@ use crate::resources::{PyCursor, PyOffset, PyTextResource, PyTextSelection};
 use crate::selector::{PySelector, PySelectorKind};
 
 #[pymodule]
-fn stam(py: Python<'_>, m: &PyModule) -> PyResult<()> {
+pub fn stam(py: Python<'_>, m: &PyModule) -> PyResult<()> {
     m.add("StamError", py.get_type::<PyStamError>())?;
     m.add_class::<PyAnnotationStore>()?;
     m.add_class::<PyAnnotationDataSet>()?;

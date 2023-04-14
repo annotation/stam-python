@@ -8,7 +8,7 @@ use crate::annotationstore::{MapStore, PyAnnotationStore};
 use crate::resources::{PyOffset, PyTextResource};
 use stam::*;
 
-#[pyclass(name = "SelectorKind")]
+#[pyclass(dict, module = "stam", name = "SelectorKind")]
 #[derive(Clone)]
 pub struct PySelectorKind {
     kind: SelectorKind,
@@ -55,7 +55,7 @@ impl PySelectorKind {
     }
 }
 
-#[pyclass(name = "Selector")]
+#[pyclass(dict, module = "stam", name = "Selector")]
 #[derive(Clone)]
 pub(crate) struct PySelector {
     pub(crate) selector: Selector,

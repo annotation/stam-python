@@ -9,7 +9,12 @@ use crate::error::PyStamError;
 use crate::selector::PySelector;
 use stam::*;
 
-#[pyclass(name = "TextResource")]
+#[pyclass(dict, module = "stam", name = "TextResource")]
+/// This holds the textual resource to be annotated. It holds the full text in memory.
+///
+/// The text *SHOULD* be in
+/// [Unicode Normalization Form C (NFC)](https://www.unicode.org/reports/tr15/) but
+/// *MAY* be in another unicode normalization forms.
 pub(crate) struct PyTextResource {
     pub(crate) handle: TextResourceHandle,
     pub(crate) store: Arc<RwLock<AnnotationStore>>,
@@ -159,8 +164,19 @@ impl PyTextResource {
     }
 }
 
-#[pyclass(name = "Cursor", frozen, freelist = 64)]
+#[pyclass(dict, module = "stam", name = "Cursor")]
+/// A cursor points to a specific point in a text. I
+/// Used to select offsets. Units are unicode codepoints (not bytes!)
+/// and are 0-indexed.
+///
+/// The cursor can be either begin-aligned or end-aligned. Where BeginAlignedCursor(0)
+/// is the first unicode codepoint in a referenced text, and EndAlignedCursor(0) the last one.
+///
+/// Args:
+///     `index` (:obj:`int`) - The index for the cursor
+///     `endaligned` (:obj:`bool`, `optional`) - For an end-aligned cursor, set this to True. The index value should be 0 or negative.
 #[derive(Clone)]
+#[pyo3(text_signature = "(self, index, endaliged=None)")]
 pub(crate) struct PyCursor {
     cursor: Cursor,
 }
@@ -226,7 +242,7 @@ impl PyCursor {
     }
 }
 
-#[pyclass(name = "Offset", frozen, freelist = 64)]
+#[pyclass(dict, module = "stam", name = "Offset")]
 pub(crate) struct PyOffset {
     pub(crate) offset: Offset,
 }

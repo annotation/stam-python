@@ -9,7 +9,12 @@ use crate::error::PyStamError;
 use crate::selector::PySelector;
 use stam::*;
 
-#[pyclass(dict, name = "AnnotationDataSet")]
+#[pyclass(dict, module = "stam", name = "AnnotationDataSet")]
+/// An `AnnotationDataSet` stores the keys :obj:`DataKey` and values
+/// :obj:`AnnotationData`] (which in turn encapsulates :obj:`DataValue`) that are used by annotations.
+/// It effectively defines a certain vocabulary, i.e. key/value pairs.
+/// The `AnnotationDataSet` does not store the :obj:`Annotation` instances themselves, those are in
+/// the :obj:`AnnotationStore`. The datasets themselves are also held by the `AnnotationStore`.
 pub(crate) struct PyAnnotationDataSet {
     pub(crate) handle: AnnotationDataSetHandle,
     pub(crate) store: Arc<RwLock<AnnotationStore>>,

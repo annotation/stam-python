@@ -13,7 +13,17 @@ use crate::resources::{PyTextResource, PyTextSelection};
 use crate::selector::PySelector;
 use stam::*;
 
-#[pyclass(name = "Annotation")]
+#[pyclass(dict, module = "stam", name = "Annotation")]
+/// `Annotation` represents a particular *instance of annotation* and is the central
+/// concept of the model. They can be considered the primary nodes of the graph model. The
+/// instance of annotation is strictly decoupled from the *data* or key/value of the
+/// annotation (:obj:`AnnotationData`). After all, multiple instances can be annotated
+/// with the same label (multiple annotations may share the same annotation data).
+/// Moreover, an `Annotation` can have multiple annotation data associated.
+/// The result is that multiple annotations with the exact same content require less storage
+/// space, and searching and indexing is facilitated.  
+///
+/// This structure is not instantiated directly, only returned.
 pub(crate) struct PyAnnotation {
     pub(crate) handle: AnnotationHandle,
     pub(crate) store: Arc<RwLock<AnnotationStore>>,

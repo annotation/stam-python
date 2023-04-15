@@ -75,32 +75,55 @@ impl PyTextResource {
         })
     }
 
-    /// Searches for the text fragment and returns a tuple of [`TextSelection`] instances for each match.
-    fn find_text(&self, fragment: &str) -> PyResult<Vec<PyTextSelection>> {
+    /// Searches for the text fragment and returns a list of [`TextSelection`] instances with all matches (or up to the specified limit)
+    fn find_text(&self, fragment: &str, limit: Option<usize>, py: Python) -> Py<PyList> {
+        let list: &PyList = PyList::empty(py);
         self.map(|res| {
-            Ok(res
-                .find_text(fragment)
-                .map(|textselection| PyTextSelection {
-                    textselection: textselection.unwrap().clone(),
-                    resource_handle: self.handle,
-                    store: self.store.clone(),
-                })
-                .collect())
+            for (i, textselection) in res.find_text(fragment).enumerate() {
+                list.append(
+                    PyTextSelection {
+                        textselection: textselection.unwrap().clone(),
+                        resource_handle: self.handle,
+                        store: self.store.clone(),
+                    }
+                    .into_py(py)
+                    .into_ref(py),
+                )
+                .ok();
+                if Some(i + 1) == limit {
+                    break;
+                }
+            }
+            Ok(())
         })
+        .ok();
+        list.into()
     }
 
-    /// Returns a tuple of [`TextSelection`] instances that split the text according to the specified delimiter
-    fn split_text(&self, delimiter: &str) -> PyResult<Vec<PyTextSelection>> {
+    /// Returns a tuple of [`TextSelection`] instances that split the text according to the specified delimiter.
+    /// You can set `limit` to the max number of elements you want to return.
+    fn split_text(&self, delimiter: &str, limit: Option<usize>, py: Python) -> Py<PyList> {
+        let list: &PyList = PyList::empty(py);
         self.map(|res| {
-            Ok(res
-                .split_text(delimiter)
-                .map(|textselection| PyTextSelection {
-                    textselection: textselection.unwrap().clone(),
-                    resource_handle: self.handle,
-                    store: self.store.clone(),
-                })
-                .collect())
+            for (i, textselection) in res.split_text(delimiter).enumerate() {
+                list.append(
+                    PyTextSelection {
+                        textselection: textselection.unwrap().clone(),
+                        resource_handle: self.handle,
+                        store: self.store.clone(),
+                    }
+                    .into_py(py)
+                    .into_ref(py),
+                )
+                .ok();
+                if Some(i + 1) == limit {
+                    break;
+                }
+            }
+            Ok(())
         })
+        .ok();
+        list.into()
     }
 
     /// Returns a Selector (ResourceSelector) pointing to this TextResource

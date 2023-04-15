@@ -8,7 +8,7 @@ use std::sync::{Arc, RwLock};
 use crate::annotation::PyAnnotation;
 use crate::error::PyStamError;
 use crate::selector::PySelector;
-use crate::textselection::{PyTextSelection, PyTextSelectionIter};
+use crate::textselection::{PyTextSelection, PyTextSelectionIter, PyTextSelectionOperator};
 use stam::*;
 
 #[pyclass(dict, module = "stam", name = "TextResource")]
@@ -258,6 +258,51 @@ impl PyTextResource {
                 list.append(
                     PyAnnotation {
                         handle: annotation.handle().expect("annotation must have a handle"),
+                        store: self.store.clone(),
+                    }
+                    .into_py(py)
+                    .into_ref(py),
+                )
+                .ok();
+                if Some(i + 1) == limit {
+                    break;
+                }
+            }
+            Ok(())
+        })
+        .ok();
+        list.into()
+    }
+
+    /// Applies a `TextSelectionOperator` to find all other text selections that are in a specific
+    /// relation with the reference selections (a list of :obj:`TextSelection` instances). Returns
+    /// all matching TextSelections in a list
+    ///
+    /// If you are interested in the annotations associated with the found text selections, then use `find_annotations()` instead.
+    #[pyo3(signature = (operator,referenceselections,limit=None))]
+    fn find_textselections(
+        &self,
+        operator: PyTextSelectionOperator,
+        referenceselections: Vec<PyTextSelection>,
+        limit: Option<usize>,
+        py: Python,
+    ) -> Py<PyList> {
+        let list: &PyList = PyList::empty(py);
+        self.map(|textselection| {
+            let mut refset = TextSelectionSet::new(self.handle);
+            refset.extend(referenceselections.into_iter().map(|x| x.textselection));
+            for (i, foundtextselection) in textselection
+                .find_textselections(operator.operator, refset)
+                .enumerate()
+            {
+                list.append(
+                    PyTextSelection {
+                        textselection: if foundtextselection.is_borrowed() {
+                            foundtextselection.unwrap().clone()
+                        } else {
+                            foundtextselection.unwrap_owned()
+                        },
+                        resource_handle: self.handle,
                         store: self.store.clone(),
                     }
                     .into_py(py)

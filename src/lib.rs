@@ -8,14 +8,16 @@ mod config;
 mod error;
 mod resources;
 mod selector;
+mod textselection;
 
 use crate::annotation::PyAnnotation;
 use crate::annotationdata::{PyAnnotationData, PyDataKey, PyDataValue};
 use crate::annotationdataset::PyAnnotationDataSet;
 use crate::annotationstore::PyAnnotationStore;
 use crate::error::PyStamError;
-use crate::resources::{PyCursor, PyOffset, PyTextResource, PyTextSelection};
+use crate::resources::{PyCursor, PyOffset, PyTextResource};
 use crate::selector::{PySelector, PySelectorKind};
+use crate::textselection::PyTextSelection;
 
 #[pymodule]
 pub fn stam(py: Python<'_>, m: &PyModule) -> PyResult<()> {

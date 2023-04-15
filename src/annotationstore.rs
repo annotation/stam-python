@@ -9,8 +9,9 @@ use crate::annotationdata::annotationdata_builder;
 use crate::annotationdataset::PyAnnotationDataSet;
 use crate::config::get_config;
 use crate::error::PyStamError;
-use crate::resources::{PyTextResource, PyTextSelection};
+use crate::resources::PyTextResource;
 use crate::selector::PySelector;
+use crate::textselection::PyTextSelection;
 use stam::*;
 
 #[pyclass(dict, module = "stam", name = "AnnotationStore")]

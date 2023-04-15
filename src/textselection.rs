@@ -105,7 +105,11 @@ impl PyTextSelection {
             for (i, textselection) in textselection.find_text(fragment).enumerate() {
                 list.append(
                     PyTextSelection {
-                        textselection: textselection.unwrap().clone(),
+                        textselection: if textselection.is_borrowed() {
+                            textselection.unwrap().clone()
+                        } else {
+                            textselection.unwrap_owned()
+                        },
                         resource_handle: self.resource_handle,
                         store: self.store.clone(),
                     }
@@ -131,7 +135,11 @@ impl PyTextSelection {
             for (i, textselection) in textselection.split_text(delimiter).enumerate() {
                 list.append(
                     PyTextSelection {
-                        textselection: textselection.unwrap().clone(),
+                        textselection: if textselection.is_borrowed() {
+                            textselection.unwrap().clone()
+                        } else {
+                            textselection.unwrap_owned()
+                        },
                         resource_handle: self.resource_handle,
                         store: self.store.clone(),
                     }

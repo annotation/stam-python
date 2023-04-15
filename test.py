@@ -460,7 +460,7 @@ class Test4(unittest.TestCase):
         count = 0
         for targets in self.store.select(selector):
             count += 1
-            if count == 1: #yes,. we defined them in reverse order so this is okay
+            if count == 1:
                 self.assertTrue( targets[0].has_id("A1"))
             elif count == 2:
                 self.assertTrue( targets[0].has_id("A2"))
@@ -470,12 +470,15 @@ class Test4(unittest.TestCase):
         annotation = self.store.annotation("A1")
         textselections = annotation.textselections()
         self.assertEqual(len(textselections), 1)
+        self.assertIsInstance( textselections[0], TextSelection)
         self.assertEqual(str(textselections[0]), "world")
 
         #and the reverse:
         textselection = textselections[0]
         annotations = textselection.annotations()
         self.assertEqual(len(annotations), 2)
+        self.assertIsInstance( annotations[0], Annotation)
+        self.assertIsInstance( annotations[1], Annotation)
         self.assertEqual(annotations[0].id(), "A1")
         self.assertEqual(annotations[1].id(), "Word")
 
@@ -483,6 +486,7 @@ class Test4(unittest.TestCase):
         annotation = self.store.annotation("A1")
         data = annotation.data()
         self.assertEqual(len(data), 1)
+        self.assertIsInstance( data[0], AnnotationData)
         self.assertEqual(data[0].id(), "D1")
         self.assertEqual(data[0].key().id(), "pos")
         self.assertEqual(str(data[0].value()), "noun")

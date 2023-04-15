@@ -5,7 +5,7 @@ from os import environ
 import os.path
 import unittest
 
-from stam import AnnotationStore, Offset, AnnotationData, Selector, TextResource, DataKey, DataValue, AnnotationDataSet, Annotation, StamError, TextSelection, Cursor
+from stam import AnnotationStore, Offset, AnnotationData, Selector, TextResource, DataKey, DataValue, AnnotationDataSet, Annotation, StamError, TextSelection, Cursor, TextSelectionOperator
 
 
 class Test0(unittest.TestCase):
@@ -490,6 +490,37 @@ class Test4(unittest.TestCase):
         self.assertEqual(data[0].id(), "D1")
         self.assertEqual(data[0].key().id(), "pos")
         self.assertEqual(str(data[0].value()), "noun")
+
+class Test6(unittest.TestCase):
+    def setUp(self):
+        """Create some data from scratch"""
+        #this is the very same data as in Test1, but constructed more implicitly via annotate()
+        self.store = AnnotationStore(id="example6")
+        resource = self.store.add_resource(id="humanrights", text="All human beings are born free and equal in dignity and rights.")
+        self.store.annotate(id="Sentence1", 
+                            target=Selector.textselector(resource, Offset.whole()),
+                            data={"set": "testdataset", "key": "type", "value": "sentence"})
+        self.store.annotate(id="Phrase1", 
+                            target=Selector.textselector(resource, Offset.simple(17,40)),
+                            data={"set": "testdataset", "key": "type", "value": "phrase"})
+
+    def test_find_textselections_embedded(self):
+        phrase1 = self.store.annotation("Phrase1")
+        for reftextselection in phrase1.textselections():
+            textselections = reftextselection.find_textselections(TextSelectionOperator.embedded())
+            self.assertEqual(len(textselections), 1)
+            for textselection in textselections:
+                self.assertEqual(textselection.begin(), 0)
+                self.assertEqual(textselection.end(), 63)
+
+    def test_find_textselections_embeds(self):
+        sentence1 = self.store.annotation("Sentence1")
+        for reftextselection in sentence1.textselections():
+            textselections = reftextselection.find_textselections(TextSelectionOperator.embeds())
+            self.assertEqual(len(textselections), 1)
+            for textselection in textselections:
+                self.assertEqual(textselection.begin(), 17)
+                self.assertEqual(textselection.end(), 40)
 
 
 if __name__ == "__main__":

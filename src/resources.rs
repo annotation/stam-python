@@ -54,6 +54,11 @@ impl PyTextResource {
         self.map(|resource| Ok(PyString::new(py, resource.text())))
     }
 
+    /// Returns the length of the resources's text in unicode points (same as `len(self.text())` but more performant)
+    fn textlen(&self) -> PyResult<usize> {
+        self.map(|res| Ok(res.textlen()))
+    }
+
     /// Returns a TextSelection instance covering the specified offset
     fn textselection(&self, offset: &PyOffset) -> PyResult<PyTextSelection> {
         self.map(|res| {
@@ -71,10 +76,24 @@ impl PyTextResource {
     }
 
     /// Searches for the text fragment and returns a tuple of [`TextSelection`] instances for each match.
-    pub fn find_text(&self, fragment: &str) -> PyResult<Vec<PyTextSelection>> {
+    fn find_text(&self, fragment: &str) -> PyResult<Vec<PyTextSelection>> {
         self.map(|res| {
             Ok(res
                 .find_text(fragment)
+                .map(|textselection| PyTextSelection {
+                    textselection: textselection.unwrap().clone(),
+                    resource_handle: self.handle,
+                    store: self.store.clone(),
+                })
+                .collect())
+        })
+    }
+
+    /// Returns a tuple of [`TextSelection`] instances that split the text according to the specified delimiter
+    fn split_text(&self, delimiter: &str) -> PyResult<Vec<PyTextSelection>> {
+        self.map(|res| {
+            Ok(res
+                .split_text(delimiter)
                 .map(|textselection| PyTextSelection {
                     textselection: textselection.unwrap().clone(),
                     resource_handle: self.handle,
@@ -136,6 +155,22 @@ impl PyTextResource {
             store: self.store.clone(),
         })
     }
+
+    /// Converts a unicode character position to a UTF-8 byte position
+    fn utf8byte(&self, abscursor: usize) -> PyResult<usize> {
+        self.map(|res| res.utf8byte(abscursor))
+    }
+
+    /// Converts a UTF-8 byte position into a unicode position
+    fn utf8byte_to_charpos(&self, bytecursor: usize) -> PyResult<usize> {
+        self.map(|res| res.utf8byte_to_charpos(bytecursor))
+    }
+
+    /// Converts an end-aligned cursor to a begin-aligned cursor, resolving all relative end-aligned positions
+    /// The parameter value must be 0 or negative.
+    fn beginaligned_cursor(&self, endalignedcursor: isize) -> PyResult<usize> {
+        self.map(|res| res.beginaligned_cursor(&Cursor::EndAligned(endalignedcursor)))
+    }
 }
 
 impl PyTextResource {
@@ -153,14 +188,6 @@ impl PyTextResource {
             Err(PyRuntimeError::new_err(
                 "Unable to obtain store (should never happen)",
             ))
-        }
-    }
-
-    fn wrap_textselection(&self, textselection: TextSelection) -> PyTextSelection {
-        PyTextSelection {
-            textselection,
-            resource_handle: self.handle,
-            store: self.store.clone(),
         }
     }
 }

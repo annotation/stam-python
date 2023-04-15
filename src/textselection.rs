@@ -6,7 +6,7 @@ use std::ops::FnOnce;
 use std::sync::{Arc, RwLock};
 
 use crate::error::PyStamError;
-use crate::resources::PyTextResource;
+use crate::resources::{PyOffset, PyTextResource};
 use stam::*;
 
 #[pyclass(name = "TextSelection")]
@@ -20,13 +20,12 @@ pub(crate) struct PyTextSelection {
 #[pymethods]
 impl PyTextSelection {
     /// Resolves a text selection to the actual underlying text
+    fn text<'py>(&self, py: Python<'py>) -> PyResult<&'py PyString> {
+        self.map(|textselection| Ok(PyString::new(py, textselection.text())))
+    }
+
     fn __str__<'py>(&self, py: Python<'py>) -> PyResult<&'py PyString> {
-        self.map(|res| {
-            let textselection = res
-                .wrap_owned(self.textselection)
-                .expect("wrap of textselection must succeed");
-            Ok(PyString::new(py, textselection.text()))
-        })
+        self.text(py)
     }
 
     fn __richcmp__(&self, other: PyRef<Self>, op: CompareOp) -> Py<PyAny> {
@@ -62,18 +61,104 @@ impl PyTextSelection {
     fn end(&self) -> usize {
         self.textselection.end()
     }
+
+    /// Returns the length of the text selection in unicode points (same as `len(self.text())` but more performant)
+    fn textlen(&self) -> PyResult<usize> {
+        self.map(|textselection| Ok(textselection.textlen()))
+    }
+
+    /// Returns another TextSelection instance covering the specified offset *inside* the current
+    /// textselection. The offset is specified relative to the current one.
+    fn textselection(&self, offset: &PyOffset) -> PyResult<PyTextSelection> {
+        self.map(|textselection| {
+            let textselection = textselection.textselection(&offset.offset)?;
+            Ok(PyTextSelection {
+                textselection: if textselection.is_borrowed() {
+                    textselection.unwrap().clone()
+                } else {
+                    textselection.unwrap_owned()
+                },
+                resource_handle: self.resource_handle,
+                store: self.store.clone(),
+            })
+        })
+    }
+
+    /// Searches for the text fragment *inside* the current textselection and returns a tuple of
+    /// [`TextSelection`] instances for each match. The offset is specified relative to the current
+    /// one.
+    fn find_text(&self, fragment: &str) -> PyResult<Vec<PyTextSelection>> {
+        self.map(|textselection| {
+            Ok(textselection
+                .find_text(fragment)
+                .map(|textselection| PyTextSelection {
+                    textselection: textselection.unwrap().clone(),
+                    resource_handle: self.resource_handle,
+                    store: self.store.clone(),
+                })
+                .collect())
+        })
+    }
+
+    /// Returns a tuple of [`TextSelection`] instances that split the text according to the specified delimiter
+    fn split_text(&self, delimiter: &str) -> PyResult<Vec<PyTextSelection>> {
+        self.map(|textselection| {
+            Ok(textselection
+                .split_text(delimiter)
+                .map(|textselection| PyTextSelection {
+                    textselection: textselection.unwrap().clone(),
+                    resource_handle: self.resource_handle,
+                    store: self.store.clone(),
+                })
+                .collect())
+        })
+    }
+
+    /// Converts a unicode character position to a UTF-8 byte position
+    fn utf8byte(&self, abscursor: usize) -> PyResult<usize> {
+        self.map(|textselection| textselection.utf8byte(abscursor))
+    }
+
+    /// Converts a UTF-8 byte position into a unicode position
+    fn utf8byte_to_charpos(&self, bytecursor: usize) -> PyResult<usize> {
+        self.map(|textselection| textselection.utf8byte_to_charpos(bytecursor))
+    }
+
+    /// Resolves a begin-aligned cursor to an absolute cursor (i.e. relative to the TextResource).
+    fn absolute_cursor(&self, cursor: usize) -> PyResult<usize> {
+        self.map(|textselection| Ok(textselection.absolute_cursor(cursor)))
+    }
+
+    /// Resolves a relative offset (relative to another TextSelection) to an absolute one (in terms of to the underlying TextResource)
+    fn absolute_offset(&self, offset: &PyOffset) -> PyResult<PyOffset> {
+        self.map(|textselection| {
+            let offset = textselection.absolute_offset(&offset.offset)?;
+            Ok(PyOffset { offset })
+        })
+    }
+
+    /// Converts an end-aligned cursor to a begin-aligned cursor, resolving all relative end-aligned positions
+    /// The parameter value must be 0 or negative.
+    fn beginaligned_cursor(&self, endalignedcursor: isize) -> PyResult<usize> {
+        self.map(|textselection| {
+            textselection.beginaligned_cursor(&Cursor::EndAligned(endalignedcursor))
+        })
+    }
 }
 
 impl PyTextSelection {
     fn map<T, F>(&self, f: F) -> Result<T, PyErr>
     where
-        F: FnOnce(WrappedItem<TextResource>) -> Result<T, StamError>,
+        F: FnOnce(WrappedItem<TextSelection>) -> Result<T, StamError>,
     {
         if let Ok(store) = self.store.read() {
             let resource = store
                 .resource(&self.resource_handle.into())
                 .ok_or_else(|| PyRuntimeError::new_err("Failed to resolve textresource"))?;
-            f(resource).map_err(|err| PyStamError::new_err(format!("{}", err)))
+            let textselection = resource
+                .wrap_owned(self.textselection)
+                .expect("wrap of textselection must succeed");
+            f(textselection).map_err(|err| PyStamError::new_err(format!("{}", err)))
         } else {
             Err(PyRuntimeError::new_err(
                 "Unable to obtain store (should never happen)",

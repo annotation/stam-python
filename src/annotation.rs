@@ -69,159 +69,151 @@ impl PyAnnotation {
     }
 
     /// Returns the text of the annotation.
-    /// Note that this will always return a tuple (even it if only contains a single element),
+    /// Note that this will always return a list (even it if only contains a single element),
     /// as an annotation may reference multiple texts.
     ///
     /// If you are sure an annotation only reference a single contingent text slice or are okay with slices being concatenated, then you can use `str()` instead.
-    fn text<'py>(&self, py: Python<'py>) -> PyResult<&'py PyTuple> {
-        self.map_store(|store| {
-            let elements: Vec<&str> = store
-                .annotation(&self.handle.into())
-                .ok_or_else(|| StamError::HandleError("Failed to resolved annotationset"))?
-                .text()
-                .collect();
-            Ok(PyTuple::new(py, elements))
+    fn text<'py>(&self, py: Python<'py>) -> Py<PyList> {
+        let list: &PyList = PyList::empty(py);
+        self.map(|annotation| {
+            for text in annotation.text() {
+                list.append(text).ok();
+            }
+            Ok(())
         })
+        .ok();
+        list.into()
     }
 
     /// Returns the text of the annotation.
     /// If the annotation references multiple text slices, they will be concatenated with a space as a delimiter,
     /// but note that in reality the different parts may be non-contingent!
     ///
-    /// Use `text()` instead to retrieve a tuple
+    /// Use `text()` instead to retrieve a list of texts
     fn __str__(&self) -> PyResult<String> {
-        self.map_store(|store| {
-            let elements: Vec<&str> = store
-                .annotation(&self.handle.into())
-                .ok_or_else(|| StamError::HandleError("Failed to resolved annotationset"))?
-                .text()
-                .collect();
+        self.map(|annotation| {
+            let elements: Vec<&str> = annotation.text().collect();
             let result: String = elements.join(" ");
             Ok(result)
         })
     }
 
-    /// Returns the textselections of the annotation.
-    /// Note that this will always return a tuple (even it if only contains a single element),
+    /// Returns a list of all textselections of the annotation.
+    /// Note that this will always return a list (even it if only contains a single element),
     /// as an annotation may reference multiple text selections.
-    fn textselections<'py>(&self, py: Python<'py>) -> PyResult<&'py PyTuple> {
-        self.map_store(|store| {
-            let elements: Vec<Py<PyTextSelection>> = store
-                .annotation(&self.handle.into())
-                .ok_or_else(|| StamError::HandleError("Failed to resolved annotationset"))?
-                .textselections()
-                .map(|textselection| {
-                    Py::new(
-                        py,
-                        PyTextSelection {
-                            textselection: textselection.unwrap().clone(),
-                            resource_handle: textselection
-                                .resource()
-                                .handle()
-                                .expect("TextSelection must have handle"),
-                            store: self.store.clone(),
+    fn textselections<'py>(&self, py: Python<'py>) -> Py<PyList> {
+        let list: &PyList = PyList::empty(py);
+        self.map(|annotation| {
+            for textselection in annotation.textselections() {
+                let resource_handle = textselection
+                    .resource()
+                    .handle()
+                    .expect("Resource must have handle");
+                list.append(
+                    PyTextSelection {
+                        textselection: if textselection.is_borrowed() {
+                            textselection.unwrap().clone()
+                        } else {
+                            textselection.unwrap_owned()
                         },
-                    )
-                    .expect("textselection to pytextselection")
-                })
-                .collect();
-            Ok(PyTuple::new(py, elements))
+                        resource_handle,
+                        store: self.store.clone(),
+                    }
+                    .into_py(py)
+                    .into_ref(py),
+                )
+                .ok();
+            }
+            Ok(())
         })
+        .ok();
+        list.into()
     }
 
-    /// Returns the annotations this annotation refers to (i.e. using an AnnotationSelector)
-    /// They will be returned in a tuple.
+    /// Returns a list of annotations this annotation refers to (i.e. using an AnnotationSelector)
     #[pyo3(signature = (recursive=false))]
-    fn annotations<'py>(&self, recursive: bool, py: Python<'py>) -> PyResult<&'py PyTuple> {
-        self.map_store(|store| {
-            let elements: Vec<Py<PyAnnotation>> = store
-                .annotation(&self.handle.into())
-                .ok_or_else(|| StamError::HandleError("Failed to resolved annotation"))?
-                .annotations(recursive, false)
-                .map(|targetitem| {
-                    Py::new(
-                        py,
-                        PyAnnotation {
-                            handle: targetitem.handle().expect("must have handle"),
-                            store: self.store.clone(),
-                        },
-                    )
-                    .expect("Annotation.annotations() wrapping PyAnnotation")
-                })
-                .collect();
-            Ok(PyTuple::new(py, elements))
+    fn annotations<'py>(&self, recursive: bool, py: Python<'py>) -> Py<PyList> {
+        let list: &PyList = PyList::empty(py);
+        self.map(|annotation| {
+            for annotation in annotation.annotations(recursive, false) {
+                list.append(
+                    PyAnnotation {
+                        handle: annotation.handle().expect("must have handle"),
+                        store: self.store.clone(),
+                    }
+                    .into_py(py)
+                    .into_ref(py),
+                )
+                .ok();
+            }
+            Ok(())
         })
+        .ok();
+        list.into()
     }
 
-    /// Returns the annotations that are referring to this annotation (i.e. others using an AnnotationSelector)
-    /// They will be returned in a tuple.
-    fn annotations_reverse<'py>(&self, py: Python<'py>) -> PyResult<&'py PyTuple> {
-        self.map_store(|store| {
-            let elements: Vec<Py<PyAnnotation>> = store
-                .annotation(&self.handle.into())
-                .ok_or_else(|| StamError::HandleError("Failed to resolved annotation"))?
-                .annotations_reverse()
-                .into_iter() //into_iter().flatten() handles unpacking our Option<impl Iterator>
-                .flatten()
-                .map(|targetitem| {
-                    Py::new(
-                        py,
-                        PyAnnotation {
-                            handle: targetitem.handle().expect("must have handle"),
-                            store: self.store.clone(),
-                        },
-                    )
-                    .expect("Annotation.annotations() wrapping PyAnnotation")
-                })
-                .collect();
-            Ok(PyTuple::new(py, elements))
+    /// Returns a list of annotations that are referring to this annotation (i.e. others using an AnnotationSelector)
+    fn annotations_reverse<'py>(&self, py: Python<'py>) -> Py<PyList> {
+        let list: &PyList = PyList::empty(py);
+        self.map(|annotation| {
+            for annotation in annotation.annotations_reverse().into_iter().flatten() {
+                list.append(
+                    PyAnnotation {
+                        handle: annotation.handle().expect("must have handle"),
+                        store: self.store.clone(),
+                    }
+                    .into_py(py)
+                    .into_ref(py),
+                )
+                .ok();
+            }
+            Ok(())
         })
+        .ok();
+        list.into()
     }
 
-    /// Returns the resources this annotation refers to
-    /// They will be returned in a tuple.
-    fn resources<'py>(&self, py: Python<'py>) -> PyResult<&'py PyTuple> {
-        self.map_store(|store| {
-            let elements: Vec<Py<PyTextResource>> = store
-                .annotation(&self.handle.into())
-                .ok_or_else(|| StamError::HandleError("Failed to resolved annotation"))?
-                .resources()
-                .map(|targetitem| {
-                    Py::new(
-                        py,
-                        PyTextResource {
-                            handle: targetitem.handle().expect("must have handle"),
-                            store: self.store.clone(),
-                        },
-                    )
-                    .expect("Annotation.annotations() wrapping PyAnnotation")
-                })
-                .collect();
-            Ok(PyTuple::new(py, elements))
+    /// Returns a list of resources this annotation refers to
+    fn resources<'py>(&self, py: Python<'py>) -> Py<PyList> {
+        let list: &PyList = PyList::empty(py);
+        self.map(|annotation| {
+            for resource in annotation.resources() {
+                list.append(
+                    PyTextResource {
+                        handle: resource.handle().expect("must have handle"),
+                        store: self.store.clone(),
+                    }
+                    .into_py(py)
+                    .into_ref(py),
+                )
+                .ok();
+            }
+            Ok(())
         })
+        .ok();
+        list.into()
     }
 
     /// Returns the resources this annotation refers to
     /// They will be returned in a tuple.
-    fn annotationsets<'py>(&self, py: Python<'py>) -> PyResult<&'py PyTuple> {
-        self.map_store(|store| {
-            let elements: Vec<Py<PyAnnotationDataSet>> = store
-                .annotation(&self.handle.into())
-                .ok_or_else(|| StamError::HandleError("Failed to resolved annotationset"))?
-                .annotationsets()
-                .map(|targetitem| {
-                    Py::new(
-                        py,
-                        PyAnnotationDataSet {
-                            handle: targetitem.handle().expect("must have handle"),
-                            store: self.store.clone(),
-                        },
-                    )
-                    .expect("Annotation.annotations() wrapping PyAnnotation")
-                })
-                .collect();
-            Ok(PyTuple::new(py, elements))
+    fn annotationsets<'py>(&self, py: Python<'py>) -> Py<PyList> {
+        let list: &PyList = PyList::empty(py);
+        self.map(|annotation| {
+            for dataset in annotation.annotationsets() {
+                list.append(
+                    PyAnnotationDataSet {
+                        handle: dataset.handle().expect("must have handle"),
+                        store: self.store.clone(),
+                    }
+                    .into_py(py)
+                    .into_ref(py),
+                )
+                .ok();
+            }
+            Ok(())
         })
+        .ok();
+        list.into()
     }
 
     /// Returns the target selector for this annotation

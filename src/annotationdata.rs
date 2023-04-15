@@ -58,30 +58,27 @@ impl PyDataKey {
         })
     }
 
-    /// Returns the AnnotationData instances that use this key.
+    /// Returns a list of AnnotationData instances that use this key.
     /// This is a lookup in the reverse index.
-    /// The results will be returned in a tuple.
-    fn annotationdata<'py>(&self, py: Python<'py>) -> PyResult<&'py PyTuple> {
-        self.map_store(|store| {
-            let annotationset = store
-                .annotationset(&self.set.into())
-                .ok_or_else(|| StamError::HandleError("handle not found"))?;
-            let elements: Vec<Py<PyAnnotationData>> = annotationset
-                .data()
-                .map(|data| {
-                    Py::new(
-                        py,
-                        PyAnnotationData {
-                            handle: data.handle().expect("data must have handle"),
-                            set: self.set,
-                            store: self.store.clone(),
-                        },
-                    )
-                    .expect("Annotation.annotations() wrapping PyAnnotation")
-                })
-                .collect();
-            Ok(PyTuple::new(py, elements))
+    fn annotationdata<'py>(&self, py: Python<'py>) -> Py<PyList> {
+        let list: &PyList = PyList::empty(py);
+        self.map(|annotationset| {
+            for data in annotationset.data().into_iter().flatten() {
+                list.append(
+                    PyAnnotationData {
+                        handle: data.handle().expect("must have handle"),
+                        set: self.set,
+                        store: self.store.clone(),
+                    }
+                    .into_py(py)
+                    .into_ref(py),
+                )
+                .ok();
+            }
+            Ok(())
         })
+        .ok();
+        list.into()
     }
 
     /// Find annotation data for the current key and specified value
@@ -361,28 +358,26 @@ impl PyAnnotationData {
         })
     }
 
-    /// Returns the Annotation instances that use this data
+    /// Returns a list of  Annotation instances that use this data
     /// This is a lookup in the reverse index.
-    /// The results will be returned in a tuple.
-    fn annotations<'py>(&self, py: Python<'py>) -> PyResult<&'py PyTuple> {
-        self.map_store(|store| {
-            let elements: Vec<Py<PyAnnotation>> = store
-                .annotations_by_data(self.set, self.handle)
-                .unwrap_or(&Vec::new())
-                .iter()
-                .map(|handle| {
-                    Py::new(
-                        py,
-                        PyAnnotation {
-                            handle: *handle,
-                            store: self.store.clone(),
-                        },
-                    )
-                    .expect("AnnotationData.annotations() wrapping PyAnnotation")
-                })
-                .collect();
-            Ok(PyTuple::new(py, elements))
+    fn annotations<'py>(&self, py: Python<'py>) -> Py<PyList> {
+        let list: &PyList = PyList::empty(py);
+        self.map_with_store(|data, store| {
+            for annotation in data.annotations(store).into_iter().flatten() {
+                list.append(
+                    PyAnnotation {
+                        handle: annotation.handle().expect("must have handle"),
+                        store: self.store.clone(),
+                    }
+                    .into_py(py)
+                    .into_ref(py),
+                )
+                .ok();
+            }
+            Ok(())
         })
+        .ok();
+        list.into()
     }
 }
 
@@ -408,6 +403,25 @@ impl PyAnnotationData {
                 .annotationdata(&self.handle.into())
                 .ok_or_else(|| PyRuntimeError::new_err("Failed to resolve annotationset"))?;
             f(data).map_err(|err| PyStamError::new_err(format!("{}", err)))
+        } else {
+            Err(PyRuntimeError::new_err(
+                "Unable to obtain store (should never happen)",
+            ))
+        }
+    }
+
+    fn map_with_store<T, F>(&self, f: F) -> Result<T, PyErr>
+    where
+        F: FnOnce(WrappedItem<AnnotationData>, &AnnotationStore) -> Result<T, StamError>,
+    {
+        if let Ok(store) = self.store.read() {
+            let annotationset = store
+                .annotationset(&self.set.into())
+                .ok_or_else(|| PyRuntimeError::new_err("Failed to resolve annotationset"))?;
+            let data = annotationset
+                .annotationdata(&self.handle.into())
+                .ok_or_else(|| PyRuntimeError::new_err("Failed to resolve annotationset"))?;
+            f(data, &store).map_err(|err| PyStamError::new_err(format!("{}", err)))
         } else {
             Err(PyRuntimeError::new_err(
                 "Unable to obtain store (should never happen)",

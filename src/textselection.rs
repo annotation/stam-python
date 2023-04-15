@@ -5,6 +5,7 @@ use pyo3::types::*;
 use std::ops::FnOnce;
 use std::sync::{Arc, RwLock};
 
+use crate::annotation::PyAnnotation;
 use crate::error::PyStamError;
 use crate::resources::{PyOffset, PyTextResource};
 use stam::*;
@@ -187,6 +188,35 @@ impl PyTextSelection {
             textselection.beginaligned_cursor(&Cursor::EndAligned(endalignedcursor))
         })
     }
+
+    /// Returns a list of all annotations (:obj:`Annotation`) that reference this TextSelection, if any.
+    fn annotations(&self, limit: Option<usize>, py: Python) -> Py<PyList> {
+        let list: &PyList = PyList::empty(py);
+        self.map_with_store(|textselection, store| {
+            for (i, annotation) in textselection
+                .annotations(store)
+                .into_iter()
+                .flatten()
+                .enumerate()
+            {
+                list.append(
+                    PyAnnotation {
+                        handle: annotation.handle().expect("annotation must have a handle"),
+                        store: self.store.clone(),
+                    }
+                    .into_py(py)
+                    .into_ref(py),
+                )
+                .ok();
+                if Some(i + 1) == limit {
+                    break;
+                }
+            }
+            Ok(())
+        })
+        .ok();
+        list.into()
+    }
 }
 
 impl PyTextSelection {
@@ -202,6 +232,25 @@ impl PyTextSelection {
                 .wrap_owned(self.textselection)
                 .expect("wrap of textselection must succeed");
             f(textselection).map_err(|err| PyStamError::new_err(format!("{}", err)))
+        } else {
+            Err(PyRuntimeError::new_err(
+                "Unable to obtain store (should never happen)",
+            ))
+        }
+    }
+
+    fn map_with_store<T, F>(&self, f: F) -> Result<T, PyErr>
+    where
+        F: FnOnce(WrappedItem<TextSelection>, &AnnotationStore) -> Result<T, StamError>,
+    {
+        if let Ok(store) = self.store.read() {
+            let resource = store
+                .resource(&self.resource_handle.into())
+                .ok_or_else(|| PyRuntimeError::new_err("Failed to resolve textresource"))?;
+            let textselection = resource
+                .wrap_owned(self.textselection)
+                .expect("wrap of textselection must succeed");
+            f(textselection, &store).map_err(|err| PyStamError::new_err(format!("{}", err)))
         } else {
             Err(PyRuntimeError::new_err(
                 "Unable to obtain store (should never happen)",

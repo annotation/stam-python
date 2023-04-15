@@ -259,6 +259,40 @@ impl PyTextSelection {
         .ok();
         list.into()
     }
+
+    /// Applies a `TextSelectionOperator` to find all other annotations whose text selections
+    /// are in a specific relation with the current one. Returns all matching Annotations in a list
+    #[pyo3(signature = (operator,limit=None))]
+    fn find_annotations(
+        &self,
+        operator: PyTextSelectionOperator,
+        limit: Option<usize>,
+        py: Python,
+    ) -> Py<PyList> {
+        let list: &PyList = PyList::empty(py);
+        self.map_with_store(|textselection, store| {
+            for (i, annotation) in textselection
+                .find_annotations(operator.operator, store)
+                .enumerate()
+            {
+                list.append(
+                    PyAnnotation {
+                        handle: annotation.handle().expect("annotation must have a handle"),
+                        store: self.store.clone(),
+                    }
+                    .into_py(py)
+                    .into_ref(py),
+                )
+                .ok();
+                if Some(i + 1) == limit {
+                    break;
+                }
+            }
+            Ok(())
+        })
+        .ok();
+        list.into()
+    }
 }
 
 impl PyTextSelection {

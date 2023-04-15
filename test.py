@@ -522,6 +522,18 @@ class Test6(unittest.TestCase):
                 self.assertEqual(textselection.begin(), 17)
                 self.assertEqual(textselection.end(), 40)
 
+    def test_find_annotation_embedded(self):
+        phrase1 = self.store.annotation("Phrase1")
+        annotations = phrase1.find_annotations(TextSelectionOperator.embedded())
+        self.assertEqual(len(annotations),1)
+        self.assertEqual(annotations[0].id(), "Sentence1")
+
+    def test_find_annotation_embeds(self):
+        phrase1 = self.store.annotation("Sentence1")
+        annotations = phrase1.find_annotations(TextSelectionOperator.embeds())
+        self.assertEqual(len(annotations),1)
+        self.assertEqual(annotations[0].id(), "Phrase1")
+
 
 if __name__ == "__main__":
     unittest.main()

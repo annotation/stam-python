@@ -11,7 +11,7 @@ use crate::annotationstore::MapStore;
 use crate::error::PyStamError;
 use crate::resources::PyTextResource;
 use crate::selector::PySelector;
-use crate::textselection::PyTextSelection;
+use crate::textselection::{PyTextSelection, PyTextSelectionOperator};
 use stam::*;
 
 #[pyclass(dict, module = "stam", name = "Annotation")]
@@ -261,6 +261,89 @@ impl PyAnnotation {
                     PyAnnotationData {
                         handle: data.handle().expect("annotationdata must have handle"),
                         set: data.set().handle().expect("set must have handle"),
+                        store: self.store.clone(),
+                    }
+                    .into_py(py)
+                    .into_ref(py),
+                )
+                .ok();
+                if Some(i + 1) == limit {
+                    break;
+                }
+            }
+            Ok(())
+        })
+        .ok();
+        list.into()
+    }
+
+    /// Applies a `TextSelectionOperator` to find all other annotations whose text selections
+    /// are in a specific relation with the current one. Returns all matching TextSelections in a list
+    ///
+    /// If you are interested in the annotations associated with the found text selections, then
+    /// use `find_annotations()` instead.
+    #[pyo3(signature = (operator,limit=None))]
+    fn find_textselections(
+        &self,
+        operator: PyTextSelectionOperator,
+        limit: Option<usize>,
+        py: Python,
+    ) -> Py<PyList> {
+        let list: &PyList = PyList::empty(py);
+        self.map(|annotation| {
+            for (i, foundtextselection) in annotation
+                .find_textselections(operator.operator)
+                .into_iter()
+                .flatten()
+                .enumerate()
+            {
+                let resource_handle = foundtextselection
+                    .resource()
+                    .handle()
+                    .expect("resource must have handle");
+                list.append(
+                    PyTextSelection {
+                        textselection: if foundtextselection.is_borrowed() {
+                            foundtextselection.unwrap().clone()
+                        } else {
+                            foundtextselection.unwrap_owned()
+                        },
+                        resource_handle,
+                        store: self.store.clone(),
+                    }
+                    .into_py(py)
+                    .into_ref(py),
+                )
+                .ok();
+                if Some(i + 1) == limit {
+                    break;
+                }
+            }
+            Ok(())
+        })
+        .ok();
+        list.into()
+    }
+    /// Applies a `TextSelectionOperator` to find all other annotations whose text selections
+    /// are in a specific relation with the text selections of the current one. Returns all matching Annotations in a list
+    #[pyo3(signature = (operator,limit=None))]
+    fn find_annotations(
+        &self,
+        operator: PyTextSelectionOperator,
+        limit: Option<usize>,
+        py: Python,
+    ) -> Py<PyList> {
+        let list: &PyList = PyList::empty(py);
+        self.map(|annotation| {
+            for (i, annotation) in annotation
+                .find_annotations(operator.operator)
+                .into_iter()
+                .flatten()
+                .enumerate()
+            {
+                list.append(
+                    PyAnnotation {
+                        handle: annotation.handle().expect("annotation must have a handle"),
                         store: self.store.clone(),
                     }
                     .into_py(py)

@@ -123,6 +123,18 @@ class Test1(unittest.TestCase):
         with self.assertRaises(StamError):
             resource.textselection(Offset.simple(0,999))
 
+    def test_resource_find_text(self):
+        """Find text"""
+        resource = self.store.resource("testres")
+        result = resource.find_text("world")
+        self.assertIsInstance(result, list)
+        self.assertEqual(len(result), 1)
+        self.assertIsInstance(result[0], TextSelection)
+        self.assertEqual(result[0].begin(), 6)
+        self.assertEqual(result[0].end(), 11)
+        self.assertEqual(str(result[0]), "world")
+
+
     def test_annotation_text(self):
         """Get the text of an annotation"""
         annotation = self.store.annotation("A1")

@@ -134,6 +134,20 @@ class Test1(unittest.TestCase):
         self.assertEqual(result[0].end(), 11)
         self.assertEqual(str(result[0]), "world")
 
+    def test_resource_split_text(self):
+        """Split text"""
+        resource = self.store.resource("testres")
+        result = resource.split_text(" ")
+        self.assertIsInstance(result, list)
+        self.assertEqual(len(result), 2)
+        self.assertIsInstance(result[0], TextSelection)
+        self.assertEqual(result[0].begin(), 0)
+        self.assertEqual(result[0].end(), 5)
+        self.assertEqual(str(result[0]), "Hello")
+        self.assertIsInstance(result[1], TextSelection)
+        self.assertEqual(result[1].begin(), 6)
+        self.assertEqual(result[1].end(), 11)
+        self.assertEqual(str(result[1]), "world")
 
     def test_annotation_text(self):
         """Get the text of an annotation"""

@@ -96,7 +96,11 @@ impl PyTextResource {
             for (i, textselection) in res.find_text(fragment).enumerate() {
                 list.append(
                     PyTextSelection {
-                        textselection: textselection.unwrap().clone(),
+                        textselection: if textselection.is_borrowed() {
+                            textselection.unwrap().clone()
+                        } else {
+                            textselection.unwrap_owned()
+                        },
                         resource_handle: self.handle,
                         store: self.store.clone(),
                     }
@@ -122,7 +126,11 @@ impl PyTextResource {
             for (i, textselection) in res.split_text(delimiter).enumerate() {
                 list.append(
                     PyTextSelection {
-                        textselection: textselection.unwrap().clone(),
+                        textselection: if textselection.is_borrowed() {
+                            textselection.unwrap().clone()
+                        } else {
+                            textselection.unwrap_owned()
+                        },
                         resource_handle: self.handle,
                         store: self.store.clone(),
                     }

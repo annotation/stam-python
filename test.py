@@ -106,6 +106,11 @@ class Test1(unittest.TestCase):
         self.assertIsInstance(resource, TextResource)
         self.assertEqual(str(resource), "Hello world")
 
+    def test_direct_text_slice(self):
+        """Get the text of a slice of a resource directly"""
+        resource = self.store.resource("testres")
+        self.assertEqual( resource[0:5], "Hello")
+
     def test_resource_text_slice(self):
         """Get the text of a slice of a resource"""
         resource = self.store.resource("testres")

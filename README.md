@@ -56,7 +56,7 @@ for annotation in store.annotations():
     except stam.StamError:
         text = "n/a"
     for data in annotation:
-        print("\t".join(( annotation.id, data.key().id, str(data.value()), text)))
+        print("\t".join(( annotation.id(), data.key().id(), str(data.value()), text)))
 ```
 
 

@@ -51,7 +51,7 @@ class Test1(unittest.TestCase):
 
     def test_sanity_1(self):
         self.assertIsInstance( self.store, AnnotationStore)
-        self.assertEqual(self.store.id, "test")
+        self.assertEqual(self.store.id(), "test")
         self.assertEqual(self.store.annotations_len(), 1)
         self.assertEqual(self.store.annotationsets_len(), 1)
         self.assertEqual(self.store.resources_len(), 1)
@@ -59,7 +59,7 @@ class Test1(unittest.TestCase):
     def test_sanity_2(self):
         resource = self.store.resource("testres")
         self.assertIsInstance( resource, TextResource)
-        self.assertEqual(resource.id, "testres")
+        self.assertEqual(resource.id(), "testres")
         self.assertTrue(resource.has_id("testres")) #quicker than the above (no copy)
 
     def test_sanity_3(self):
@@ -274,7 +274,7 @@ class Test2(unittest.TestCase):
 
     def test_sanity_1(self):
         self.assertIsInstance( self.store, AnnotationStore)
-        self.assertEqual(self.store.id, "test")
+        self.assertEqual(self.store.id(), "test")
         self.assertEqual(self.store.annotations_len(), 1)
         self.assertEqual(self.store.annotationsets_len(), 1)
         self.assertEqual(self.store.resources_len(), 1)
@@ -282,7 +282,7 @@ class Test2(unittest.TestCase):
     def test_sanity_2(self):
         resource = self.store.resource("testres")
         self.assertIsInstance( resource, TextResource)
-        self.assertEqual(resource.id, "testres")
+        self.assertEqual(resource.id(), "testres")
         self.assertTrue(resource.has_id("testres")) #quicker than the above (no copy)
 
     def test_sanity_3(self):
@@ -364,7 +364,7 @@ def common_sanity(self):
 
     resource = self.store.resource("testres")
     self.assertIsInstance( resource, TextResource)
-    self.assertEqual(resource.id, "testres")
+    self.assertEqual(resource.id(), "testres")
     self.assertTrue(resource.has_id("testres")) #quicker than the above (no copy)
 
     dataset = self.store.annotationset("testdataset")
@@ -465,6 +465,27 @@ class Test4(unittest.TestCase):
             elif count == 2:
                 self.assertTrue( targets[0].has_id("A2"))
         self.assertEqual(count,2)
+
+    def test_textselections_by_annotations(self):
+        annotation = self.store.annotation("A1")
+        textselections = annotation.textselections()
+        self.assertEqual(len(textselections), 1)
+        self.assertEqual(str(textselections[0]), "world")
+
+        #and the reverse:
+        textselection = textselections[0]
+        annotations = textselection.annotations()
+        self.assertEqual(len(annotations), 2)
+        self.assertEqual(annotations[0].id(), "A1")
+        self.assertEqual(annotations[1].id(), "Word")
+
+    def test_data_by_annotation(self):
+        annotation = self.store.annotation("A1")
+        data = annotation.data()
+        self.assertEqual(len(data), 1)
+        self.assertEqual(data[0].id(), "D1")
+        self.assertEqual(data[0].key().id(), "pos")
+        self.assertEqual(str(data[0].value()), "noun")
 
 
 if __name__ == "__main__":

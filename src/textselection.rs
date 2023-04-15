@@ -190,6 +190,7 @@ impl PyTextSelection {
     }
 
     /// Returns a list of all annotations (:obj:`Annotation`) that reference this TextSelection, if any.
+    #[pyo3(signature = (limit=None))]
     fn annotations(&self, limit: Option<usize>, py: Python) -> Py<PyList> {
         let list: &PyList = PyList::empty(py);
         self.map_with_store(|textselection, store| {

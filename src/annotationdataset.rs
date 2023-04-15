@@ -22,7 +22,6 @@ pub(crate) struct PyAnnotationDataSet {
 
 #[pymethods]
 impl PyAnnotationDataSet {
-    #[getter]
     /// Returns the public ID (by value, aka a copy)
     /// Don't use this for ID comparisons, use has_id() instead
     fn id(&self) -> PyResult<Option<String>> {

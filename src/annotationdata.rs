@@ -23,7 +23,6 @@ pub(crate) struct PyDataKey {
 
 #[pymethods]
 impl PyDataKey {
-    #[getter]
     /// Returns the public ID (by value, aka a copy)
     /// Don't use this for ID comparisons, use has_id() instead
     fn id(&self) -> PyResult<Option<String>> {
@@ -360,10 +359,10 @@ impl PyAnnotationData {
 
     /// Returns a list of  Annotation instances that use this data
     /// This is a lookup in the reverse index.
-    fn annotations<'py>(&self, py: Python<'py>) -> Py<PyList> {
+    fn annotations<'py>(&self, limit: Option<usize>, py: Python<'py>) -> Py<PyList> {
         let list: &PyList = PyList::empty(py);
         self.map_with_store(|data, store| {
-            for annotation in data.annotations(store).into_iter().flatten() {
+            for (i, annotation) in data.annotations(store).into_iter().flatten().enumerate() {
                 list.append(
                     PyAnnotation {
                         handle: annotation.handle().expect("must have handle"),
@@ -373,6 +372,9 @@ impl PyAnnotationData {
                     .into_ref(py),
                 )
                 .ok();
+                if Some(i + 1) == limit {
+                    break;
+                }
             }
             Ok(())
         })

@@ -32,7 +32,6 @@ pub(crate) struct PyAnnotation {
 
 #[pymethods]
 impl PyAnnotation {
-    #[getter]
     /// Returns the public ID (by value, aka a copy)
     /// Don't use this for ID comparisons, use has_id() instead
     fn id(&self) -> PyResult<Option<String>> {
@@ -131,11 +130,16 @@ impl PyAnnotation {
     }
 
     /// Returns a list of annotations this annotation refers to (i.e. using an AnnotationSelector)
-    #[pyo3(signature = (recursive=false))]
-    fn annotations<'py>(&self, recursive: bool, py: Python<'py>) -> Py<PyList> {
+    #[pyo3(signature = (recursive=false,limit=None))]
+    fn annotations<'py>(
+        &self,
+        recursive: bool,
+        limit: Option<usize>,
+        py: Python<'py>,
+    ) -> Py<PyList> {
         let list: &PyList = PyList::empty(py);
         self.map(|annotation| {
-            for annotation in annotation.annotations(recursive, false) {
+            for (i, annotation) in annotation.annotations(recursive, false).enumerate() {
                 list.append(
                     PyAnnotation {
                         handle: annotation.handle().expect("must have handle"),
@@ -145,6 +149,9 @@ impl PyAnnotation {
                     .into_ref(py),
                 )
                 .ok();
+                if Some(i + 1) == limit {
+                    break;
+                }
             }
             Ok(())
         })
@@ -153,10 +160,16 @@ impl PyAnnotation {
     }
 
     /// Returns a list of annotations that are referring to this annotation (i.e. others using an AnnotationSelector)
-    fn annotations_reverse<'py>(&self, py: Python<'py>) -> Py<PyList> {
+    #[pyo3(signature = (limit=None))]
+    fn annotations_reverse<'py>(&self, limit: Option<usize>, py: Python<'py>) -> Py<PyList> {
         let list: &PyList = PyList::empty(py);
         self.map(|annotation| {
-            for annotation in annotation.annotations_reverse().into_iter().flatten() {
+            for (i, annotation) in annotation
+                .annotations_reverse()
+                .into_iter()
+                .flatten()
+                .enumerate()
+            {
                 list.append(
                     PyAnnotation {
                         handle: annotation.handle().expect("must have handle"),
@@ -166,6 +179,9 @@ impl PyAnnotation {
                     .into_ref(py),
                 )
                 .ok();
+                if Some(i + 1) == limit {
+                    break;
+                }
             }
             Ok(())
         })
@@ -174,10 +190,11 @@ impl PyAnnotation {
     }
 
     /// Returns a list of resources this annotation refers to
-    fn resources<'py>(&self, py: Python<'py>) -> Py<PyList> {
+    #[pyo3(signature = (limit=None))]
+    fn resources<'py>(&self, limit: Option<usize>, py: Python<'py>) -> Py<PyList> {
         let list: &PyList = PyList::empty(py);
         self.map(|annotation| {
-            for resource in annotation.resources() {
+            for (i, resource) in annotation.resources().enumerate() {
                 list.append(
                     PyTextResource {
                         handle: resource.handle().expect("must have handle"),
@@ -187,6 +204,9 @@ impl PyAnnotation {
                     .into_ref(py),
                 )
                 .ok();
+                if Some(i + 1) == limit {
+                    break;
+                }
             }
             Ok(())
         })
@@ -196,10 +216,11 @@ impl PyAnnotation {
 
     /// Returns the resources this annotation refers to
     /// They will be returned in a tuple.
-    fn annotationsets<'py>(&self, py: Python<'py>) -> Py<PyList> {
+    #[pyo3(signature = (limit=None))]
+    fn annotationsets<'py>(&self, limit: Option<usize>, py: Python<'py>) -> Py<PyList> {
         let list: &PyList = PyList::empty(py);
         self.map(|annotation| {
-            for dataset in annotation.annotationsets() {
+            for (i, dataset) in annotation.annotationsets().enumerate() {
                 list.append(
                     PyAnnotationDataSet {
                         handle: dataset.handle().expect("must have handle"),
@@ -209,6 +230,9 @@ impl PyAnnotation {
                     .into_ref(py),
                 )
                 .ok();
+                if Some(i + 1) == limit {
+                    break;
+                }
             }
             Ok(())
         })
@@ -224,6 +248,33 @@ impl PyAnnotation {
                 selector: annotation.target().clone(),
             })
         })
+    }
+
+    /// Returns the resources this annotation refers to
+    /// They will be returned in a tuple.
+    #[pyo3(signature = (limit=None))]
+    fn data<'py>(&self, limit: Option<usize>, py: Python<'py>) -> Py<PyList> {
+        let list: &PyList = PyList::empty(py);
+        self.map(|annotation| {
+            for (i, data) in annotation.data().enumerate() {
+                list.append(
+                    PyAnnotationData {
+                        handle: data.handle().expect("annotationdata must have handle"),
+                        set: data.set().handle().expect("set must have handle"),
+                        store: self.store.clone(),
+                    }
+                    .into_py(py)
+                    .into_ref(py),
+                )
+                .ok();
+                if Some(i + 1) == limit {
+                    break;
+                }
+            }
+            Ok(())
+        })
+        .ok();
+        list.into()
     }
 }
 

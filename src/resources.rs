@@ -24,7 +24,6 @@ pub(crate) struct PyTextResource {
 
 #[pymethods]
 impl PyTextResource {
-    #[getter]
     /// Returns the public ID (by value, aka a copy)
     /// Don't use this for ID comparisons, use has_id() instead
     fn id(&self) -> PyResult<Option<String>> {
@@ -220,6 +219,7 @@ impl PyTextResource {
 
     /// Returns a list of all annotations (:obj:`Annotation`) that reference this resource via a TextSelector (if any).
     /// Does *NOT* include those that use a ResourceSelector, use `annotations_metadata()` instead for those.
+    #[pyo3(signature = (limit=None))]
     fn annotations(&self, limit: Option<usize>, py: Python) -> Py<PyList> {
         let list: &PyList = PyList::empty(py);
         self.map(|resource| {
@@ -245,6 +245,7 @@ impl PyTextResource {
 
     /// Returns a list of all annotations (:obj:`Annotation`) that reference this resource via a ResourceSelector (if any).
     /// Does *NOT* include those that use a TextSelector, use `annotations()` instead for those.
+    #[pyo3(signature = (limit=None))]
     fn annotations_metadata(&self, limit: Option<usize>, py: Python) -> Py<PyList> {
         let list: &PyList = PyList::empty(py);
         self.map(|resource| {

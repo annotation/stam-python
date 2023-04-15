@@ -95,7 +95,6 @@ impl PyAnnotationStore {
         })
     }
 
-    #[getter]
     /// Returns the public ID (by value, aka a copy)
     fn id(&self) -> PyResult<Option<String>> {
         self.map(|store| Ok(store.id().map(|x| x.to_owned())))

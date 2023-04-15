@@ -277,7 +277,7 @@ impl PyTextResource {
 
 impl PyTextResource {
     /// Map function to act on the actual underlying store, helps reduce boilerplate
-    fn map<T, F>(&self, f: F) -> Result<T, PyErr>
+    pub(crate) fn map<T, F>(&self, f: F) -> Result<T, PyErr>
     where
         F: FnOnce(WrappedItem<TextResource>) -> Result<T, StamError>,
     {

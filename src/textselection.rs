@@ -218,6 +218,47 @@ impl PyTextSelection {
         .ok();
         list.into()
     }
+
+    /// Applies a `TextSelectionOperator` to find all other text selections that
+    /// are in a specific relation with the current one. Returns all matching TextSelections in a list
+    ///
+    /// If you are interested in the annotations associated with the found text selections, then use `find_annotations()` instead.
+    #[pyo3(signature = (operator,limit=None))]
+    fn find_textselections(
+        &self,
+        operator: PyTextSelectionOperator,
+        limit: Option<usize>,
+        py: Python,
+    ) -> Py<PyList> {
+        let list: &PyList = PyList::empty(py);
+        self.map(|textselection| {
+            for (i, foundtextselection) in textselection
+                .find_textselections(operator.operator)
+                .enumerate()
+            {
+                list.append(
+                    PyTextSelection {
+                        textselection: if foundtextselection.is_borrowed() {
+                            foundtextselection.unwrap().clone()
+                        } else {
+                            foundtextselection.unwrap_owned()
+                        },
+                        resource_handle: self.resource_handle,
+                        store: self.store.clone(),
+                    }
+                    .into_py(py)
+                    .into_ref(py),
+                )
+                .ok();
+                if Some(i + 1) == limit {
+                    break;
+                }
+            }
+            Ok(())
+        })
+        .ok();
+        list.into()
+    }
 }
 
 impl PyTextSelection {
@@ -330,5 +371,142 @@ impl Iterator for PyTextSelectionIter {
             }
         }
         None
+    }
+}
+
+#[pyclass(dict, module = "stam", name = "TextSelectionOperator")]
+#[derive(Clone)]
+pub(crate) struct PyTextSelectionOperator {
+    pub(crate) operator: TextSelectionOperator,
+}
+
+#[pymethods]
+impl PyTextSelectionOperator {
+    #[staticmethod]
+    /// Create an operator to test if two textselection(sets) occupy cover the exact same TextSelections, and all are covered (cf. textfabric's `==`), commutative, transitive
+    fn equals(all: Option<bool>, negate: Option<bool>) -> PyResult<Self> {
+        Ok(Self {
+            operator: TextSelectionOperator::Equals {
+                all: all.unwrap_or(false),
+                negate: negate.unwrap_or(false),
+            },
+        })
+    }
+
+    #[staticmethod]
+    /// Create an operator to test if two textselection(sets) overlap.
+    /// Each TextSelection in A overlaps with a TextSelection in B (cf. textfabric's `&&`), commutative
+    /// If modifier `all` is set: Each TextSelection in A overlaps with all TextSelection in B (cf. textfabric's `&&`), commutative
+    fn overlaps(all: Option<bool>, negate: Option<bool>) -> PyResult<Self> {
+        Ok(Self {
+            operator: TextSelectionOperator::Overlaps {
+                all: all.unwrap_or(false),
+                negate: negate.unwrap_or(false),
+            },
+        })
+    }
+
+    #[staticmethod]
+    /// Create an operator to test if two textselection(sets) are embedded.
+    /// All TextSelections in B are embedded by a TextSelection in A (cf. textfabric's `[[`)
+    /// If modifier `all` is set: All TextSelections in B are embedded by all TextSelection in A (cf. textfabric's `[[`)
+    fn embeds(all: Option<bool>, negate: Option<bool>) -> PyResult<Self> {
+        Ok(Self {
+            operator: TextSelectionOperator::Embeds {
+                all: all.unwrap_or(false),
+                negate: negate.unwrap_or(false),
+            },
+        })
+    }
+
+    #[staticmethod]
+    /// Create an operator to test if two textselection(sets) are embedded.
+    /// All TextSelections in B are embedded by a TextSelection in A (cf. textfabric's `[[`)
+    /// If modifier `all` is set: All TextSelections in B are embedded by all TextSelection in A (cf. textfabric's `[[`)
+    fn embedded(all: Option<bool>, negate: Option<bool>) -> PyResult<Self> {
+        Ok(Self {
+            operator: TextSelectionOperator::Embedded {
+                all: all.unwrap_or(false),
+                negate: negate.unwrap_or(false),
+            },
+        })
+    }
+
+    #[staticmethod]
+    /// Create an operator to test if one textselection(sets) precedes another
+    /// Each TextSelections in A precedes (comes before) a textselection in B
+    /// If modifier `all` is set: All TextSelections in A precede (come before) all textselections in B. There is no overlap (cf. textfabric's `<<`)
+    fn precedes(all: Option<bool>, negate: Option<bool>) -> PyResult<Self> {
+        Ok(Self {
+            operator: TextSelectionOperator::Precedes {
+                all: all.unwrap_or(false),
+                negate: negate.unwrap_or(false),
+            },
+        })
+    }
+
+    #[staticmethod]
+    /// Create an operator to test if one textselection(sets) succeeds another
+    /// Each TextSeleciton In A succeeds (comes after) a textselection in B
+    /// If modifier `all` is set: All TextSelections in A succeed (come after) all textselections in B. There is no overlap (cf. textfabric's `>>`)
+    fn succeeds(all: Option<bool>, negate: Option<bool>) -> PyResult<Self> {
+        Ok(Self {
+            operator: TextSelectionOperator::Succeeds {
+                all: all.unwrap_or(false),
+                negate: negate.unwrap_or(false),
+            },
+        })
+    }
+
+    #[staticmethod]
+    /// Create an operator to test if one textselection(sets) is to the immediate left of another
+    /// Each TextSelection in A is ends where at least one TextSelection in B begins.
+    /// If modifier `all` is set: The rightmost TextSelections in A end where the leftmost TextSelection in B begins  (cf. textfabric's `<:`)
+    fn leftadjacent(all: Option<bool>, negate: Option<bool>) -> PyResult<Self> {
+        Ok(Self {
+            operator: TextSelectionOperator::LeftAdjacent {
+                all: all.unwrap_or(false),
+                negate: negate.unwrap_or(false),
+            },
+        })
+    }
+
+    #[staticmethod]
+    /// Create an operator to test if one textselection(sets) is to the immediate right of another
+    /// Each TextSelection in A is begis where at least one TextSelection in A ends.
+    /// If modifier `all` is set: The leftmost TextSelection in A starts where the rightmost TextSelection in B ends  (cf. textfabric's `:>`)
+    fn rightadjacent(all: Option<bool>, negate: Option<bool>) -> PyResult<Self> {
+        Ok(Self {
+            operator: TextSelectionOperator::RightAdjacent {
+                all: all.unwrap_or(false),
+                negate: negate.unwrap_or(false),
+            },
+        })
+    }
+
+    #[staticmethod]
+    /// Create an operator to test if two textselection(sets) have the same begin position
+    /// Each TextSelection in A starts where a TextSelection in B starts
+    /// If modifier `all` is set: The leftmost TextSelection in A starts where the leftmost TextSelection in B start  (cf. textfabric's `=:`)
+    fn samebegin(all: Option<bool>, negate: Option<bool>) -> PyResult<Self> {
+        Ok(Self {
+            operator: TextSelectionOperator::SameBegin {
+                all: all.unwrap_or(false),
+                negate: negate.unwrap_or(false),
+            },
+        })
+    }
+
+    #[staticmethod]
+    /// Create an operator to test if two textselection(sets) have the same end position
+    /// Each TextSelection in A ends where a TextSelection in B ends
+    /// If modifier `all` is set: The rightmost TextSelection in A ends where the rights TextSelection in B ends  (cf. textfabric's `:=`)
+    fn sameend(all: Option<bool>, negate: Option<bool>) -> PyResult<Self> {
+        Ok(Self {
+            operator: TextSelectionOperator::SameEnd {
+                all: all.unwrap_or(false),
+                negate: negate.unwrap_or(false),
+            },
+        })
     }
 }

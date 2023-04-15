@@ -28,6 +28,20 @@ impl PyTextSelection {
         self.text(py)
     }
 
+    /// Returns a string (by value, aka copy) of a slice of the text
+    fn __getitem__<'py>(&self, slice: &PySlice, py: Python<'py>) -> PyResult<&'py PyString> {
+        self.map(|textselection| {
+            let slice = slice
+                .indices(textselection.textlen().try_into().unwrap())
+                .expect("expected valid slice");
+            Ok(PyString::new(
+                py,
+                textselection
+                    .text_by_offset(&Offset::simple(slice.start as usize, slice.stop as usize))?,
+            ))
+        })
+    }
+
     fn __richcmp__(&self, other: PyRef<Self>, op: CompareOp) -> Py<PyAny> {
         let py = other.py();
         match op {

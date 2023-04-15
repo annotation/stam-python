@@ -49,7 +49,21 @@ impl PyTextResource {
         self.text(py)
     }
 
-    /// Returns the full text of the resource (by value, aka a copy)
+    /// Returns a string (by value, aka copy) of a slice of the text
+    fn __getitem__<'py>(&self, slice: &PySlice, py: Python<'py>) -> PyResult<&'py PyString> {
+        self.map(|resource| {
+            let slice = slice
+                .indices(resource.textlen().try_into().unwrap())
+                .expect("expected valid slice");
+            Ok(PyString::new(
+                py,
+                resource
+                    .text_by_offset(&Offset::simple(slice.start as usize, slice.stop as usize))?,
+            ))
+        })
+    }
+
+    /// 'Returns the full text of the resource (by value, aka a copy)
     fn text<'py>(&self, py: Python<'py>) -> PyResult<&'py PyString> {
         self.map(|resource| Ok(PyString::new(py, resource.text())))
     }

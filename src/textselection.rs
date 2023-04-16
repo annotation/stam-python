@@ -181,6 +181,13 @@ impl PyTextSelection {
         })
     }
 
+    /// Converts the TextSelection to an :obj:`Offset` instance
+    fn offset(&self) -> PyOffset {
+        PyOffset {
+            offset: Offset::simple(self.begin(), self.end()),
+        }
+    }
+
     /// Converts an end-aligned cursor to a begin-aligned cursor, resolving all relative end-aligned positions
     /// The parameter value must be 0 or negative.
     fn beginaligned_cursor(&self, endalignedcursor: isize) -> PyResult<usize> {

@@ -534,6 +534,45 @@ class Test6(unittest.TestCase):
         self.assertEqual(len(annotations),1)
         self.assertEqual(annotations[0].id(), "Phrase1")
 
+    def setup_example_6b(self):
+        resource = self.store.resource("humanrights")
+        phrase2 = self.store.annotate(Selector.textselector(resource, Offset.simple(4,25)), {"set": "testdataset", "key": "type", "value": "phrase"}, "Phrase2") #"human beings are born"
+        phrase3 = self.store.annotate(Selector.textselector(resource, Offset.simple(44,62)), {"set": "testdataset", "key": "type", "value": "phrase"}, "Phrase3") #"dignity and rights"
+        self.assertEqual(str(phrase2), "human beings are born")
+        self.assertEqual(str(phrase3), "dignity and rights")
+
+    def test_find_annotation_precedes(self):
+        self.setup_example_6b()
+        phrase2 = self.store.annotation("Phrase2")
+        annotations = phrase2.find_annotations(TextSelectionOperator.precedes())
+        self.assertEqual(len(annotations),1)
+        self.assertEqual(annotations[0].id(), "Phrase3")
+
+    def test_find_annotation_succeeds(self):
+        self.setup_example_6b()
+        phrase3 = self.store.annotation("Phrase3")
+        annotations = phrase3.find_annotations(TextSelectionOperator.succeeds())
+        self.assertEqual(len(annotations),2)
+        self.assertTrue(any(annotation.id() == "Phrase2" for annotation in annotations))
+        self.assertTrue(any(annotation.id() == "Phrase1" for annotation in annotations))
+
+
+    def test_find_annotation_overlaps(self):
+        self.setup_example_6b()
+        phrase1 = self.store.annotation("Phrase1")
+        annotations = phrase1.find_annotations(TextSelectionOperator.overlaps())
+        self.assertEqual(len(annotations),2)
+        self.assertTrue(any(annotation.id() == "Phrase2" for annotation in annotations))
+        self.assertTrue(any(annotation.id() == "Sentence1" for annotation in annotations))
+
+    def test_find_annotation_overlaps_2(self):
+        self.setup_example_6b()
+        phrase2 = self.store.annotation("Phrase2")
+        annotations = phrase2.find_annotations(TextSelectionOperator.overlaps())
+        self.assertEqual(len(annotations),2)
+        self.assertTrue(any(annotation.id() == "Phrase1" for annotation in annotations))
+        self.assertTrue(any(annotation.id() == "Sentence1" for annotation in annotations))
+
 
 if __name__ == "__main__":
     unittest.main()

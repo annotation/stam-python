@@ -203,7 +203,15 @@ impl PyAnnotationStore {
         })
     }
 
-    /// Adds an annotation. Returns an Annotation instance pointing to the added annotation.
+    /// Adds an annotation. Returns an :obj:`Annotation` instance pointing to the added annotation.
+    ///
+    /// Args:
+    ///       `target` (:obj:`Selector`) - A target selector
+    ///       `data` (:obj:`dict`) - A dictionary or list of dictionaries with data to set. The dictionary
+    ///                              has may have fields: `id`,`key`,`set`, and `value`.
+    ///                              Alternatively, you can pass an existing`AnnotationData` instance.
+    ///       `id` (:obj:`str`, `optional`) - The public ID for the annotation
+    #[pyo3(signature = (target, data, id=None))]
     fn annotate(
         &mut self,
         target: PySelector,

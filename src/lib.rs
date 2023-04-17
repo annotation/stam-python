@@ -20,7 +20,7 @@ use crate::selector::{PySelector, PySelectorKind};
 use crate::textselection::{PyTextSelection, PyTextSelectionOperator};
 
 #[pymodule]
-pub fn stam(py: Python<'_>, m: &PyModule) -> PyResult<()> {
+fn stam(py: Python<'_>, m: &PyModule) -> PyResult<()> {
     m.add("StamError", py.get_type::<PyStamError>())?;
     m.add_class::<PyAnnotationStore>()?;
     m.add_class::<PyAnnotationDataSet>()?;

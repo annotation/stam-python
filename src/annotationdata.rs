@@ -59,10 +59,10 @@ impl PyDataKey {
 
     /// Returns a list of AnnotationData instances that use this key.
     /// This is a lookup in the reverse index.
-    fn annotationdata<'py>(&self, py: Python<'py>) -> Py<PyList> {
+    fn annotationdata<'py>(&self, limit: Option<usize>, py: Python<'py>) -> Py<PyList> {
         let list: &PyList = PyList::empty(py);
         self.map(|annotationset| {
-            for data in annotationset.data().into_iter().flatten() {
+            for (i, data) in annotationset.data().into_iter().flatten().enumerate() {
                 list.append(
                     PyAnnotationData {
                         handle: data.handle().expect("must have handle"),
@@ -73,6 +73,9 @@ impl PyDataKey {
                     .into_ref(py),
                 )
                 .ok();
+                if Some(i + 1) == limit {
+                    break;
+                }
             }
             Ok(())
         })

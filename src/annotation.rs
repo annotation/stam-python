@@ -38,7 +38,7 @@ impl PyAnnotation {
         self.map(|annotation| Ok(annotation.id().map(|x| x.to_owned())))
     }
 
-    /// Tests the ID of the dataset
+    /// Tests the ID of the item
     fn has_id(&self, other: &str) -> PyResult<bool> {
         self.map(|annotation| Ok(annotation.id() == Some(other)))
     }
@@ -250,8 +250,7 @@ impl PyAnnotation {
         })
     }
 
-    /// Returns the resources this annotation refers to
-    /// They will be returned in a tuple.
+    /// Returns a list of annotation data instances this annotation refers to.
     #[pyo3(signature = (limit=None))]
     fn data<'py>(&self, limit: Option<usize>, py: Python<'py>) -> Py<PyList> {
         let list: &PyList = PyList::empty(py);
@@ -277,8 +276,8 @@ impl PyAnnotation {
         list.into()
     }
 
-    /// Applies a `TextSelectionOperator` to find all other annotations whose text selections
-    /// are in a specific relation with the current one. Returns all matching TextSelections in a list
+    /// Applies a `TextSelectionOperator` to find all other text selections
+    /// are in a specific relation with the ones from the current annotations. Returns all matching TextSelections in a list.
     ///
     /// If you are interested in the annotations associated with the found text selections, then
     /// use `find_annotations()` instead.

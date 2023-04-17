@@ -14,7 +14,7 @@ This library offers a higher-level interface than the underlying Rust library. I
 
 Import the library
 
-```rust
+```python
 import stam
 ```
 

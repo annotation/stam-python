@@ -188,6 +188,25 @@ impl PyTextSelection {
         }
     }
 
+    /// Trims all occurrences of any character in `chars` from both the beginning and end of the text,
+    /// returning a smaller TextSelection. No text is modified.
+    fn strip_text(&self, chars: &str) -> PyResult<PyTextSelection> {
+        let chars: Vec<char> = chars.chars().collect();
+        self.map(|textselection| {
+            textselection
+                .trim_text(&chars)
+                .map(|textselection| PyTextSelection {
+                    textselection: if textselection.is_borrowed() {
+                        textselection.unwrap().clone()
+                    } else {
+                        textselection.unwrap_owned()
+                    },
+                    resource_handle: self.resource_handle,
+                    store: self.store.clone(),
+                })
+        })
+    }
+
     /// Converts an end-aligned cursor to a begin-aligned cursor, resolving all relative end-aligned positions
     /// The parameter value must be 0 or negative.
     fn beginaligned_cursor(&self, endalignedcursor: isize) -> PyResult<usize> {

@@ -200,14 +200,14 @@ impl PySelector {
     /// Shortcut static method to construct a AnnotationSelector
     fn annotationselector(
         annotation: PyRef<PyAnnotation>,
-        offset: PyRef<PyOffset>,
+        offset: Option<PyRef<PyOffset>>,
     ) -> PyResult<Self> {
         PySelector::new(
             &PySelectorKind::ANNOTATIONSELECTOR,
             None,
             Some(annotation),
             None,
-            Some(offset),
+            offset,
             Vec::new(),
         )
     }
@@ -361,7 +361,7 @@ impl PySelector {
         }
     }
 
-    /// Returns the resource this selector points at, ff any.
+    /// Returns the resource this selector points at, if any.
     /// Works only for TextSelector and ResourceSelector, returns None otherwise.
     /// Requires to explicitly pass the store so the resource can be found.
     fn resource(&self, store: PyRef<PyAnnotationStore>) -> PyResult<Option<PyTextResource>> {
@@ -380,7 +380,7 @@ impl PySelector {
 
     /// Returns the annotation dataset this selector points at, ff any.
     /// Works only for DataSetSelector, returns None otherwise.
-    /// Requires to explicitly pass the store so the resource can be found.
+    /// Requires to explicitly pass the store so the dataset can be found.
     fn dataset(&self, store: PyRef<PyAnnotationStore>) -> PyResult<Option<PyAnnotationDataSet>> {
         match &self.selector {
             Selector::DataSetSelector(handle) => Ok(Some(PyAnnotationDataSet {

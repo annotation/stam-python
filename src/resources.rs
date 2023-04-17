@@ -191,7 +191,7 @@ impl PyTextResource {
         Ok(list.into())
     }
 
-    /// Returns a tuple of [`TextSelection`] instances that split the text according to the specified delimiter.
+    /// Returns a list of [`TextSelection`] instances that split the text according to the specified delimiter.
     /// You can set `limit` to the max number of elements you want to return.
     fn split_text(&self, delimiter: &str, limit: Option<usize>, py: Python) -> Py<PyList> {
         let list: &PyList = PyList::empty(py);
@@ -267,7 +267,6 @@ impl PyTextResource {
     }
 
     /// Iterates over all known textselections that start in the spceified range, in sorted order
-    //TODO:  this should be __getitem__() with a proper python slice
     fn range(&self, begin: usize, end: usize) -> PyResult<PyTextSelectionIter> {
         Ok(PyTextSelectionIter {
             positions: self

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Iterator, List, Optional, Tuple, Type, TypeAlias, Union
+from typing import Iterator, List, Optional, Union
 
 class AnnotationStore:
     """
@@ -90,7 +90,7 @@ class AnnotationStore:
     def resources_len(self) -> int:
         """Returns the number of text resources in the store (not substracting deletions)"""
 
-    def select(self, selector: Selector) -> Union[TextResource,Annotation,AnnotationDataSet,TextSelection, List[TextResource,Annotation,AnnotationDataSet,TextSelection]]:
+    def select(self, selector: Selector) -> Union[TextResource,Annotation,AnnotationDataSet,TextSelection, List[TextResource],List[Annotation],List[AnnotationDataSet],List[TextSelection]]:
         """
         Applies a selector to the annotation store and returns the target(s)
         May return a multitude of types depending on the selector, returns
@@ -196,7 +196,7 @@ class Annotation:
     def data(self, limit: Optional[int] = None) -> List[AnnotationData]:
         """Returns a list of annotation data instances this annotation refers to."""
 
-    def find_textselections(operator: TextSelectionOperator, limit: Optional[int] = None) -> List[TextSelection]:
+    def find_textselections(self, operator: TextSelectionOperator, limit: Optional[int] = None) -> List[TextSelection]:
         """
         Applies a :class:`TextSelectionOperator` to find all other
         text selections who are in a specific relation with the ones from the current annotation. 
@@ -214,7 +214,7 @@ class Annotation:
             The maximum number of results to return (default: unlimited)
         """
 
-    def find_annotations(operator: TextSelectionOperator, limit: Optional[int] = None) -> List[Annotation]:
+    def find_annotations(self, operator: TextSelectionOperator, limit: Optional[int] = None) -> List[Annotation]:
         """
         Applies a :class:`TextSelectionOperator` to find all other annotations whose text selections
         are in a specific relation with the ones from the current annotation. 
@@ -371,6 +371,679 @@ class AnnotationData:
         limit: Optional[int] = None
             The maximum number of results to return (default: unlimited)
         """
+
+class Selector:
+    """
+    A *Selector* identifies the target of an annotation and the part of the
+    target that the annotation applies to. Selectors can be considered the labelled edges of the graph model, tying all nodes together.
+    There are multiple types of selectors, all captured in this class. There are several static methods available to instantiate a specific type of selector.
+    """
+    
+    @staticmethod
+    def textselector(resource: TextResource, offset: Offset) -> Selector:
+        """Creates a *TextSelector*. Selects a target resource and a text span within it. 
+
+        Parameters
+        ------------
+
+        resource: TextResource
+            The text resource 
+        offset: Offset
+            An offset pointing to the slice of the text in the resource 
+        """
+
+    @staticmethod
+    def annotationselector(annotation: Annotation, offset: Optional[Offset] = None) -> Selector:
+        """Creates an *AnnotationSelector* - A selector pointing to another annotation. This we call higher-order annotation and is very common in STAM models. If the annotation that is being targeted eventually refers to a text (`TextSelector`), then offsets **MAY** be specified that select a subpart of this text. These offsets are now *relative* to the annotation.
+
+        Parameters
+        ------------
+
+        annotation: Annotation
+            The target annotation 
+        offset: Optional[Offset]
+            If sets, references a subpart of the annotation's text. If set to `None`, it applies to the annotation as such. 
+        """
+
+    @staticmethod
+    def resourceselector(resource: TextResource) -> Selector:
+        """Creates a *ResourceSelector* - A selector pointing to a resource as whole. These type
+  of annotation can be interpreted as *metadata*.
+
+        Parameters
+        ------------
+
+        resource: TextResource
+            The resource 
+        """
+
+    @staticmethod
+    def datasetselector(dataset: AnnotationDataSet) -> Selector:
+        """Creates a *DataSetSelector* - A selector pointing to an annotation dataset as whole. These type
+  of annotation can be interpreted as *metadata*.
+
+        Parameters
+        ------------
+
+        dataset: AnnotationDataSet
+            The annotation data set.
+        """
+
+    @staticmethod
+    def multiselector(subselectors: List[Selector]) -> Selector:
+        """Creates a *MultiSelector* - A selector that consists of multiple other selectors (subselectors) to select multiple targets. This *MUST* be interpreted as the annotation applying to each target *individually*, without any relation between the different targets.
+
+        Parameters
+        ------------
+
+        subselectors: List[Selector]
+            The underlying selectors.
+        """
+
+    @staticmethod
+    def compositeselector(subselectors: List[Selector]) -> Selector:
+        """Creates a *CompositeSelector* - A selector that consists of multiple other selectors (subselectors), these are used to select more complex targets that transcend the idea of a single simple selection. This *MUST* be interpreted as the annotation applying equally to the conjunction as a whole, its parts being inter-dependent and for any of them it goes that they *MUST NOT* be omitted for the annotation to make sense.
+
+        Parameters
+        ------------
+
+        subselectors: List[Selector]
+            The underlying selectors.
+        """
+
+    @staticmethod
+    def directionalselector(subselectors: List[Selector]) -> Selector:
+        """Creates a *DirectionalSelector* - Another selector that consists of multiple other
+        selectors, but with an explicit direction (from -> to), used to select more
+        complex targets that transcend the idea of a single simple selection.
+
+        Parameters
+        ------------
+
+        subselectors: List[Selector]
+            The underlying selectors.
+        """
+
+    def kind(self) -> SelectorKind:
+        """Returns the type of selector"""
+
+    def is_kind(self, kind: SelectorKind) -> bool:
+        """Tests whether a selector if a is of a particular type"""
+
+    def offset(self) -> Optional[Offset]:
+        """
+        Return offset information in the selector.
+        Works for TextSelector and AnnotationSelector, returns None for others.
+        """
+
+    def resource(self, store: AnnotationStore) -> Optional[TextResource]:
+        """
+        Returns the resource this selector points at, if any.
+        Works only for TextSelector and ResourceSelector, returns None otherwise.
+        Requires to explicitly pass the store so the resource can be found.
+        """
+
+    def dataset(self, store: AnnotationStore) -> Optional[AnnotationDataSet]:
+        """
+        Returns the annotation dataset this selector points at, ff any.
+        Works only for DataSetSelector, returns None otherwise.
+        Requires to explicitly pass the store so the dataset can be found.
+        """
+
+class SelectorKind:
+    """An enumeration of possible selector types"""
+
+    RESOURCESELECTOR: SelectorKind
+    ANNOTATIONSELECTOR: SelectorKind
+    TEXTSELECTOR: SelectorKind
+    DATASETSELECTOR: SelectorKind
+    MULTISELECTOR: SelectorKind
+    COMPOSITESELECTOR: SelectorKind
+    DIRECTIONALSELECTOR: SelectorKind
+
+class Offset:
+    """
+    Text selection offset. Specifies begin and end offsets to select a range of a text, via two :class:`Cursor` instances.
+    The end-point is non-inclusive.
+    """
+
+    def __init__(self, begin: Cursor, end: Cursor) -> None:
+        """Instantiate a new offset on the basis of two :class:`Cursor` instances"""
+
+    @staticmethod
+    def simple(begin: int, end: int) -> Offset:
+        """Instantiate a new offset on the basis of two begin aligned cursors"""
+
+    @staticmethod
+    def whole() -> Offset:
+        """Instantiate a new offset that targets an entire text from begin to end."""
+
+    def begin(self) -> Cursor:
+        """Returns the begin cursor"""
+
+    def end(self) -> Cursor:
+        """Returns the end cursor"""
+
+
+class Cursor:
+    """
+    A cursor points to a specific point in a text. It is used to select offsets. Units are unicode codepoints (not bytes!)
+    and are 0-indexed.
+   
+    The cursor can be either begin-aligned or end-aligned. Where BeginAlignedCursor(0)
+    is the first unicode codepoint in a referenced text, and EndAlignedCursor(0) the last one.
+    """
+
+    def __init__(self, index, endaligned: bool = False):
+        """Instantiate a new cursor.
+
+        Parameters
+        ------------
+
+        index: int
+            The value for the cursor. 
+        endaligned: bool
+            Signals you want an end-aligned cursor, otherwise it is begin-aligned. If set this to True the index value should be 0 or negative, otherwise 0 or positive.
+        """
+
+    def is_beginaligned(self) -> bool:
+       """Tests if this is a begin-aligned cursor"""
+
+    def is_endaligned(self) -> bool:
+       """Tests if this is an end-aligned cursor"""
+
+    def value(self) -> int:
+        """Get the actual cursor value"""
+
+class TextResource:
+    """
+    This holds the textual resource to be annotated. It holds the full text in memory.
+   
+    The text *SHOULD* be in
+    [Unicode Normalization Form C (NFC) (https://www.unicode.org/reports/tr15/) but
+    *MAY* be in another unicode normalization forms.
+    """
+
+    def id(self) -> Optional[str]:
+        """Returns the public ID (by value, aka a copy)
+        Don't use this for extensive ID comparisons, use :meth:`has_id` instead as it is more performant (no copy)."""
+
+    def has_id(self, id: str) -> Optional[str]:
+        """Tests the ID"""
+
+    def __iter__(self) -> Iterator[TextSelection]:
+        """Iterates over all known textselections in this resource, in sorted order. Same as :meth:`textselections`"""
+
+    def textselections(self) -> Iterator[TextSelection]:
+        """Iterates over all known textselections in this resource, in sorted order. Same as :meth:`__iter__`"""
+
+    def selector(self) -> Selector:
+        """Returns a selector pointing to this resource"""
+
+    def text(self) -> str:
+        """Returns the text of the resource (by value, aka a copy)"""
+
+    def textlen(self) -> int:
+        """
+        Returns the length of the resources's text in unicode points (same as `len(self.text())` but more performant)
+        """
+
+    def __str__(self) -> str:
+        """Returns the text of the resource (by value, aka a copy), same as :meth:`text`"""
+
+    def __getitem__(self, slice: slice) -> str:
+        """Returns a text slice"""
+
+    def textselection(self, offset: Offset) -> TextSelection:
+        """
+        Returns a :class:`TextSelection` instance covering the specified offset.
+        """
+
+    def find_text(self, fragment: str, limit: Optional[int] = None) -> List[TextSelection]:
+        """Searches for the text fragment and returns a list of :class:`TextSelection` instances with all matches (or up to the specified limit)
+
+        Parameters
+        ------------
+
+        fragment: str
+            The exact fragment to search for (case-sensitive)
+        limit: Optional[int] = None
+            The maximum number of results to return (default: unlimited)
+        """
+
+    def find_text_regex(self, expressions: List[str], allow_overlap: Optional[bool] = False, limit: Optional[int] = None) -> List[dict]:
+        """
+        Searches the text using one or more regular expressions, returns a list of dictionaries like:
+
+        code::
+
+            { "textselections": [TextSelection], "expression_index": int, "capturegroups": [int] }
+       
+        Passing multiple regular expressions at once is more efficient than calling this function anew for each one.
+        If capture groups are used in the regular expression, only those parts will be returned (the rest is context). If none are used,
+        the entire expression is returned. The regular expressions are passed as strings and
+         must follow this syntax: https://docs.rs/regex/latest/regex/#syntax , which may differ slightly from Python's regular expressions!
+       
+        The `allow_overlap` parameter determines if the matching expressions are allowed to
+        overlap. It you are doing some form of tokenisation, you also likely want this set to
+        false. All of this only matters if you supply multiple regular expressions.
+       
+        Results are returned in the exact order they are found in the text
+        """
+
+    def split_text(self, delimiter: str, limit: Optional[int] = None) -> List[TextSelection]:
+        """
+        Returns a list of :class:`TextSelection` instances that split the text according to the specified delimiter.
+
+        Parameters
+        ------------
+
+        delimiter: str
+           The delimiter to split on 
+        limit: Optional[int] = None
+            The maximum number of results to return (default: unlimited)
+        """
+
+    def strip_text(self, chars: str) -> TextSelection:
+        """
+        Trims all occurrences of any character in `chars` from both the beginning and end of the text,
+        returning a :class:`TextSelection`. No text is modified.
+        """
+
+    def range(self, begin, end) -> Iterator[TextSelection]:
+        """Iterates over all known textselections that start in the specified range, in sorted order."""    
+
+    def utf8byte(self, abscursor: int) -> int:
+        """Converts a unicode character position to a UTF-8 byte position"""
+
+    def utf8byte_to_charpos(self, bytecursor: int) -> int:
+        """Converts a UTF-8 byte position into a unicode position"""
+
+    def beginaligned_cursor(self, endalignedcursor: int) -> int:
+        """
+        Converts an end-aligned cursor to a begin-aligned cursor, resolving all relative end-aligned positions
+        The parameter value must be 0 or negative.
+        """
+
+    def annotations(self, limit: Optional[int] = None) -> List[Annotation]:
+        """Returns a list of annotations (:class:`Annotation`) that reference this resource via a *TextSelector* (if any).
+        Does *NOT* include those that use a ResourceSelector, use :meth:`annotations_metadata` instead for those instead.
+
+        Parameters
+        ------------
+
+        limit: Optional[int] = None
+            The maximum number of results to return (default: unlimited)
+        """
+
+
+    def annotations_metadata(self, limit: Optional[int] = None) -> List[Annotation]:
+        """Returns a list of annotations (:class:`Annotation`) that reference this resource via a *ResourceSelector* (if any).
+        Does *NOT* include those that use a TextSelector, use :meth:`annotations` instead for those instead.
+
+        Parameters
+        ------------
+
+        limit: Optional[int] = None
+            The maximum number of results to return (default: unlimited)
+        """
+
+    def find_textselections(self, operator: TextSelectionOperator, referenceselections: List[TextSelection], limit: Optional[int] = None) -> List[TextSelection]:
+        """
+        Applies a :class:`TextSelectionOperator` to find all other
+        text selections who are in a specific relation with the ones from `referenceselections`.
+        Returns all matching :class:`TextSelection` instances in a list.
+       
+        Parameters
+        ------------
+
+        operator: TextSelectionOperator
+            The operator to apply when comparing text selections
+        referenceselections: List[TextSelection]
+            Text selections to use as reference
+        limit: Optional[int] = None
+            The maximum number of results to return (default: unlimited)
+        """
+
+class TextSelection:
+    """
+    This holds a slice of a text.
+    """
+
+    def resource(self) -> TextResource:
+        """Returns the :class:`TextResource` this textselection is from."""
+
+    def begin(self) -> int:
+        """Return the absolute begin position in unicode points"""
+
+    def end(self) -> int:
+        """Return the absolute end position in unicode points (non-inclusive)"""
+
+    def selector(self) -> Selector:
+        """Returns a selector pointing to this resource"""
+
+    def text(self) -> str:
+        """Returns the text of the resource (by value, aka a copy)"""
+
+    def textlen(self) -> int:
+        """
+        Returns the length of the resources's text in unicode points (same as `len(self.text())` but more performant)
+        """
+
+    def __str__(self) -> str:
+        """Returns the text of the resource (by value, aka a copy), same as :meth:`text`"""
+
+    def __getitem__(self, slice: slice) -> str:
+        """Returns a text slice"""
+
+    def textselection(self, offset: Offset) -> TextSelection:
+        """
+        Returns a :class:`TextSelection` that corresponds to the offset **WITHIN** the current textselection.
+        This returns a :class:`TextSelection` with absolute coordinates in the resource.
+        """
+
+    def find_text(self, fragment: str, limit: Optional[int] = None) -> List[TextSelection]:
+        """Searches for the text fragment and returns a list of :class:`TextSelection` instances with all matches (or up to the specified limit)
+
+        Parameters
+        ------------
+
+        fragment: str
+            The exact fragment to search for (case-sensitive)
+        limit: Optional[int] = None
+            The maximum number of results to return (default: unlimited)
+        """
+
+    def find_text_regex(self, expressions: List[str], allow_overlap: Optional[bool] = False, limit: Optional[int] = None) -> List[dict]:
+        """
+        Searches the text using one or more regular expressions, returns a list of dictionaries like:
+
+        code::
+
+            { "textselections": [TextSelection], "expression_index": int, "capturegroups": [int] }
+       
+        Passing multiple regular expressions at once is more efficient than calling this function anew for each one.
+        If capture groups are used in the regular expression, only those parts will be returned (the rest is context). If none are used,
+        the entire expression is returned. The regular expressions are passed as strings and
+         must follow this syntax: https://docs.rs/regex/latest/regex/#syntax , which may differ slightly from Python's regular expressions!
+       
+        The `allow_overlap` parameter determines if the matching expressions are allowed to
+        overlap. It you are doing some form of tokenisation, you also likely want this set to
+        false. All of this only matters if you supply multiple regular expressions.
+       
+        Results are returned in the exact order they are found in the text
+        """
+
+    def split_text(self, delimiter: str, limit: Optional[int] = None) -> List[TextSelection]:
+        """
+        Returns a list of :class:`TextSelection` instances that split the text according to the specified delimiter.
+
+        Parameters
+        ------------
+
+        delimiter: str
+           The delimiter to split on 
+        limit: Optional[int] = None
+            The maximum number of results to return (default: unlimited)
+        """
+
+    def strip_text(self, chars: str) -> TextSelection:
+        """
+        Trims all occurrences of any character in `chars` from both the beginning and end of the text,
+        returning a :class:`TextSelection`. No text is modified.
+        """
+
+    def utf8byte(self, abscursor: int) -> int:
+        """Converts a unicode character position to a UTF-8 byte position"""
+
+    def utf8byte_to_charpos(self, bytecursor: int) -> int:
+        """Converts a UTF-8 byte position into a unicode position"""
+
+    def beginaligned_cursor(self, endalignedcursor: int) -> int:
+        """
+        Converts an end-aligned cursor to a begin-aligned cursor, resolving all relative end-aligned positions
+        The parameter value must be 0 or negative.
+        """
+
+    def annotations(self, limit: Optional[int] = None) -> List[Annotation]:
+        """Returns a list of annotations (:class:`Annotation`) that reference this resource via a *TextSelector* (if any).
+        Does *NOT* include those that use a ResourceSelector, use :meth:`annotations_metadata` instead for those instead.
+
+        Parameters
+        ------------
+
+        limit: Optional[int] = None
+            The maximum number of results to return (default: unlimited)
+        """
+
+
+    def annotations_metadata(self, limit: Optional[int] = None) -> List[Annotation]:
+        """Returns a list of annotations (:class:`Annotation`) that reference this resource via a *ResourceSelector* (if any).
+        Does *NOT* include those that use a TextSelector, use :meth:`annotations` instead for those instead.
+
+        Parameters
+        ------------
+
+        limit: Optional[int] = None
+            The maximum number of results to return (default: unlimited)
+        """
+
+    def find_textselections(self, operator: TextSelectionOperator, limit: Optional[int] = None) -> List[TextSelection]:
+        """
+        Applies a :class:`TextSelectionOperator` to find all other
+        text selections who are in a specific relation with this one.
+        Returns all matching :class:`TextSelection` instances in a list.
+       
+        Parameters
+        ------------
+
+        operator: TextSelectionOperator
+            The operator to apply when comparing text selections
+        limit: Optional[int] = None
+            The maximum number of results to return (default: unlimited)
+        """
+
+    def find_annotations(self, operator: TextSelectionOperator, limit: Optional[int] = None) -> List[Annotation]:
+        """
+        Applies a :class:`TextSelectionOperator` to find all annotations whose text selections
+        are in a specific relation with the this one.. 
+        Returns all matching :class:`Annotation` instances in a list.
+       
+        If you are interested in the annotations associated with the found text selections, then
+        use :meth:`find_annotations` instead.
+
+        Parameters
+        ------------
+
+        operator: TextSelectionOperator
+            The operator to apply when comparing the underlying text selections
+        limit: Optional[int] = None
+            The maximum number of results to return (default: unlimited)
+        """
+
+    def relative_offset(self, container: TextSelection) -> Offset:
+        """
+        Returns the offset of this text selection relative to another in which it is *embedded*.
+        Raises a `StamError` exception if they are not embedded, or not belonging to the same resource.
+        """
+
+
+class TextSelectionOperator:
+    """
+    The TextSelectionOperator, simply put, allows comparison of two :class:`TextSelection' instances. It
+    allows testing for all kinds of spatial relations (as embodied by this enum) in which two
+    :class:`TextSelection` instances can be.
+   
+    Rather than operator on single :class:`TextSelection` instances, te implementation goes a bit
+    further and can act also on the basis of multiple :class:`TextSelection` as a set;
+    allowing you to compare two sets, each containing possibly multiple TextSelections, at once.
+
+    The operator is instantiated via one of its static methods.
+    """
+
+    @staticmethod
+    def equals(all: Optional[bool] = False, negate: Optional[bool] = False) -> TextSelectionOperator:
+        """
+        Create an operator to test if two textselection(sets) occupy cover the exact same TextSelections, and all are covered (cf. textfabric's `==`), commutative, transitive
+
+        Parameters
+        -----------------
+        all: Optional[bool]
+            If this is set, then for each `TextSelection` in A, the relationship must hold with **ALL** of the text selections in B. The normal behaviour, when this is set to false, is a match with any item suffices (and may be returned).
+        negate: Optional[bool] 
+            Inverses the operator (turns it into a negation).
+        """
+
+    @staticmethod
+    def overlaps(all: Optional[bool] = False, negate: Optional[bool] = False) -> TextSelectionOperator:
+        """
+        Create an operator to test if two textselection(sets) overlap.
+        Each TextSelection in A overlaps with a TextSelection in B (cf. textfabric's `&&`), commutative
+        If modifier `all` is set: Each TextSelection in A overlaps with all TextSelection in B (cf. textfabric's `&&`), commutative
+
+        Parameters
+        -----------------
+        all: Optional[bool]
+            If this is set, then for each `TextSelection` in A, the relationship must hold with **ALL** of the text selections in B. The normal behaviour, when this is set to false, is a match with any item suffices (and may be returned).
+        negate: Optional[bool] 
+            Inverses the operator (turns it into a negation).
+        """
+
+    @staticmethod
+    def embeds(all: Optional[bool] = False, negate: Optional[bool] = False) -> TextSelectionOperator:
+        """
+        Create an operator to test if two textselection(sets) are embedded.
+        All TextSelections in B are embedded by a TextSelection in A (cf. textfabric's `[[`)
+        If modifier `all` is set: All TextSelections in B are embedded by all TextSelection in A (cf. textfabric's `[[`)
+
+        Parameters
+        -----------------
+        all: Optional[bool]
+            If this is set, then for each `TextSelection` in A, the relationship must hold with **ALL** of the text selections in B. The normal behaviour, when this is set to false, is a match with any item suffices (and may be returned).
+        negate: Optional[bool] 
+            Inverses the operator (turns it into a negation).
+        """
+
+
+    @staticmethod
+    def embedded(all: Optional[bool] = False, negate: Optional[bool] = False) -> TextSelectionOperator:
+        """
+        Create an operator to test if two textselection(sets) are embedded.
+        All TextSelections in B are embedded by a TextSelection in A (cf. textfabric's `[[`)
+        If modifier `all` is set: All TextSelections in B are embedded by all TextSelection in A (cf. textfabric's `[[`)
+
+        Parameters
+        -----------------
+        all: Optional[bool]
+            If this is set, then for each `TextSelection` in A, the relationship must hold with **ALL** of the text selections in B. The normal behaviour, when this is set to false, is a match with any item suffices (and may be returned).
+        negate: Optional[bool] 
+            Inverses the operator (turns it into a negation).
+        """
+
+    @staticmethod
+    def precedes(all: Optional[bool] = False, negate: Optional[bool] = False) -> TextSelectionOperator:
+        """
+        Create an operator to test if one textselection(sets) precedes another
+        Each TextSelections in A precedes (comes before) a textselection in B
+        If modifier `all` is set: All TextSelections in A precede (come before) all textselections in B. There is no overlap (cf. textfabric's `<<`)
+
+        Parameters
+        -----------------
+        all: Optional[bool]
+            If this is set, then for each `TextSelection` in A, the relationship must hold with **ALL** of the text selections in B. The normal behaviour, when this is set to false, is a match with any item suffices (and may be returned).
+        negate: Optional[bool] 
+            Inverses the operator (turns it into a negation).
+        """
+
+    @staticmethod
+    def succeeds(all: Optional[bool] = False, negate: Optional[bool] = False) -> TextSelectionOperator:
+        """
+        Create an operator to test if one textselection(sets) succeeds another
+        Each TextSeleciton In A succeeds (comes after) a textselection in B
+        If modifier `all` is set: All TextSelections in A succeed (come after) all textselections in B. There is no overlap (cf. textfabric's `>>`)
+
+        Parameters
+        -----------------
+        all: Optional[bool]
+            If this is set, then for each `TextSelection` in A, the relationship must hold with **ALL** of the text selections in B. The normal behaviour, when this is set to false, is a match with any item suffices (and may be returned).
+        negate: Optional[bool] 
+            Inverses the operator (turns it into a negation).
+        """
+
+    @staticmethod
+    def leftadjacent(all: Optional[bool] = False, negate: Optional[bool] = False) -> TextSelectionOperator:
+        """
+        Create an operator to test if one textselection(sets) is to the immediate left of another
+        Each TextSelection in A is ends where at least one TextSelection in B begins.
+        If modifier `all` is set: The rightmost TextSelections in A end where the leftmost TextSelection in B begins  (cf. textfabric's `<:`)
+
+        Parameters
+        -----------------
+        all: Optional[bool]
+            If this is set, then for each `TextSelection` in A, the relationship must hold with **ALL** of the text selections in B. The normal behaviour, when this is set to false, is a match with any item suffices (and may be returned).
+        negate: Optional[bool] 
+            Inverses the operator (turns it into a negation).
+        """
+
+    @staticmethod
+    def rightadjacent(all: Optional[bool] = False, negate: Optional[bool] = False) -> TextSelectionOperator:
+        """
+        Create an operator to test if one textselection(sets) is to the immediate right of another
+        Each TextSelection in A is begis where at least one TextSelection in A ends.
+        If modifier `all` is set: The leftmost TextSelection in A starts where the rightmost TextSelection in B ends  (cf. textfabric's `:>`)
+
+        Parameters
+        -----------------
+        all: Optional[bool]
+            If this is set, then for each `TextSelection` in A, the relationship must hold with **ALL** of the text selections in B. The normal behaviour, when this is set to false, is a match with any item suffices (and may be returned).
+        negate: Optional[bool] 
+            Inverses the operator (turns it into a negation).
+        """
+
+    @staticmethod
+    def samebegin(all: Optional[bool] = False, negate: Optional[bool] = False) -> TextSelectionOperator:
+        """
+        Create an operator to test if two textselection(sets) have the same begin position
+        Each TextSelection in A starts where a TextSelection in B starts
+        If modifier `all` is set: The leftmost TextSelection in A starts where the leftmost TextSelection in B start  (cf. textfabric's `=:`)
+
+        Parameters
+        -----------------
+        all: Optional[bool]
+            If this is set, then for each `TextSelection` in A, the relationship must hold with **ALL** of the text selections in B. The normal behaviour, when this is set to false, is a match with any item suffices (and may be returned).
+        negate: Optional[bool] 
+            Inverses the operator (turns it into a negation).
+        """
+
+    @staticmethod
+    def sameend(all: Optional[bool] = False, negate: Optional[bool] = False) -> TextSelectionOperator:
+        """
+        Create an operator to test if two textselection(sets) have the same end position
+        Each TextSelection in A ends where a TextSelection in B ends
+        If modifier `all` is set: The rightmost TextSelection in A ends where the rights TextSelection in B ends  (cf. textfabric's `:=`)
+
+        Parameters
+        -----------------
+        all: Optional[bool]
+            If this is set, then for each `TextSelection` in A, the relationship must hold with **ALL** of the text selections in B. The normal behaviour, when this is set to false, is a match with any item suffices (and may be returned).
+        negate: Optional[bool] 
+            Inverses the operator (turns it into a negation).
+        """
+
+class StamError:
+    pass
+
+
+
+        
+
+
+
+
+    
+    
+
+
 
 
 

@@ -47,10 +47,10 @@ class AnnotationStore:
     def resource(self, id: str) -> TextResource:
         """Basic retrieval method that returns a :class:`TextResource` by ID"""
 
-    def add_resource(self, filename: Optional[str], text: Optional[str], id: Optional[str]) -> TextResource:
+    def add_resource(self, filename: Optional[str] = None, text: Optional[str] = None, id: Optional[str] = None) -> TextResource:
         """Create a new :class:`TextResource` and add it to the store. Returns the added instance."""
 
-    def add_anotationset(self, id: str) -> AnnotationDataSet:
+    def add_annotationset(self, id: str) -> AnnotationDataSet:
         """Create a new :class:`AnnotationDataSet` and add it to the store. Returns the added instance."""
 
     def set_filename(self, filename: str) -> None:
@@ -263,7 +263,7 @@ class AnnotationDataSet:
     def data_len(self) -> int:
         """Returns the number of annotation data instances in the set"""
 
-    def add_data(self, key: str) -> AnnotationData:
+    def add_data(self, key: str, value: Union[DataValue,str,float,int,list,bool], id: Optional[str] = None) -> AnnotationData:
         """Create a new :class:`AnnotationData` instances and add it to the dataset. Returns the added data."""
 
     def annotationdata(self, id: str) -> AnnotationData:
@@ -430,29 +430,29 @@ class Selector:
         """
 
     @staticmethod
-    def multiselector(subselectors: List[Selector]) -> Selector:
+    def multiselector(*subselectors: Selector) -> Selector:
         """Creates a *MultiSelector* - A selector that consists of multiple other selectors (subselectors) to select multiple targets. This *MUST* be interpreted as the annotation applying to each target *individually*, without any relation between the different targets.
 
         Parameters
         ------------
 
-        subselectors: List[Selector]
+        *subselectors: Selector
             The underlying selectors.
         """
 
     @staticmethod
-    def compositeselector(subselectors: List[Selector]) -> Selector:
+    def compositeselector(*subselectors: Selector) -> Selector:
         """Creates a *CompositeSelector* - A selector that consists of multiple other selectors (subselectors), these are used to select more complex targets that transcend the idea of a single simple selection. This *MUST* be interpreted as the annotation applying equally to the conjunction as a whole, its parts being inter-dependent and for any of them it goes that they *MUST NOT* be omitted for the annotation to make sense.
 
         Parameters
         ------------
 
-        subselectors: List[Selector]
+        *subselectors: Selector
             The underlying selectors.
         """
 
     @staticmethod
-    def directionalselector(subselectors: List[Selector]) -> Selector:
+    def directionalselector(*subselectors: Selector) -> Selector:
         """Creates a *DirectionalSelector* - Another selector that consists of multiple other
         selectors, but with an explicit direction (from -> to), used to select more
         complex targets that transcend the idea of a single simple selection.
@@ -460,7 +460,7 @@ class Selector:
         Parameters
         ------------
 
-        subselectors: List[Selector]
+        *subselectors: Selector
             The underlying selectors.
         """
 
@@ -1030,23 +1030,5 @@ class TextSelectionOperator:
             Inverses the operator (turns it into a negation).
         """
 
-class StamError:
-    pass
-
-
-
-        
-
-
-
-
-    
-    
-
-
-
-
-
-
-
-
+class StamError(Exception):
+    """STAM Error"""

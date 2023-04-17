@@ -236,6 +236,7 @@ class Test1(unittest.TestCase):
         """Find annotationdata by value"""
         annotationset = self.store.annotationset("testdataset")
         annotationdata = annotationset.find_data("pos","noun")
+        assert annotationdata is not None
         self.assertIsInstance(annotationdata, AnnotationData)
         self.assertTrue(annotationdata.has_id("D1"))
 
@@ -244,6 +245,7 @@ class Test1(unittest.TestCase):
         annotationset = self.store.annotationset("testdataset")
         datakey = annotationset.key("pos")
         annotationdata = datakey.find_data("noun")
+        assert annotationdata is not None
         self.assertIsInstance(annotationdata, AnnotationData)
         self.assertTrue(annotationdata.has_id("D1"))
 
@@ -459,6 +461,8 @@ class Test4(unittest.TestCase):
         selector = annotation.target()
         count = 0
         for targets in self.store.select(selector):
+            self.assertIsInstance(targets, list)
+            self.assertIsInstance(targets[0], Annotation)
             count += 1
             if count == 1:
                 self.assertTrue( targets[0].has_id("A1"))

@@ -118,6 +118,79 @@ impl PyTextResource {
         list.into()
     }
 
+    /// Searches the text using one or more regular expressions, returns an list of dictionaries with items:
+    /// `{ "textselections": [TextSelection], "expression_index": int, "capturegroups": [int] }
+    ///
+    /// Passing multiple regular expressions at once is more efficient than calling this function anew for each one.
+    /// If capture groups are used in the regular expression, only those parts will be returned (the rest is context). If none are used,
+    /// the entire expression is returned. The regular expressions are passed as strings and
+    //// must follow this syntax: https://docs.rs/regex/latest/regex/#syntax , which may differ slightly from Python's regular expressions!
+    ///
+    /// The `allow_overlap` parameter determines if the matching expressions are allowed to
+    /// overlap. It you are doing some form of tokenisation, you also likely want this set to
+    /// false. All of this only matters if you supply multiple regular expressions.
+    ///
+    /// Results are returned in the exact order they are found in the text
+    fn find_text_regex(
+        &self,
+        expressions: &PyList,
+        allow_overlap: Option<bool>,
+        limit: Option<usize>,
+        py: Python,
+    ) -> PyResult<Py<PyList>> {
+        //MAYBE TODO: there's room for performance improvement here probably
+        let mut regexps: Vec<Regex> = Vec::new();
+        for expression in expressions.iter() {
+            //MAYBE TODO: allow precompiled regexps
+            let expression: &str = expression.extract()?;
+            regexps.push(Regex::new(expression).map_err(|e| {
+                PyValueError::new_err(format!(
+                    "Unable to parse regular expression: {} - {}",
+                    expression, e
+                ))
+            })?);
+        }
+        let list: &PyList = PyList::empty(py);
+        self.map(|res| {
+            for (i, regexmatch) in res
+                .find_text_regex(&regexps, None, allow_overlap.unwrap_or(false))?
+                .enumerate()
+            {
+                let textselections: &PyList = PyList::empty(py);
+                for textselection in regexmatch.textselections() {
+                    textselections
+                        .append(
+                            PyTextSelection {
+                                textselection: if textselection.is_borrowed() {
+                                    textselection.unwrap().clone()
+                                } else {
+                                    textselection.clone().unwrap_owned()
+                                },
+                                resource_handle: self.handle,
+                                store: self.store.clone(),
+                            }
+                            .into_py(py)
+                            .into_ref(py),
+                        )
+                        .ok();
+                }
+                let dict: &PyDict = PyDict::new(py);
+                dict.set_item("textselections", textselections).unwrap();
+                dict.set_item("expression_index", regexmatch.expression_index())
+                    .unwrap();
+                dict.set_item("capturegroups", Some(regexmatch.capturegroups()))
+                    .unwrap();
+                list.append(dict).ok();
+                if Some(i + 1) == limit {
+                    break;
+                }
+            }
+            Ok(())
+        })
+        .ok();
+        Ok(list.into())
+    }
+
     /// Returns a tuple of [`TextSelection`] instances that split the text according to the specified delimiter.
     /// You can set `limit` to the max number of elements you want to return.
     fn split_text(&self, delimiter: &str, limit: Option<usize>, py: Python) -> Py<PyList> {

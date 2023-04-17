@@ -1,4 +1,4 @@
-use pyo3::exceptions::PyRuntimeError;
+use pyo3::exceptions::{PyRuntimeError, PyValueError};
 use pyo3::prelude::*;
 use pyo3::pyclass::CompareOp;
 use pyo3::types::*;
@@ -318,6 +318,60 @@ impl PyTextSelection {
         })
         .ok();
         list.into()
+    }
+
+    /// Returns the offset of this text selection relative to another in which it is *embedded*.
+    /// Raises a `StamError` exception if they are not embedded, or not belonging to the same resource.
+    fn relative_offset(&self, container: &PyTextSelection) -> PyResult<PyOffset> {
+        if self.resource_handle != container.resource_handle {
+            return Err(PyStamError::new_err(
+                "TextSelection and Container do not belong to the same resource",
+            ));
+        }
+        self.map(|textselection| {
+            let offset = textselection
+                .relative_offset(&container.textselection)
+                .ok_or(StamError::OtherError(
+                    "TextSelection is not embedded in specified container, cursor out of bounds",
+                ))?;
+            Ok(PyOffset { offset })
+        })
+    }
+
+    /// Returns the begin cursor of this text selection relative to another with which the begin *overlaps*.
+    /// Raises a `StamError` exception if they do not overlap, or not belonging to the same resource.
+    fn relative_begin(&self, container: &PyTextSelection) -> PyResult<usize> {
+        if self.resource_handle != container.resource_handle {
+            return Err(PyStamError::new_err(
+                "TextSelection and Container do not belong to the same resource",
+            ));
+        }
+        self.map(|textselection| {
+            let cursor = textselection
+                .relative_begin(&container.textselection)
+                .ok_or(StamError::OtherError(
+                    "TextSelection begin does not overlap with specified container, cursor out of bounds",
+                ))?;
+            Ok(cursor )
+        })
+    }
+
+    /// Returns the begin cursor of this text selection relative to another with which the begin *overlaps*.
+    /// Raises a `StamError` exception if they do not overlap, or not belonging to the same resource.
+    fn relative_end(&self, container: &PyTextSelection) -> PyResult<usize> {
+        if self.resource_handle != container.resource_handle {
+            return Err(PyStamError::new_err(
+                "TextSelection and Container do not belong to the same resource",
+            ));
+        }
+        self.map(|textselection| {
+            let cursor = textselection
+                .relative_end(&container.textselection)
+                .ok_or(StamError::OtherError(
+                "TextSelection end does not overlap with specified container, cursor out of bounds",
+            ))?;
+            Ok(cursor)
+        })
     }
 }
 

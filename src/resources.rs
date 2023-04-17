@@ -148,6 +148,23 @@ impl PyTextResource {
         list.into()
     }
 
+    /// Trims all occurrences of any character in `chars` from both the beginning and end of the text,
+    /// returning a smaller TextSelection. No text is modified.
+    fn strip_text(&self, chars: &str) -> PyResult<PyTextSelection> {
+        let chars: Vec<char> = chars.chars().collect();
+        self.map(|res| {
+            res.trim_text(&chars).map(|textselection| PyTextSelection {
+                textselection: if textselection.is_borrowed() {
+                    textselection.unwrap().clone()
+                } else {
+                    textselection.unwrap_owned()
+                },
+                resource_handle: self.handle,
+                store: self.store.clone(),
+            })
+        })
+    }
+
     /// Returns a Selector (ResourceSelector) pointing to this TextResource
     fn selector(&self) -> PyResult<PySelector> {
         self.map(|res| res.selector().map(|sel| sel.into()))

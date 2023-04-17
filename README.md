@@ -10,6 +10,10 @@ This library offers a higher-level interface than the underlying Rust library. I
 
 ``$ pip install stam``
 
+Or if you feel adventurous and have the necessary build-time dependencies (Rust), you can get the latest development release from Github:
+
+``$ pip install git+https://github.com/annotation/stam-python``
+
 ## Usage
 
 Import the library

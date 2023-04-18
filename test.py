@@ -577,6 +577,60 @@ class Test6(unittest.TestCase):
         self.assertTrue(any(annotation.id() == "Phrase1" for annotation in annotations))
         self.assertTrue(any(annotation.id() == "Sentence1" for annotation in annotations))
 
+class Test7Regex(unittest.TestCase):
+    def setUp(self):
+        text = """
+# Consider Phlebas
+$ author=Iain M. Banks
+
+## 1
+Everything about us,
+everything around us,
+everything we know [and can know of] is composed ultimately of patterns of nothing;
+that’s the bottom line, the final truth.
+
+So where we find we have any control over those patterns,
+why not make the most elegant ones, the most enjoyable and good ones,
+in our own terms?
+
+## 2
+Besides,
+it left the humans in the Culture free to take care of the things that really mattered in life,
+such as [sports, games, romance,] studying dead languages,
+barbarian societies and impossible problems,
+and climbing high mountains without the aid of a safety harness.
+"""
+        self.store = AnnotationStore(id="tutorial")
+        self.resource = self.store.add_resource(id="banks", text=text)
+
+    def test_regex_tokens(self):
+        expressions = [
+            r"\w+(?:[-_]\w+)*", #this detects words,possibly with hyphens or underscores as part of it
+            r"[\.\?,/]+", #this detects a variety of punctuation
+            r"[0-9]+(?:[,\.][0-9]+)", #this detects numbers, possibly with a fractional part
+        ]
+        structuretypes = ["word", "punctuation", "number"]
+
+        for i, matchresult in enumerate(self.resource.find_text_regex(expressions)):
+            #(we only have one textselection per match, but an regular expression may result in multiple textselections if capture groups are used)
+            textselection = matchresult['textselections'][0]
+            structuretype = structuretypes[matchresult['expression_index']]
+            #print(f"Annotating \"{textselection}\" at {textselection.offset()} as {structuretype}", file=sys.stderr)
+            self.store.annotate(
+                target=Selector.textselector(self.resource, textselection.offset()),
+                data=[ 
+                    {"key": "structuretype", "value": structuretype, "set": "tutorial-set" }
+                ],
+                id=f"AnnotationToken{i+1}")
+
+        period = self.resource.textselection(Offset.simple(35,36))
+        self.assertTrue(str(period),".")
+        annotation = period.annotations()[0]
+        self.assertTrue(any(data.key().id() == "structuretype" and str(data.value()) == "punctuation" for data in annotation))
+
+
+
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -276,6 +276,11 @@ impl PyAnnotation {
         list.into()
     }
 
+    /// Returns the number of data items under this annotation
+    fn __len__(&self) -> usize {
+        self.map(|annotation| Ok(annotation.len())).unwrap()
+    }
+
     /// Applies a `TextSelectionOperator` to find all other text selections
     /// are in a specific relation with the ones from the current annotations. Returns all matching TextSelections in a list.
     ///

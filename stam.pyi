@@ -119,7 +119,10 @@ class Annotation:
         """Tests the ID"""
 
     def __iter__(self) -> Iterator[AnnotationData]:
-        """Returns a iterator over all data in this annotation"""
+        """Returns a iterator over all data (:class:`AnnotationData`) in this annotation"""
+
+    def __len__(self) -> Iterator[AnnotationData]:
+        """Returns the number of data items (:class:`AnnotationData`) in this annotation"""
 
     def selector(self) -> Selector:
         """Returns a selector pointing to this annotation"""
@@ -312,6 +315,28 @@ class DataKey:
         Returns an :class:`AnnotationData` instance if found, `None` otherwise
         """
 
+    def annotations(self, limit: Optional[int] = None) -> List[Annotation]:
+        """Returns a list of annotations (:class:`Annotation`) that use this key.
+
+        Parameters
+        ------------
+
+        limit: Optional[int] = None
+            The maximum number of results to return (default: unlimited)
+        """
+
+    def annotations_count(self, limit: Optional[int] = None) -> int:
+        """Returns the number of annotations (:class:`Annotation`) that use this data.
+        Note that this is much faster than doing `len(annotations())`!
+        This method has suffix `_count` instead of `_len` because it is not O(1) but does actual counting (O(n) at worst).
+
+        Parameters
+        ------------
+
+        limit: Optional[int] = None
+            The maximum number of results to return (default: unlimited)
+        """
+
 class DataValue:
     """Encapsulates a value and its type. Held by :class:`AnnotationData`. This type is not a reference but holds the actual value."""
 
@@ -371,6 +396,18 @@ class AnnotationData:
         limit: Optional[int] = None
             The maximum number of results to return (default: unlimited)
         """
+
+    def annotations_len(self, limit: Optional[int] = None) -> int:
+        """Returns the number of annotations (:class:`Annotation`) that use this data.
+        Note that this is much faster than doing `len(annotations())`!
+
+        Parameters
+        ------------
+
+        limit: Optional[int] = None
+            The maximum number of results to return (default: unlimited)
+        """
+
 
 class Selector:
     """

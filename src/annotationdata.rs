@@ -103,6 +103,35 @@ impl PyDataKey {
             }
         })
     }
+
+    /// Returns a list of  Annotation instances that use this key
+    fn annotations<'py>(&self, limit: Option<usize>, py: Python<'py>) -> Py<PyList> {
+        let list: &PyList = PyList::empty(py);
+        self.map_with_store(|key, store| {
+            for (i, annotation) in key.annotations(store).into_iter().flatten().enumerate() {
+                list.append(
+                    PyAnnotation {
+                        handle: annotation.handle().expect("must have handle"),
+                        store: self.store.clone(),
+                    }
+                    .into_py(py)
+                    .into_ref(py),
+                )
+                .ok();
+                if Some(i + 1) == limit {
+                    break;
+                }
+            }
+            Ok(())
+        })
+        .ok();
+        list.into()
+    }
+
+    fn annotations_count(&self) -> usize {
+        self.map_with_store(|key, store| Ok(key.annotations_count(store)))
+            .unwrap()
+    }
 }
 
 impl MapStore for PyDataKey {
@@ -127,6 +156,25 @@ impl PyDataKey {
                 .key(&self.handle.into())
                 .ok_or_else(|| PyRuntimeError::new_err("Failed to resolved annotationset"))?;
             f(datakey).map_err(|err| PyStamError::new_err(format!("{}", err)))
+        } else {
+            Err(PyRuntimeError::new_err(
+                "Unable to obtain store (should never happen)",
+            ))
+        }
+    }
+
+    fn map_with_store<T, F>(&self, f: F) -> Result<T, PyErr>
+    where
+        F: FnOnce(WrappedItem<DataKey>, &AnnotationStore) -> Result<T, StamError>,
+    {
+        if let Ok(store) = self.store.read() {
+            let annotationset = store
+                .annotationset(&self.set.into())
+                .ok_or_else(|| PyRuntimeError::new_err("Failed to resolve annotationset"))?;
+            let datakey = annotationset
+                .key(&self.handle.into())
+                .ok_or_else(|| PyRuntimeError::new_err("Failed to resolved annotationset"))?;
+            f(datakey, &store).map_err(|err| PyStamError::new_err(format!("{}", err)))
         } else {
             Err(PyRuntimeError::new_err(
                 "Unable to obtain store (should never happen)",
@@ -383,6 +431,11 @@ impl PyAnnotationData {
         })
         .ok();
         list.into()
+    }
+
+    fn annotations_len(&self) -> usize {
+        self.map_with_store(|data, store| Ok(data.annotations_len(store)))
+            .unwrap()
     }
 }
 

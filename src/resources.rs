@@ -504,6 +504,14 @@ impl PyCursor {
             _ => py.NotImplemented(),
         }
     }
+
+    fn __str__(&self) -> String {
+        match self.cursor {
+            Cursor::BeginAligned(v) => v.to_string(),
+            Cursor::EndAligned(v) if v == 0 => format!("-{}", v),
+            Cursor::EndAligned(v) => v.to_string(),
+        }
+    }
 }
 
 #[pyclass(dict, module = "stam", name = "Offset")]
@@ -569,5 +577,21 @@ impl PyOffset {
                 .into_py(py),
             _ => py.NotImplemented(),
         }
+    }
+
+    fn __str__(&self) -> String {
+        format!(
+            "{}:{}",
+            match self.offset.begin {
+                Cursor::BeginAligned(v) => v.to_string(),
+                Cursor::EndAligned(v) if v == 0 => format!("-{}", v),
+                Cursor::EndAligned(v) => v.to_string(),
+            },
+            match self.offset.end {
+                Cursor::BeginAligned(v) => v.to_string(),
+                Cursor::EndAligned(v) if v == 0 => format!("-{}", v),
+                Cursor::EndAligned(v) => v.to_string(),
+            }
+        )
     }
 }

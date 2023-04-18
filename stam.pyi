@@ -561,6 +561,9 @@ class Offset:
     def end(self) -> Cursor:
         """Returns the end cursor"""
 
+    def __str__(self) -> str:
+        """Get a string representation of the offset"""
+
 
 class Cursor:
     """
@@ -591,6 +594,9 @@ class Cursor:
 
     def value(self) -> int:
         """Get the actual cursor value"""
+
+    def __str__(self) -> str:
+        """Get a string representation of the cursor"""
 
 class TextResource:
     """

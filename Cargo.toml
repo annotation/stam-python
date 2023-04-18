@@ -1,6 +1,6 @@
 [package]
 name = "stam-python"
-version = "0.0.4" #also update version in py_src/__init__.py!
+version = "0.1.0"
 edition = "2021"
 authors = ["Maarten van Gompel <proycon@anaproy.nl>"]
 description = "STAM is a library for dealing with standoff annotations on text"

@@ -848,6 +848,9 @@ class TextSelection:
         The parameter value must be 0 or negative.
         """
 
+    def annotations_len(self) -> int:
+        """Returns the number of annotations this text selection references"""
+
     def annotations(self, limit: Optional[int] = None) -> List[Annotation]:
         """Returns a list of annotations (:class:`Annotation`) that reference this resource via a *TextSelector* (if any).
         Does *NOT* include those that use a ResourceSelector, use :meth:`annotations_metadata` instead for those instead.

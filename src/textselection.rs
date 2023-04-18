@@ -286,6 +286,10 @@ impl PyTextSelection {
         list.into()
     }
 
+    fn annotations_len(&self) -> usize {
+        self.map_with_store(|textselection, store| Ok(textselection.annotations_len(store)))
+            .unwrap()
+    }
     /// Applies a `TextSelectionOperator` to find all other annotations whose text selections
     /// are in a specific relation with the current one. Returns all matching Annotations in a list
     #[pyo3(signature = (operator,limit=None))]

@@ -910,6 +910,13 @@ class TextSelection:
         Raises a `StamError` exception if they are not embedded, or not belonging to the same resource.
         """
 
+    def test(self, operator: TextSelectionOperator, other: TextSelection):
+        """
+        This method is called to test whether a specific spatial relation (as expressed by the
+        passed operator) holds between a [`TextSelection`] and another.
+        A boolean is returned with the test result.
+        """
+
 
 class TextSelectionOperator:
     """

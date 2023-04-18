@@ -373,6 +373,10 @@ impl PyTextSelection {
             Ok(cursor)
         })
     }
+
+    fn test(&self, operator: PyTextSelectionOperator, other: &PyTextSelection) -> PyResult<bool> {
+        self.map(|textselection| Ok(textselection.test(&operator.operator, &other.textselection)))
+    }
 }
 
 impl PyTextSelection {

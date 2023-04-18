@@ -29,7 +29,7 @@ class AnnotationStore:
     def id(self) -> Optional[str]:
         """Returns the public identifier (by value, aka a copy)"""
 
-    def to_file(self, filename: str) -> Optional[str]:
+    def to_file(self, filename: str) -> None:
         """Saves the annotation store to file. Use either .json or .csv as extension."""
 
     def save(self) -> None:

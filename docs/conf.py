@@ -14,7 +14,7 @@ import re
 
 # -- Project information -----------------------------------------------------
 
-project = 'stam'
+project = 'stam-python'
 copyright = '2023, Maarten van Gompel' 
 author = 'Maarten van Gompel'
 

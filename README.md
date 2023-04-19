@@ -1,8 +1,13 @@
-[![Project Status: WIP – Initial development is in progress, but there has not yet been a stable, usable release suitable for the public.](https://www.repostatus.org/badges/latest/wip.svg)](https://www.repostatus.org/#wip)
+[![Docs](https://stam-python.readthedocs.io)](https://stam-python.readthedocs.io)
+[![PyPI](https://img.shields.io/pypi/dm/stam.svg)](https://pypi.org/project/stam/)
+[![PyPI](https://img.shields.io/pypi/v/stam.svg)](https://pypi.org/project/stam/)
+[![GitHub build](https://github.com/annotation/stam-rust/actions/workflows/stam.yml/badge.svg?branch=master)](https://github.com/annotation/stam-rust/actions/)
+[![GitHub release](https://img.shields.io/github/release/annotation/stam-rust.svg)](https://GitHub.com/annotation/stam-rust/releases/)
+[![Project Status: Active – The project has reached a stable, usable state and is being actively developed.](https://www.repostatus.org/badges/latest/active.svg)](https://www.repostatus.org/#active)
 
 # STAM Python binding
 
-[STAM](https:/github.com/annotation/stam) is a data model for stand-off text annotation and described in detail [here](https://github.com/annotation/stam). This is a python library (to be more specific; a python binding written in Rust) to work with the model.
+[STAM](https://github.com/annotation/stam) is a data model for stand-off text annotation and described in detail [here](https://github.com/annotation/stam). This is a python library (to be more specific; a python binding written in Rust) to work with the model.
 
 This library offers a higher-level interface than the underlying Rust library. Implementation is currently in a preliminary stage. We aim to implement the full model and most extensions.
 
@@ -10,11 +15,17 @@ This library offers a higher-level interface than the underlying Rust library. I
 
 ``$ pip install stam``
 
-Or if you feel adventurous and have the necessary build-time dependencies (Rust), you can get the latest development release from Github:
+Or if you feel adventurous and have the necessary build-time dependencies installed (Rust), you can try the latest development release from Github:
 
 ``$ pip install git+https://github.com/annotation/stam-python``
 
-## Usage
+## Documentation
+
+* [STAM Specification](https://github.com/annotation/stam) - the STAM specification itself
+* [API Reference](https://stam-python.readthedocs.io)
+* [STAM Tutorial: Standoff Text Annotation for Pythonistas](tutorial.ipynb) - An extensive tutorial showing how to work with this Python library, in the form of a Jupyter Notebook. **Recommended!**
+
+## Usage 
 
 Import the library
 
@@ -107,8 +118,11 @@ STAM model.
 You can serialize the entire annotation store (including all sets and annotations) to a STAM JSON file:
 
 ```python
-store.to_file("example.stam.json")
+store.set_filename("example.stam.json")
+store.save()
 ```
+
+For more documentation, please read: [STAM Tutorial: Standoff Text Annotation for Pythonistas](tutorial.ipynb).
 
 ## Differences between the rust library and python library and performance considerations
 

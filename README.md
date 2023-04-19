@@ -1,3 +1,7 @@
+<p align="center">
+    <img src="https://github.com/annotation/stam/raw/master/logo.png" alt="stam logo" width="320" />
+</p>
+
 [![Docs](https://readthedocs.org/projects/stam-python/badge/?version=latest&style=flat)](https://stam-python.readthedocs.io)
 [![PyPI](https://img.shields.io/pypi/v/stam.svg)](https://pypi.org/project/stam/)
 [![PyPI](https://img.shields.io/pypi/dm/stam.svg)](https://pypi.org/project/stam/)

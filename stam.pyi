@@ -642,7 +642,7 @@ class TextResource:
         Returns a :class:`TextSelection` instance covering the specified offset.
         """
 
-    def find_text(self, fragment: str, limit: Optional[int] = None) -> List[TextSelection]:
+    def find_text(self, fragment: str, limit: Optional[int] = None, case_sensitive: Optional[bool] = None) -> List[TextSelection]:
         """Searches for the text fragment and returns a list of :class:`TextSelection` instances with all matches (or up to the specified limit)
 
         Parameters
@@ -652,6 +652,8 @@ class TextResource:
             The exact fragment to search for (case-sensitive)
         limit: Optional[int] = None
             The maximum number of results to return (default: unlimited)
+        case_sensitive: Optional[bool] = None
+            Match case sensitive or not (default: True)
         """
 
     def find_text_regex(self, expressions: List[str], allow_overlap: Optional[bool] = False, limit: Optional[int] = None) -> List[dict]:
@@ -785,7 +787,7 @@ class TextSelection:
         This returns a :class:`TextSelection` with absolute coordinates in the resource.
         """
 
-    def find_text(self, fragment: str, limit: Optional[int] = None) -> List[TextSelection]:
+    def find_text(self, fragment: str, limit: Optional[int] = None, case_sensitive: Optional[bool] = None) -> List[TextSelection]:
         """Searches for the text fragment and returns a list of :class:`TextSelection` instances with all matches (or up to the specified limit)
 
         Parameters
@@ -795,6 +797,8 @@ class TextSelection:
             The exact fragment to search for (case-sensitive)
         limit: Optional[int] = None
             The maximum number of results to return (default: unlimited)
+        case_sensitive: Optional[bool] = None
+            Match case sensitive or not (default: True)
         """
 
     def find_text_regex(self, expressions: List[str], allow_overlap: Optional[bool] = False, limit: Optional[int] = None) -> List[dict]:

@@ -90,29 +90,58 @@ impl PyTextResource {
     }
 
     /// Searches for the text fragment and returns a list of [`TextSelection`] instances with all matches (or up to the specified limit)
-    fn find_text(&self, fragment: &str, limit: Option<usize>, py: Python) -> Py<PyList> {
+    fn find_text(
+        &self,
+        fragment: &str,
+        limit: Option<usize>,
+        case_sensitive: Option<bool>,
+        py: Python,
+    ) -> Py<PyList> {
         let list: &PyList = PyList::empty(py);
         self.map(|res| {
-            for (i, textselection) in res.find_text(fragment).enumerate() {
-                list.append(
-                    PyTextSelection {
-                        textselection: if textselection.is_borrowed() {
-                            textselection.unwrap().clone()
-                        } else {
-                            textselection.unwrap_owned()
-                        },
-                        resource_handle: self.handle,
-                        store: self.store.clone(),
+            if case_sensitive == Some(false) {
+                for (i, textselection) in res.find_text_nocase(fragment).enumerate() {
+                    list.append(
+                        PyTextSelection {
+                            textselection: if textselection.is_borrowed() {
+                                textselection.unwrap().clone()
+                            } else {
+                                textselection.unwrap_owned()
+                            },
+                            resource_handle: self.handle,
+                            store: self.store.clone(),
+                        }
+                        .into_py(py)
+                        .into_ref(py),
+                    )
+                    .ok();
+                    if Some(i + 1) == limit {
+                        break;
                     }
-                    .into_py(py)
-                    .into_ref(py),
-                )
-                .ok();
-                if Some(i + 1) == limit {
-                    break;
                 }
+                Ok(())
+            } else {
+                for (i, textselection) in res.find_text(fragment).enumerate() {
+                    list.append(
+                        PyTextSelection {
+                            textselection: if textselection.is_borrowed() {
+                                textselection.unwrap().clone()
+                            } else {
+                                textselection.unwrap_owned()
+                            },
+                            resource_handle: self.handle,
+                            store: self.store.clone(),
+                        }
+                        .into_py(py)
+                        .into_ref(py),
+                    )
+                    .ok();
+                    if Some(i + 1) == limit {
+                        break;
+                    }
+                }
+                Ok(())
             }
-            Ok(())
         })
         .ok();
         list.into()

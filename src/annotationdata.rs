@@ -86,22 +86,12 @@ impl PyDataKey {
     /// Find annotation data for the current key and specified value
     /// Returns an AnnotationData instance if found, None otherwise
     /// Use AnnotationDataSet.find_data() instead if you don't have a DataKey instance yet.
-    fn find_data(&self, value: &PyAny) -> PyResult<Option<PyAnnotationData>> {
-        let annotationset = self.annotationset()?;
-        annotationset.map(|set| {
-            let value = py_into_datavalue(value)?;
-            if let Some(annotationdata) = set.find_data(self.handle.into(), &value) {
-                Ok(Some(PyAnnotationData {
-                    handle: annotationdata
-                        .handle()
-                        .expect("annotationdata must be bound"),
-                    set: self.set,
-                    store: self.store.clone(),
-                }))
-            } else {
-                Ok(None)
-            }
-        })
+    fn find_data<'py>(&self, value: &PyAny, py: Python<'py>) -> Py<PyList> {
+        if let Ok(annotationset) = self.annotationset() {
+            annotationset.find_data_aux(Some(self.handle.into()), value, py)
+        } else {
+            PyList::empty(py).into()
+        }
     }
 
     /// Returns a list of  Annotation instances that use this key

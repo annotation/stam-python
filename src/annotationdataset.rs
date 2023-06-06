@@ -1,6 +1,7 @@
 use pyo3::exceptions::PyRuntimeError;
 use pyo3::prelude::*;
 use pyo3::pyclass::CompareOp;
+use pyo3::types::*;
 use std::ops::FnOnce;
 use std::sync::{Arc, RwLock};
 
@@ -152,23 +153,11 @@ impl PyAnnotationDataSet {
         self.map(|set| set.selector().map(|sel| sel.into()))
     }
 
-    /// Find annotation data by key and value
-    /// Returns an AnnotationData instance if found, None otherwise
-    fn find_data(&self, key: &str, value: &PyAny) -> PyResult<Option<PyAnnotationData>> {
-        self.map(|set| {
-            let value = py_into_datavalue(value)?;
-            if let Some(annotationdata) = set.find_data(key.into(), &value) {
-                Ok(Some(PyAnnotationData {
-                    handle: annotationdata
-                        .handle()
-                        .expect("annotationdata must be bound"),
-                    set: self.handle,
-                    store: self.store.clone(),
-                }))
-            } else {
-                Ok(None)
-            }
-        })
+    /// Find annotation data for the specified key and specified value
+    /// Returns a list of found AnnotationData instances
+    /// Use AnnotationDataSet.find_data() instead if you don't have a DataKey instance yet.
+    fn find_data<'py>(&self, key: &str, value: &PyAny, py: Python<'py>) -> Py<PyList> {
+        self.find_data_aux(Some(key.into()), value, py)
     }
 }
 
@@ -205,6 +194,62 @@ impl PyAnnotationDataSet {
                 "Can't get exclusive lock to write to store",
             ))
         }
+    }
+
+    /// Find annotation data for the specified key and specified value
+    /// Returns a list of found AnnotationData instances
+    /// Use AnnotationDataSet.find_data() instead if you don't have a DataKey instance yet.
+    ///
+    /// Auxiliary function that does the actual job
+    pub(crate) fn find_data_aux<'a, 'py>(
+        &'a self,
+        key: Option<Item<'a, DataKey>>,
+        value: &PyAny,
+        py: Python<'py>,
+    ) -> Py<PyList> {
+        let list: &PyList = PyList::empty(py);
+        self.map(|set| {
+            let iter = if let Ok(value) = value.extract() {
+                set.find_data(key, DataOperator::Equals(value))
+                    .into_iter()
+                    .flatten()
+            } else if let Ok(value) = value.extract() {
+                set.find_data(key, DataOperator::EqualsInt(value))
+                    .into_iter()
+                    .flatten()
+            } else if let Ok(value) = value.extract() {
+                set.find_data(key, DataOperator::EqualsFloat(value))
+                    .into_iter()
+                    .flatten()
+            } else if let Ok(value) = value.extract::<bool>() {
+                if value {
+                    set.find_data(key, DataOperator::True).into_iter().flatten()
+                } else {
+                    set.find_data(key, DataOperator::False)
+                        .into_iter()
+                        .flatten()
+                }
+            } else {
+                return Err(StamError::OtherError(
+                    "could not convert from python type to DataOperator",
+                ));
+            };
+            for annotationdata in iter {
+                list.append(
+                    PyAnnotationData {
+                        handle: annotationdata.handle().expect("must have handle"),
+                        set: self.handle,
+                        store: self.store.clone(),
+                    }
+                    .into_py(py)
+                    .into_ref(py),
+                )
+                .ok();
+            }
+            Ok(())
+        })
+        .ok();
+        list.into()
     }
 }
 

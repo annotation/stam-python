@@ -235,28 +235,30 @@ class Test1(unittest.TestCase):
     def test_find_data(self):
         """Find annotationdata by value"""
         annotationset = self.store.annotationset("testdataset")
-        annotationdata = annotationset.find_data("pos","noun")
-        assert annotationdata is not None
-        self.assertIsInstance(annotationdata, AnnotationData)
-        self.assertTrue(annotationdata.has_id("D1"))
+        results = annotationset.find_data("pos","noun")
+        self.assertIsInstance(results, list)
+        self.assertEqual(len(results), 1)
+        self.assertIsInstance(results[0], AnnotationData)
+        self.assertTrue(results[0].has_id("D1"))
 
     def test_find_data_from_key(self):
         """Find annotationdata by value, when key already known"""
         annotationset = self.store.annotationset("testdataset")
         datakey = annotationset.key("pos")
-        annotationdata = datakey.find_data("noun")
-        assert annotationdata is not None
-        self.assertIsInstance(annotationdata, AnnotationData)
-        self.assertTrue(annotationdata.has_id("D1"))
+        results = datakey.find_data("noun")
+        self.assertIsInstance(results, list)
+        self.assertEqual(len(results), 1)
+        self.assertIsInstance(results[0], AnnotationData)
+        self.assertTrue(results[0].has_id("D1"))
 
     def test_find_data_missing(self):
         """Find annotationdata by value, test mismatches"""
         annotationset = self.store.annotationset("testdataset")
-        annotationdata = annotationset.find_data("pos","non-existent")
-        self.assertEqual(annotationdata, None)
+        results = annotationset.find_data("pos","non-existent")
+        self.assertEqual(results, [])
 
-        annotationdata = annotationset.find_data("non-existent","non-existent")
-        self.assertEqual(annotationdata, None)
+        results = annotationset.find_data("non-existent","non-existent")
+        self.assertEqual(results, [])
 
 
 

@@ -281,10 +281,10 @@ class AnnotationDataSet:
     def selector(self) -> Selector:
         """Returns a selector pointing to this annotation dataset (via a *DataSetSelector*)"""
 
-    def find_data(self, key: str, value: Union[DataValue,str,int,bool,float,List]) -> Optional[AnnotationData]:
+    def find_data(self, key: str, value: Union[DataValue,str,int,bool,float,List]) -> List[AnnotationData]:
         """
         Find annotation data by key and value.
-        Returns an :class:`AnnotationData` instance if found, `None` otherwise
+        Returns a list of :class:`AnnotationData` instances
         """
 
 class DataKey:
@@ -309,10 +309,10 @@ class DataKey:
         Returns a list of :class:`AnnotationData` instances that use this key.
         """
 
-    def find_data(self, value: Union[DataValue,str,int,bool,float,List]) -> Optional[AnnotationData]:
+    def find_data(self, value: Union[DataValue,str,int,bool,float,List]) -> List[AnnotationData]:
         """
         Find annotation data for the current key by value.
-        Returns an :class:`AnnotationData` instance if found, `None` otherwise
+        Returns a list of :class:`AnnotationData` instances
         """
 
     def annotations(self, limit: Optional[int] = None) -> List[Annotation]:

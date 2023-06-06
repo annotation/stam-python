@@ -147,6 +147,57 @@ impl PyTextResource {
         list.into()
     }
 
+    fn find_text_sequence(
+        &self,
+        fragments: Vec<&str>,
+        case_sensitive: Option<bool>,
+        allow_skip_whitespace: Option<bool>,
+        allow_skip_punctuation: Option<bool>,
+        allow_skip_numeric: Option<bool>,
+        allow_skip_alphabetic: Option<bool>,
+        py: Python,
+    ) -> Py<PyList> {
+        let list: &PyList = PyList::empty(py);
+        self.map(|res| {
+            let results = res.find_text_sequence(
+                &fragments,
+                |c| {
+                    if (allow_skip_whitespace == Some(false) && c.is_whitespace())
+                        || (allow_skip_punctuation == Some(false) && c.is_ascii_punctuation())
+                        || (allow_skip_numeric == Some(false) && c.is_numeric())
+                        || (allow_skip_alphabetic == Some(false) && c.is_alphabetic())
+                    {
+                        false
+                    } else {
+                        true
+                    }
+                },
+                case_sensitive.unwrap_or(true),
+            );
+            if let Some(results) = results {
+                for textselection in results {
+                    list.append(
+                        PyTextSelection {
+                            textselection: if textselection.is_borrowed() {
+                                textselection.unwrap().clone()
+                            } else {
+                                textselection.unwrap_owned()
+                            },
+                            resource_handle: self.handle,
+                            store: self.store.clone(),
+                        }
+                        .into_py(py)
+                        .into_ref(py),
+                    )
+                    .ok();
+                }
+            }
+            Ok(())
+        })
+        .ok();
+        list.into()
+    }
+
     /// Searches the text using one or more regular expressions, returns an list of dictionaries with items:
     /// `{ "textselections": [TextSelection], "expression_index": int, "capturegroups": [int] }
     ///

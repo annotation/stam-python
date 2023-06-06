@@ -157,6 +157,57 @@ impl PyTextSelection {
         list.into()
     }
 
+    fn find_text_sequence(
+        &self,
+        fragments: Vec<&str>,
+        case_sensitive: Option<bool>,
+        allow_skip_whitespace: Option<bool>,
+        allow_skip_punctuation: Option<bool>,
+        allow_skip_numeric: Option<bool>,
+        allow_skip_alphabetic: Option<bool>,
+        py: Python,
+    ) -> Py<PyList> {
+        let list: &PyList = PyList::empty(py);
+        self.map(|textselection| {
+            let results = textselection.find_text_sequence(
+                &fragments,
+                |c| {
+                    if (allow_skip_whitespace == Some(false) && c.is_whitespace())
+                        || (allow_skip_punctuation == Some(false) && c.is_ascii_punctuation())
+                        || (allow_skip_numeric == Some(false) && c.is_numeric())
+                        || (allow_skip_alphabetic == Some(false) && c.is_alphabetic())
+                    {
+                        false
+                    } else {
+                        true
+                    }
+                },
+                case_sensitive.unwrap_or(true),
+            );
+            if let Some(results) = results {
+                for textselection in results {
+                    list.append(
+                        PyTextSelection {
+                            textselection: if textselection.is_borrowed() {
+                                textselection.unwrap().clone()
+                            } else {
+                                textselection.unwrap_owned()
+                            },
+                            resource_handle: self.resource_handle,
+                            store: self.store.clone(),
+                        }
+                        .into_py(py)
+                        .into_ref(py),
+                    )
+                    .ok();
+                }
+            }
+            Ok(())
+        })
+        .ok();
+        list.into()
+    }
+
     /// Returns a tuple of [`TextSelection`] instances that split the text according to the specified delimiter.
     /// You can set `limit` to the max number of elements you want to return.
     fn split_text(&self, delimiter: &str, limit: Option<usize>, py: Python) -> Py<PyList> {

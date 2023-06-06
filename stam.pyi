@@ -794,7 +794,7 @@ class TextSelection:
         ------------
 
         fragment: str
-            The exact fragment to search for (case-sensitive)
+            The exact fragment to search for
         limit: Optional[int] = None
             The maximum number of results to return (default: unlimited)
         case_sensitive: Optional[bool] = None
@@ -819,6 +819,32 @@ class TextSelection:
         false. All of this only matters if you supply multiple regular expressions.
        
         Results are returned in the exact order they are found in the text
+        """
+
+    def find_text_sequence(self, fragments: List[str], case_sensitive: Optional[bool] = None, allow_skip_whitespace: Optional[bool] = True, allow_skip_punctuation: Optional[bool] = True, allow_skip_numeric: Optional[bool] = True, allow_skip_alphabetic: Optional[bool] = False) -> List[TextSelection]:
+        """
+        Searches for the multiple text fragment in sequence. Returns a list of :class:`TextSelection` instances.
+        
+        Matches must appear in the exact order specified, but *may* have other intermittent text,
+        determined by the `allow_skip_*` parameters.
+
+        Returns an empty list if the sequence does not match.
+
+        Parameters
+        ------------
+
+        fragments: List[str]
+            The fragments to search for, in sequence
+        case_sensitive: Optional[bool] = None
+            Match case sensitive or not (default: True)
+        allow_skip_whitespace: Optional[bool] = True
+            Allow gaps consisting of whitespace (space, tabs, newline, etc) (default: True)
+        allow_skip_punctuation: Optional[bool] = True
+            Allow gaps consisting of punctuation (default: True)
+        allow_skip_numeric: Optional[bool] = True
+            Allow gaps consisting of numbers (default: True)
+        allow_skip_alphabetic: Optional[bool] = True
+            Allow gaps consisting of alphabetic/ideographic characters (default: False)
         """
 
     def split_text(self, delimiter: str, limit: Optional[int] = None) -> List[TextSelection]:

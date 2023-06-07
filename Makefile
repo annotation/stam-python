@@ -18,3 +18,8 @@ clean:
 
 local:
 	cargo build --config 'patch.crates-io.stam.path="../stam-rust/"'
+
+notebook: env
+	. env/bin/activate && ipython kernel install --user --name=venv && jupyter notebook
+
+

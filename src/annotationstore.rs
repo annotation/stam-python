@@ -26,7 +26,6 @@ use stam::*;
 ///     `config` (:obj:`dict`, `optional`) - A python dictionary containing configuration parameters
 ///
 /// At least one of `id`, `file` or `string` must be specified.
-#[pyo3(text_signature = "(self, id=None, file=None, string=None, config=None)")]
 pub struct PyAnnotationStore {
     store: Arc<RwLock<AnnotationStore>>,
 }
@@ -35,6 +34,7 @@ pub struct PyAnnotationStore {
 impl PyAnnotationStore {
     #[new]
     #[pyo3(signature = (**kwargs))]
+    #[pyo3(text_signature = "(self, id=None, file=None, string=None, config=None)")]
     fn new<'py>(kwargs: Option<&PyDict>, py: Python<'py>) -> PyResult<Self> {
         if let Some(kwargs) = kwargs {
             let mut config: &PyDict = PyDict::new(py);
@@ -223,7 +223,7 @@ impl PyAnnotationStore {
             builder = builder.with_id(id);
         }
         builder = builder.with_selector(target.selector);
-        if let Ok(true) = data.is_instance_of::<PyList>() {
+        if data.is_instance_of::<PyList>() {
             let data: &PyList = data.downcast().unwrap();
             for databuilder in data.iter() {
                 let databuilder = annotationdata_builder(databuilder)?;

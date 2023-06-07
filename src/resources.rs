@@ -520,7 +520,6 @@ impl PyTextResource {
 ///     `index` (:obj:`int`) - The index for the cursor
 ///     `endaligned` (:obj:`bool`, `optional`) - For an end-aligned cursor, set this to True. The index value should be 0 or negative.
 #[derive(Clone)]
-#[pyo3(text_signature = "(self, index, endaliged=None)")]
 pub(crate) struct PyCursor {
     cursor: Cursor,
 }
@@ -528,6 +527,7 @@ pub(crate) struct PyCursor {
 #[pymethods]
 impl PyCursor {
     #[new]
+    #[pyo3(text_signature = "(self, index, endaliged=None)")]
     fn new(index: isize, endaligned: Option<bool>) -> PyResult<Self> {
         if endaligned.unwrap_or(false) {
             if index <= 0 {

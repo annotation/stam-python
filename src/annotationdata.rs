@@ -203,7 +203,7 @@ pub(crate) fn py_into_datavalue<'py>(value: &'py PyAny) -> Result<DataValue, Sta
     } else if let Ok(None) = value.extract::<Option<bool>>() {
         Ok(DataValue::Null)
     } else {
-        if let Ok(true) = value.is_instance_of::<PyList>() {
+        if value.is_instance_of::<PyList>() {
             let value: &PyList = value.downcast().unwrap();
             let mut list: Vec<DataValue> = Vec::new();
             for item in value {
@@ -483,15 +483,15 @@ impl PyAnnotationData {
 /// may be STAM data types or plain strings with public IDs.
 pub(crate) fn annotationdata_builder<'a>(data: &'a PyAny) -> PyResult<AnnotationDataBuilder<'a>> {
     let mut builder = AnnotationDataBuilder::new();
-    if let Ok(true) = data.is_instance_of::<PyAnnotationData>() {
+    if data.is_instance_of::<PyAnnotationData>() {
         let adata: PyRef<'_, PyAnnotationData> = data.extract()?;
         builder = builder.with_id(adata.handle.into());
         builder = builder.with_annotationset(adata.set.into());
         Ok(builder)
-    } else if let Ok(true) = data.is_instance_of::<PyDict>() {
+    } else if data.is_instance_of::<PyDict>() {
         let data = data.downcast::<PyDict>()?;
         if let Some(id) = data.get_item("id") {
-            if let Ok(true) = id.is_instance_of::<PyAnnotationData>() {
+            if id.is_instance_of::<PyAnnotationData>() {
                 let adata: PyRef<'_, PyAnnotationData> = id.extract()?;
                 builder = builder.with_id(adata.handle.into());
                 builder = builder.with_annotationset(adata.set.into());
@@ -501,7 +501,7 @@ pub(crate) fn annotationdata_builder<'a>(data: &'a PyAny) -> PyResult<Annotation
             }
         }
         if let Some(key) = data.get_item("key") {
-            if let Ok(true) = key.is_instance_of::<PyDataKey>() {
+            if key.is_instance_of::<PyDataKey>() {
                 let key: PyRef<'_, PyDataKey> = key.extract()?;
                 builder = builder.with_key(key.handle.into());
             } else {
@@ -510,7 +510,7 @@ pub(crate) fn annotationdata_builder<'a>(data: &'a PyAny) -> PyResult<Annotation
             }
         }
         if let Some(set) = data.get_item("set") {
-            if let Ok(true) = set.is_instance_of::<PyAnnotationDataSet>() {
+            if set.is_instance_of::<PyAnnotationDataSet>() {
                 let set: PyRef<'_, PyAnnotationDataSet> = set.extract()?;
                 builder = builder.with_annotationset(set.handle.into());
             } else {
@@ -525,7 +525,7 @@ pub(crate) fn annotationdata_builder<'a>(data: &'a PyAny) -> PyResult<Annotation
             )
         }
         Ok(builder)
-    } else if let Ok(true) = data.is_instance_of::<PyString>() {
+    } else if data.is_instance_of::<PyString>() {
         let id = data.downcast::<PyString>()?;
         Ok(AnnotationDataBuilder::new().with_id(id.to_str()?.into()))
     } else {

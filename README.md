@@ -55,7 +55,7 @@ You can optionally pass configuration parameters upon loading a store, as follow
 store = stam.AnnotationStore(file="example.stam.json", config={"debug": True})
 ```
 
-Once loaded, you can retrieving anything by its public ID:
+Once loaded, you can retrieve anything by its public ID:
 
 ```python
 annotation = store.annotation("my-annotation")
@@ -65,7 +65,7 @@ key = annotationset.key("my-key")
 data = annotationset.annotationdata("my-data")
 ```
 
-You can also iterating through all annotations in the store, and outputting a simple tab separated format:
+You can also iterate through all annotations in the store, and output a simple tab separated format:
 
 ```python
 for annotation in store.annotations():

@@ -102,7 +102,7 @@ impl PyAnnotationStore {
 
     /// Saves the annotation store to file
     fn to_file(&mut self, filename: &str) -> PyResult<()> {
-        self.set_filename(filename);
+        self.set_filename(filename)?;
         self.save()
     }
 

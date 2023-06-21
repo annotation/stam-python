@@ -438,21 +438,4 @@ impl PyAnnotation {
             ))
         }
     }
-
-    /// Map function to act on the actual underlying store, helps reduce boilerplate
-    fn map_mut<T, F>(&self, f: F) -> Result<T, PyErr>
-    where
-        F: FnOnce(&mut Annotation) -> Result<T, StamError>,
-    {
-        if let Ok(mut store) = self.store.write() {
-            let annotation: &mut Annotation = store
-                .get_mut(&self.handle.into())
-                .map_err(|_| PyRuntimeError::new_err("Failed to resolve textresource"))?;
-            f(annotation).map_err(|err| PyStamError::new_err(format!("{}", err)))
-        } else {
-            Err(PyRuntimeError::new_err(
-                "Unable to obtain store (should never happen)",
-            ))
-        }
-    }
 }

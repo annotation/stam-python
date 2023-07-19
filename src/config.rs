@@ -42,6 +42,21 @@ pub fn get_config(kwargs: &PyDict) -> Config {
                         config = config.with_generate_ids(value);
                     }
                 }
+                "shrink_to_fit" => {
+                    if let Ok(Some(value)) = value.extract() {
+                        config = config.with_shrink_to_fit(value);
+                    }
+                }
+                "strip_temp_ids" => {
+                    if let Ok(Some(value)) = value.extract() {
+                        config = config.with_strip_temp_ids(value);
+                    }
+                }
+                "milestone_interval" => {
+                    if let Ok(Some(value)) = value.extract() {
+                        config = config.with_milestone_interval(value);
+                    }
+                }
                 _ => eprintln!("Ignored unknown kwargs option {}", key),
             }
         }

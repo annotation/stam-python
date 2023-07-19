@@ -21,9 +21,32 @@ class AnnotationStore:
         string: Optional[str], default: None
             STAM JSON as a string
         config: Optional[dict]
-            A python dictionary containing configuration parameters
-        
+            A python dictionary containing configuration parameters (see below)
+
         At least one of `id`, `file` or `string` must be specified.
+
+        Configuration Parameters
+        ---------------------------
+        use_include: Optional[bool], default: True
+            Use the `@include` mechanism to point to external files, if unset, all data will be kept in a single STAM JSON file.
+        debug: Optional[bool], default: False
+            Enable debug mode, outputs extra information to standard error output (verbose!)
+        annotation_annotation_map: Optional[bool], default: True
+            Enable/disable index for annotations that reference other annotations
+        resource_annotation_map: Optional[bool], default: True
+            Enable/disable reverse index for TextResource => Annotation. Holds only annotations that **directly** reference the TextResource (via [`crate::Selector::ResourceSelector`]), i.e. metadata
+        dataset_annotation_map: Optional[bool], default: True
+            Enable/disable reverse index for AnnotationDataSet => Annotation. Holds only annotations that **directly** reference the AnnotationDataSet (via [`crate::Selector::DataSetSelector`]), i.e. metadata
+        textrelationmap: Optional[bool], default: True
+            Enable/disable the reverse index for text, it maps TextResource => TextSelection => Annotation
+        generate_ids: Optional[bool], default: False
+            Generate pseudo-random public identifiers when missing (during deserialisation). Each will consist of 21 URL-friendly ASCII symbols after a prefix of A for Annotations, S for DataSets, D for AnnotationData, R for resources
+        strip_temp_ids: Optional[bool], default: True
+            Strip temporary IDs during deserialisation. Temporary IDs start with an exclamation mark, a capital ASCII letter denoting the type, and a number
+        shrink_to_fit: Optional[bool], default: True
+            Shrink data structures to optimize memory (at the cost of longer deserialisation times)
+        milestone_interval: Optional[int], default: 100
+            Milestone placement interval (in unicode codepoints) in indexing text resources. A low number above zero increases search performance at the cost of memory and increased initialisation time.
         """
 
     def id(self) -> Optional[str]:

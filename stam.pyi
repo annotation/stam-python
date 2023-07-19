@@ -974,7 +974,7 @@ class TextSelection:
         Raises a `StamError` exception if they are not embedded, or not belonging to the same resource.
         """
 
-    def test(self, operator: TextSelectionOperator, other: TextSelection):
+    def test(self, operator: TextSelectionOperator, other: TextSelection) -> bool:
         """
         This method is called to test whether a specific spatial relation (as expressed by the
         passed operator) holds between a [`TextSelection`] and another.
@@ -1055,39 +1055,39 @@ class TextSelectionOperator:
         """
 
     @staticmethod
+    def before(all: Optional[bool] = False, negate: Optional[bool] = False) -> TextSelectionOperator:
+        """
+        Create an operator to test if one textselection(sets) comes before another
+        Each TextSelections in A comes before a textselection in B
+        If modifier `all` is set: All TextSelections in A come before all textselections in B. There is no overlap (cf. textfabric's `<<`)
+
+        Parameters
+        -----------------
+        all: Optional[bool]
+            If this is set, then for each `TextSelection` in A, the relationship must hold with **ALL** of the text selections in B. The normal behaviour, when this is set to false, is a match with any item suffices (and may be returned).
+        negate: Optional[bool] 
+            Inverses the operator (turns it into a negation).
+        """
+
+    @staticmethod
+    def after(all: Optional[bool] = False, negate: Optional[bool] = False) -> TextSelectionOperator:
+        """
+        Create an operator to test if one textselection(sets) comes after another
+        Each TextSeleciton In A  comes after a textselection in B
+        If modifier `all` is set: All TextSelections in A come after all textselections in B. There is no overlap (cf. textfabric's `>>`)
+
+        Parameters
+        -----------------
+        all: Optional[bool]
+            If this is set, then for each `TextSelection` in A, the relationship must hold with **ALL** of the text selections in B. The normal behaviour, when this is set to false, is a match with any item suffices (and may be returned).
+        negate: Optional[bool] 
+            Inverses the operator (turns it into a negation).
+        """
+
+    @staticmethod
     def precedes(all: Optional[bool] = False, negate: Optional[bool] = False) -> TextSelectionOperator:
         """
-        Create an operator to test if one textselection(sets) precedes another
-        Each TextSelections in A precedes (comes before) a textselection in B
-        If modifier `all` is set: All TextSelections in A precede (come before) all textselections in B. There is no overlap (cf. textfabric's `<<`)
-
-        Parameters
-        -----------------
-        all: Optional[bool]
-            If this is set, then for each `TextSelection` in A, the relationship must hold with **ALL** of the text selections in B. The normal behaviour, when this is set to false, is a match with any item suffices (and may be returned).
-        negate: Optional[bool] 
-            Inverses the operator (turns it into a negation).
-        """
-
-    @staticmethod
-    def succeeds(all: Optional[bool] = False, negate: Optional[bool] = False) -> TextSelectionOperator:
-        """
-        Create an operator to test if one textselection(sets) succeeds another
-        Each TextSeleciton In A succeeds (comes after) a textselection in B
-        If modifier `all` is set: All TextSelections in A succeed (come after) all textselections in B. There is no overlap (cf. textfabric's `>>`)
-
-        Parameters
-        -----------------
-        all: Optional[bool]
-            If this is set, then for each `TextSelection` in A, the relationship must hold with **ALL** of the text selections in B. The normal behaviour, when this is set to false, is a match with any item suffices (and may be returned).
-        negate: Optional[bool] 
-            Inverses the operator (turns it into a negation).
-        """
-
-    @staticmethod
-    def leftadjacent(all: Optional[bool] = False, negate: Optional[bool] = False) -> TextSelectionOperator:
-        """
-        Create an operator to test if one textselection(sets) is to the immediate left of another
+        Create an operator to test if one textselection(sets) is to the immediate left (precedes) of another
         Each TextSelection in A is ends where at least one TextSelection in B begins.
         If modifier `all` is set: The rightmost TextSelections in A end where the leftmost TextSelection in B begins  (cf. textfabric's `<:`)
 
@@ -1100,9 +1100,9 @@ class TextSelectionOperator:
         """
 
     @staticmethod
-    def rightadjacent(all: Optional[bool] = False, negate: Optional[bool] = False) -> TextSelectionOperator:
+    def succeeds(all: Optional[bool] = False, negate: Optional[bool] = False) -> TextSelectionOperator:
         """
-        Create an operator to test if one textselection(sets) is to the immediate right of another
+        Create an operator to test if one textselection(sets) is to the immediate right (succeeds) of another
         Each TextSelection in A is begis where at least one TextSelection in A ends.
         If modifier `all` is set: The leftmost TextSelection in A starts where the rightmost TextSelection in B ends  (cf. textfabric's `:>`)
 

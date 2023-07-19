@@ -632,10 +632,7 @@ impl PyTextSelectionOperator {
     }
 
     #[staticmethod]
-    /// Create an operator to test if one textselection(sets) precedes another
-    /// Each TextSelections in A precedes (comes before) a textselection in B
-    /// If modifier `all` is set: All TextSelections in A precede (come before) all textselections in B. There is no overlap (cf. textfabric's `<<`)
-    fn precedes(all: Option<bool>, negate: Option<bool>) -> PyResult<Self> {
+    fn before(all: Option<bool>, negate: Option<bool>) -> PyResult<Self> {
         Ok(Self {
             operator: TextSelectionOperator::Before {
                 all: all.unwrap_or(false),
@@ -645,10 +642,7 @@ impl PyTextSelectionOperator {
     }
 
     #[staticmethod]
-    /// Create an operator to test if one textselection(sets) succeeds another
-    /// Each TextSeleciton In A succeeds (comes after) a textselection in B
-    /// If modifier `all` is set: All TextSelections in A succeed (come after) all textselections in B. There is no overlap (cf. textfabric's `>>`)
-    fn succeeds(all: Option<bool>, negate: Option<bool>) -> PyResult<Self> {
+    fn after(all: Option<bool>, negate: Option<bool>) -> PyResult<Self> {
         Ok(Self {
             operator: TextSelectionOperator::After {
                 all: all.unwrap_or(false),
@@ -658,10 +652,7 @@ impl PyTextSelectionOperator {
     }
 
     #[staticmethod]
-    /// Create an operator to test if one textselection(sets) is to the immediate left of another
-    /// Each TextSelection in A is ends where at least one TextSelection in B begins.
-    /// If modifier `all` is set: The rightmost TextSelections in A end where the leftmost TextSelection in B begins  (cf. textfabric's `<:`)
-    fn leftadjacent(all: Option<bool>, negate: Option<bool>) -> PyResult<Self> {
+    fn precedes(all: Option<bool>, negate: Option<bool>) -> PyResult<Self> {
         Ok(Self {
             operator: TextSelectionOperator::Precedes {
                 all: all.unwrap_or(false),
@@ -671,10 +662,7 @@ impl PyTextSelectionOperator {
     }
 
     #[staticmethod]
-    /// Create an operator to test if one textselection(sets) is to the immediate right of another
-    /// Each TextSelection in A is begis where at least one TextSelection in A ends.
-    /// If modifier `all` is set: The leftmost TextSelection in A starts where the rightmost TextSelection in B ends  (cf. textfabric's `:>`)
-    fn rightadjacent(all: Option<bool>, negate: Option<bool>) -> PyResult<Self> {
+    fn succeeds(all: Option<bool>, negate: Option<bool>) -> PyResult<Self> {
         Ok(Self {
             operator: TextSelectionOperator::Succeeds {
                 all: all.unwrap_or(false),

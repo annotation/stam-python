@@ -75,7 +75,7 @@ impl PyAnnotationStore {
                             }
                         }
                         "id" => {
-                            if let Ok(Some(value)) = value.extract() {
+                            if let Ok(Some(value)) = value.extract::<Option<String>>() {
                                 return Ok(PyAnnotationStore {
                                     store: Arc::new(RwLock::new(
                                         AnnotationStore::default()
@@ -303,16 +303,15 @@ impl PyAnnotationStore {
             )?
             .into_ref(py)),
             Selector::TextSelector(handle, offset) => self.map(|store| {
-                let resource: &TextResource = store.get(&handle.into())?;
+                let resource: &TextResource = store.get(*handle)?;
                 let textselection = resource.textselection(offset)?;
                 let pytextselection: &'py PyAny = Py::new(
                     py,
                     PyTextSelection {
                         resource_handle: *handle,
-                        textselection: if textselection.is_borrowed() {
-                            textselection.unwrap().clone()
-                        } else {
-                            textselection.unwrap_owned()
+                        textselection: match textselection {
+                            ResultTextSelection::Bound(item) => item.as_ref().clone(),
+                            ResultTextSelection::Unbound(_, item) => item,
                         },
                         store: self.store.clone(),
                     },
@@ -325,8 +324,8 @@ impl PyAnnotationStore {
                 resource: handle,
                 textselection: textselection_handle,
             } => self.map(|store| {
-                let resource: &TextResource = store.get(&handle.into())?;
-                let textselection: &TextSelection = resource.get(&textselection_handle.into())?;
+                let resource: &TextResource = store.get(*handle)?;
+                let textselection: &TextSelection = resource.get(*textselection_handle)?;
                 let pytextselection: &'py PyAny = Py::new(
                     py,
                     PyTextSelection {
@@ -350,7 +349,7 @@ impl PyAnnotationStore {
             Selector::AnnotationSelector(handle, _offset) => {
                 self.map(|store| {
                     let annotation = store
-                        .annotation(&handle.into())
+                        .annotation(*handle)
                         .ok_or_else(|| StamError::HandleError("handle not found"))?;
                     let result = PyList::empty(py); //TODO: I want a tuple rather than a list but didn't succeed
                     let textselections = PyList::empty(py);
@@ -364,10 +363,11 @@ impl PyAnnotationStore {
                                             .resource()
                                             .handle()
                                             .expect("resource must have handle"),
-                                        textselection: if textselection.is_borrowed() {
-                                            textselection.unwrap().clone()
-                                        } else {
-                                            textselection.unwrap_owned()
+                                        textselection: match textselection {
+                                            ResultTextSelection::Bound(item) => {
+                                                item.as_ref().clone()
+                                            }
+                                            ResultTextSelection::Unbound(_, item) => item,
                                         },
                                         store: self.store.clone(),
                                     },
@@ -409,9 +409,8 @@ impl PyAnnotationStore {
                     )
                     .unwrap()
                     .into_ref(py);
-                    let resource: &TextResource = store.get(&resource_handle.into())?;
-                    let textselection: &TextSelection =
-                        resource.get(&textselection_handle.into())?;
+                    let resource: &TextResource = store.get(*resource_handle)?;
+                    let textselection: &TextSelection = resource.get(*textselection_handle)?;
                     let pytextselection: &PyAny = Py::new(
                         py,
                         PyTextSelection {
@@ -450,7 +449,7 @@ impl PyAnnotationStore {
                     let iter: TargetIter<TextResource> =
                         TargetIter::new(store, selector.selector.iter(store, false, false));
                     for resource in iter {
-                        let handle = resource.handle().expect("must have handle");
+                        let handle = resource.handle();
                         let pyresource: &PyAny = Py::new(
                             py,
                             PyTextResource {
@@ -476,7 +475,7 @@ impl PyAnnotationStore {
                     let iter: TargetIter<Annotation> =
                         TargetIter::new(store, selector.selector.iter(store, false, false));
                     for annotation in iter {
-                        let handle = annotation.handle().expect("must have handle");
+                        let handle = annotation.handle();
                         let pyannotation: &PyAny = Py::new(
                             py,
                             PyAnnotation {
@@ -502,7 +501,7 @@ impl PyAnnotationStore {
                     let iter: TargetIter<AnnotationDataSet> =
                         TargetIter::new(store, selector.selector.iter(store, false, false));
                     for dataset in iter {
-                        let handle = dataset.handle().expect("must have handle");
+                        let handle = dataset.handle();
                         let pydataset: &PyAny = Py::new(
                             py,
                             PyAnnotationDataSet {
@@ -530,9 +529,9 @@ impl PyAnnotationStore {
                     let results = PyList::empty(py);
                     let iter: TargetIter<TextSelection> = TargetIter::new(
                         store
-                            .resource(&resource_handle.into())
+                            .resource(*resource_handle)
                             .expect("resource must exist")
-                            .unwrap(),
+                            .as_ref(),
                         selector.selector.iter(store, false, false),
                     );
                     for textselection in iter {
@@ -540,7 +539,7 @@ impl PyAnnotationStore {
                             py,
                             PyTextSelection {
                                 resource_handle: *resource_handle,
-                                textselection: *textselection, //copy
+                                textselection: textselection.as_ref().clone(), //copy
                                 store: self.store.clone(),
                             },
                         )
@@ -634,9 +633,9 @@ impl PyAnnotationIter {
         pyself.index += 1; //increment first (prevent exclusive mutability issues)
         let result = pyself.map(|store| {
             let handle: AnnotationHandle = AnnotationHandle::new(pyself.index - 1);
-            if let Ok(annotation) = store.get(&handle.into()) {
+            if let Ok(annotation) = store.get(handle) {
                 //index is one ahead, prevents exclusive lock issues
-                let handle = annotation.handle().expect("annotation must have an ID");
+                let handle = annotation.handle().expect("annotation must have a handle");
                 Some(PyAnnotation {
                     handle,
                     store: pyself.store.clone(),
@@ -686,7 +685,7 @@ impl PyAnnotationDataSetIter {
         pyself.index += 1; //increment first (prevent exclusive mutability issues)
         let result = pyself.map(|store| {
             let handle: AnnotationDataSetHandle = AnnotationDataSetHandle::new(pyself.index - 1);
-            if let Ok(annotationset) = store.get(&handle.into()) {
+            if let Ok(annotationset) = store.get(handle) {
                 //index is one ahead, prevents exclusive lock issues
                 let handle = annotationset.handle().expect("annotation must have an ID");
                 Some(PyAnnotationDataSet {
@@ -742,7 +741,7 @@ impl PyResourceIter {
         pyself.index += 1; //increment first (prevent exclusive mutability issues)
         let result = pyself.map(|store| {
             let handle: TextResourceHandle = TextResourceHandle::new(pyself.index - 1);
-            if let Ok(res) = store.get(&handle.into()) {
+            if let Ok(res) = store.get(handle) {
                 //index is one ahead, prevents exclusive lock issues
                 let handle = res.handle().expect("annotation must have an ID");
                 Some(PyTextResource {

@@ -78,10 +78,9 @@ impl PyTextResource {
         self.map(|res| {
             let textselection = res.textselection(&offset.offset)?;
             Ok(PyTextSelection {
-                textselection: if textselection.is_borrowed() {
-                    textselection.unwrap().clone()
-                } else {
-                    textselection.unwrap_owned()
+                textselection: match textselection {
+                    ResultTextSelection::Bound(item) => item.as_ref().clone(),
+                    ResultTextSelection::Unbound(_, item) => item,
                 },
                 resource_handle: self.handle,
                 store: self.store.clone(),
@@ -103,10 +102,9 @@ impl PyTextResource {
                 for (i, textselection) in res.find_text_nocase(fragment).enumerate() {
                     list.append(
                         PyTextSelection {
-                            textselection: if textselection.is_borrowed() {
-                                textselection.unwrap().clone()
-                            } else {
-                                textselection.unwrap_owned()
+                            textselection: match textselection {
+                                ResultTextSelection::Bound(item) => item.as_ref().clone(),
+                                ResultTextSelection::Unbound(_, item) => item,
                             },
                             resource_handle: self.handle,
                             store: self.store.clone(),
@@ -124,10 +122,9 @@ impl PyTextResource {
                 for (i, textselection) in res.find_text(fragment).enumerate() {
                     list.append(
                         PyTextSelection {
-                            textselection: if textselection.is_borrowed() {
-                                textselection.unwrap().clone()
-                            } else {
-                                textselection.unwrap_owned()
+                            textselection: match textselection {
+                                ResultTextSelection::Bound(item) => item.as_ref().clone(),
+                                ResultTextSelection::Unbound(_, item) => item,
                             },
                             resource_handle: self.handle,
                             store: self.store.clone(),
@@ -178,10 +175,9 @@ impl PyTextResource {
                 for textselection in results {
                     list.append(
                         PyTextSelection {
-                            textselection: if textselection.is_borrowed() {
-                                textselection.unwrap().clone()
-                            } else {
-                                textselection.unwrap_owned()
+                            textselection: match textselection {
+                                ResultTextSelection::Bound(item) => item.as_ref().clone(),
+                                ResultTextSelection::Unbound(_, item) => item,
                             },
                             resource_handle: self.handle,
                             store: self.store.clone(),
@@ -241,10 +237,9 @@ impl PyTextResource {
                     textselections
                         .append(
                             PyTextSelection {
-                                textselection: if textselection.is_borrowed() {
-                                    textselection.unwrap().clone()
-                                } else {
-                                    textselection.clone().unwrap_owned()
+                                textselection: match textselection {
+                                    ResultTextSelection::Bound(item) => item.as_ref().clone(),
+                                    ResultTextSelection::Unbound(_, item) => item.clone(),
                                 },
                                 resource_handle: self.handle,
                                 store: self.store.clone(),
@@ -279,10 +274,9 @@ impl PyTextResource {
             for (i, textselection) in res.split_text(delimiter).enumerate() {
                 list.append(
                     PyTextSelection {
-                        textselection: if textselection.is_borrowed() {
-                            textselection.unwrap().clone()
-                        } else {
-                            textselection.unwrap_owned()
+                        textselection: match textselection {
+                            ResultTextSelection::Bound(item) => item.as_ref().clone(),
+                            ResultTextSelection::Unbound(_, item) => item,
                         },
                         resource_handle: self.handle,
                         store: self.store.clone(),
@@ -307,10 +301,9 @@ impl PyTextResource {
         let chars: Vec<char> = chars.chars().collect();
         self.map(|res| {
             res.trim_text(&chars).map(|textselection| PyTextSelection {
-                textselection: if textselection.is_borrowed() {
-                    textselection.unwrap().clone()
-                } else {
-                    textselection.unwrap_owned()
+                textselection: match textselection {
+                    ResultTextSelection::Bound(item) => item.as_ref().clone(),
+                    ResultTextSelection::Unbound(_, item) => item,
                 },
                 resource_handle: self.handle,
                 store: self.store.clone(),
@@ -320,7 +313,7 @@ impl PyTextResource {
 
     /// Returns a Selector (ResourceSelector) pointing to this TextResource
     fn selector(&self) -> PyResult<PySelector> {
-        self.map(|res| res.selector().map(|sel| sel.into()))
+        self.map(|res| res.as_ref().selector().map(|sel| sel.into()))
     }
 
     // Iterates over all known textselections in this resource, shortcut for __iter__()
@@ -395,7 +388,7 @@ impl PyTextResource {
             for (i, annotation) in resource.annotations().into_iter().flatten().enumerate() {
                 list.append(
                     PyAnnotation {
-                        handle: annotation.handle().expect("annotation must have a handle"),
+                        handle: annotation.handle(),
                         store: self.store.clone(),
                     }
                     .into_py(py)
@@ -426,7 +419,7 @@ impl PyTextResource {
             {
                 list.append(
                     PyAnnotation {
-                        handle: annotation.handle().expect("annotation must have a handle"),
+                        handle: annotation.handle(),
                         store: self.store.clone(),
                     }
                     .into_py(py)
@@ -461,16 +454,13 @@ impl PyTextResource {
             let mut refset = TextSelectionSet::new(self.handle);
             refset.extend(referenceselections.into_iter().map(|x| x.textselection));
             for (i, foundtextselection) in textselection
+                .as_ref()
                 .find_textselections(operator.operator, refset)
                 .enumerate()
             {
                 list.append(
                     PyTextSelection {
-                        textselection: if foundtextselection.is_borrowed() {
-                            foundtextselection.unwrap().clone()
-                        } else {
-                            foundtextselection.unwrap_owned()
-                        },
+                        textselection: foundtextselection.as_ref().clone(),
                         resource_handle: self.handle,
                         store: self.store.clone(),
                     }
@@ -493,11 +483,11 @@ impl PyTextResource {
     /// Map function to act on the actual underlying store, helps reduce boilerplate
     pub(crate) fn map<T, F>(&self, f: F) -> Result<T, PyErr>
     where
-        F: FnOnce(WrappedItem<TextResource>) -> Result<T, StamError>,
+        F: FnOnce(ResultItem<TextResource>) -> Result<T, StamError>,
     {
         if let Ok(store) = self.store.read() {
             let resource = store
-                .resource(&self.handle.into())
+                .resource(self.handle)
                 .ok_or_else(|| PyRuntimeError::new_err("Failed to resolve textresource"))?;
             f(resource).map_err(|err| PyStamError::new_err(format!("{}", err)))
         } else {

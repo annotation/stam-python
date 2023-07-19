@@ -45,22 +45,31 @@ impl PyAnnotationDataSet {
 
     /// Save the annotation dataset to a STAM JSON file
     fn to_json_file(&self, filename: &str) -> PyResult<()> {
-        self.map(|annotationset| annotationset.to_json_file(filename, annotationset.config()))
+        self.map(|annotationset| {
+            annotationset
+                .as_ref()
+                .to_json_file(filename, annotationset.as_ref().config())
+        })
     }
 
     /// Returns the annotation stdataset as one big STAM JSON string
     fn to_json_string(&self) -> PyResult<String> {
-        self.map(|annotationset| annotationset.to_json_string(annotationset.config()))
+        self.map(|annotationset| {
+            annotationset
+                .as_ref()
+                .to_json_string(annotationset.as_ref().config())
+        })
     }
 
     /// Get a DataKey instance by ID, raises an exception if not found
     fn key(&self, key: &str) -> PyResult<PyDataKey> {
         self.map(|annotationset| {
             Ok(annotationset
-                .key(&key.into())
+                .as_ref()
+                .key(key)
                 .map(|key| PyDataKey {
                     set: self.handle,
-                    handle: key.handle().expect("key must have handle"),
+                    handle: key.handle(),
                     store: self.store.clone(),
                 })
                 .ok_or_else(|| StamError::IdNotFoundError(key.to_string(), "key not found"))?)
@@ -82,12 +91,12 @@ impl PyAnnotationDataSet {
 
     /// Returns the number of keys in the set (not substracting deletions)
     fn keys_len(&self) -> PyResult<usize> {
-        self.map(|store| Ok(store.keys_len()))
+        self.map(|store| Ok(store.as_ref().keys_len()))
     }
 
     /// Returns the number of annotations in the set (not substracting deletions)
     fn data_len(&self) -> PyResult<usize> {
-        self.map(|store| Ok(store.data_len()))
+        self.map(|store| Ok(store.as_ref().data_len()))
     }
 
     /// Create a new AnnotationData instance and adds it to the dataset
@@ -118,10 +127,11 @@ impl PyAnnotationDataSet {
     fn annotationdata(&self, data_id: &str) -> PyResult<PyAnnotationData> {
         self.map(|annotationset| {
             Ok(annotationset
-                .annotationdata(&data_id.into())
+                .as_ref()
+                .annotationdata(data_id)
                 .map(|data| PyAnnotationData {
                     set: self.handle,
-                    handle: data.handle().expect("data must have handle"),
+                    handle: data.handle(),
                     store: self.store.clone(),
                 })
                 .ok_or_else(|| {
@@ -150,14 +160,14 @@ impl PyAnnotationDataSet {
 
     /// Returns a Selector (DataSetSelector) pointing to this AnnotationDataSet
     fn selector(&self) -> PyResult<PySelector> {
-        self.map(|set| set.selector().map(|sel| sel.into()))
+        self.map(|set| set.as_ref().selector().map(|sel| sel.into()))
     }
 
     /// Find annotation data for the specified key and specified value
     /// Returns a list of found AnnotationData instances
     /// Use AnnotationDataSet.find_data() instead if you don't have a DataKey instance yet.
     fn find_data<'py>(&self, key: &str, value: &PyAny, py: Python<'py>) -> Py<PyList> {
-        self.find_data_aux(Some(key.into()), value, py)
+        self.find_data_aux(Some(key), value, py)
     }
 }
 
@@ -165,11 +175,11 @@ impl PyAnnotationDataSet {
     /// Map function to act on the actual underlyingtore, helps reduce boilerplate
     pub(crate) fn map<T, F>(&self, f: F) -> Result<T, PyErr>
     where
-        F: FnOnce(WrappedItem<AnnotationDataSet>) -> Result<T, StamError>,
+        F: FnOnce(ResultItem<AnnotationDataSet>) -> Result<T, StamError>,
     {
         if let Ok(store) = self.store.read() {
-            let annotationset: WrappedItem<AnnotationDataSet> = store
-                .annotationset(&self.handle.into())
+            let annotationset: ResultItem<AnnotationDataSet> = store
+                .annotationset(self.handle)
                 .ok_or_else(|| PyRuntimeError::new_err("Failed to resolved annotationset"))?;
             f(annotationset).map_err(|err| PyStamError::new_err(format!("{}", err)))
         } else {
@@ -186,7 +196,7 @@ impl PyAnnotationDataSet {
     {
         if let Ok(mut store) = self.store.write() {
             let annotationset: &mut AnnotationDataSet = store
-                .get_mut(&self.handle.into())
+                .get_mut(self.handle)
                 .map_err(|err| PyStamError::new_err(format!("{}", err)))?;
             f(annotationset).map_err(|err| PyStamError::new_err(format!("{}", err)))
         } else {
@@ -203,7 +213,7 @@ impl PyAnnotationDataSet {
     /// Auxiliary function that does the actual job
     pub(crate) fn find_data_aux<'a, 'py>(
         &'a self,
-        key: Option<Item<'a, DataKey>>,
+        key: Option<impl ToHandle<DataKey>>,
         value: &PyAny,
         py: Python<'py>,
     ) -> Py<PyList> {
@@ -237,7 +247,7 @@ impl PyAnnotationDataSet {
             for annotationdata in iter {
                 list.append(
                     PyAnnotationData {
-                        handle: annotationdata.handle().expect("must have handle"),
+                        handle: annotationdata.handle(),
                         set: self.handle,
                         store: self.store.clone(),
                     }
@@ -270,7 +280,7 @@ impl PyDataKeyIter {
         pyself.index += 1; //increment first (prevent exclusive mutability issues)
         let result = pyself.map(|dataset| {
             let datakey_handle = DataKeyHandle::new(pyself.index - 1);
-            if dataset.has(&datakey_handle.into()) {
+            if dataset.as_ref().has(datakey_handle) {
                 //index is one ahead, prevents exclusive lock issues
                 Some(PyDataKey {
                     set: pyself.handle,
@@ -284,7 +294,11 @@ impl PyDataKeyIter {
         if result.is_some() {
             result
         } else {
-            if pyself.index >= pyself.map(|dataset| Some(dataset.keys_len())).unwrap() {
+            if pyself.index
+                >= pyself
+                    .map(|dataset| Some(dataset.as_ref().keys_len()))
+                    .unwrap()
+            {
                 None
             } else {
                 Self::__next__(pyself)
@@ -294,13 +308,13 @@ impl PyDataKeyIter {
 }
 
 impl PyDataKeyIter {
-    /// Map function to act on the actual underlyingtore, helps reduce boilerplate
+    /// Map function to act on the actual underlying store, helps reduce boilerplate
     fn map<T, F>(&self, f: F) -> Option<T>
     where
-        F: FnOnce(WrappedItem<'_, AnnotationDataSet>) -> Option<T>,
+        F: FnOnce(ResultItem<'_, AnnotationDataSet>) -> Option<T>,
     {
         if let Ok(store) = self.store.read() {
-            if let Some(annotationset) = store.annotationset(&self.handle.into()) {
+            if let Some(annotationset) = store.annotationset(self.handle) {
                 f(annotationset)
             } else {
                 None
@@ -328,7 +342,7 @@ impl PyAnnotationDataIter {
         pyself.index += 1; //increment first (prevent exclusive mutability issues)
         let result = pyself.map(|dataset| {
             let data_handle = AnnotationDataHandle::new(pyself.index - 1);
-            if dataset.has(&data_handle.into()) {
+            if dataset.as_ref().has(data_handle) {
                 //index is one ahead, prevents exclusive lock issues
                 Some(PyAnnotationData {
                     set: pyself.handle,
@@ -342,7 +356,11 @@ impl PyAnnotationDataIter {
         if result.is_some() {
             result
         } else {
-            if pyself.index >= pyself.map(|dataset| Some(dataset.keys_len())).unwrap() {
+            if pyself.index
+                >= pyself
+                    .map(|dataset| Some(dataset.as_ref().keys_len()))
+                    .unwrap()
+            {
                 None
             } else {
                 Self::__next__(pyself)
@@ -355,10 +373,10 @@ impl PyAnnotationDataIter {
     /// Map function to act on the actual underlyingtore, helps reduce boilerplate
     fn map<T, F>(&self, f: F) -> Option<T>
     where
-        F: FnOnce(WrappedItem<'_, AnnotationDataSet>) -> Option<T>,
+        F: FnOnce(ResultItem<'_, AnnotationDataSet>) -> Option<T>,
     {
         if let Ok(store) = self.store.read() {
-            if let Some(annotationset) = store.annotationset(&self.handle.into()) {
+            if let Some(annotationset) = store.annotationset(self.handle) {
                 f(annotationset)
             } else {
                 None

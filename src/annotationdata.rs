@@ -65,7 +65,7 @@ impl PyDataKey {
             for (i, data) in annotationset.data().into_iter().flatten().enumerate() {
                 list.append(
                     PyAnnotationData {
-                        handle: data.handle().expect("must have handle"),
+                        handle: data.handle(),
                         set: self.set,
                         store: self.store.clone(),
                     }
@@ -88,7 +88,7 @@ impl PyDataKey {
     /// Use AnnotationDataSet.find_data() instead if you don't have a DataKey instance yet.
     fn find_data<'py>(&self, value: &PyAny, py: Python<'py>) -> Py<PyList> {
         if let Ok(annotationset) = self.annotationset() {
-            annotationset.find_data_aux(Some(self.handle.into()), value, py)
+            annotationset.find_data_aux(Some(self.handle), value, py)
         } else {
             PyList::empty(py).into()
         }
@@ -101,7 +101,7 @@ impl PyDataKey {
             for (i, annotation) in key.annotations(store).into_iter().flatten().enumerate() {
                 list.append(
                     PyAnnotation {
-                        handle: annotation.handle().expect("must have handle"),
+                        handle: annotation.handle(),
                         store: self.store.clone(),
                     }
                     .into_py(py)
@@ -136,14 +136,15 @@ impl MapStore for PyDataKey {
 impl PyDataKey {
     fn map<T, F>(&self, f: F) -> Result<T, PyErr>
     where
-        F: FnOnce(WrappedItem<DataKey>) -> Result<T, StamError>,
+        F: FnOnce(ResultItem<DataKey>) -> Result<T, StamError>,
     {
         if let Ok(store) = self.store.read() {
             let annotationset = store
-                .annotationset(&self.set.into())
+                .annotationset(self.set)
                 .ok_or_else(|| PyRuntimeError::new_err("Failed to resolved annotationset"))?;
             let datakey = annotationset
-                .key(&self.handle.into())
+                .as_ref()
+                .key(self.handle)
                 .ok_or_else(|| PyRuntimeError::new_err("Failed to resolved annotationset"))?;
             f(datakey).map_err(|err| PyStamError::new_err(format!("{}", err)))
         } else {
@@ -155,14 +156,15 @@ impl PyDataKey {
 
     fn map_with_store<T, F>(&self, f: F) -> Result<T, PyErr>
     where
-        F: FnOnce(WrappedItem<DataKey>, &AnnotationStore) -> Result<T, StamError>,
+        F: FnOnce(ResultItem<DataKey>, &AnnotationStore) -> Result<T, StamError>,
     {
         if let Ok(store) = self.store.read() {
             let annotationset = store
-                .annotationset(&self.set.into())
+                .annotationset(self.set)
                 .ok_or_else(|| PyRuntimeError::new_err("Failed to resolve annotationset"))?;
             let datakey = annotationset
-                .key(&self.handle.into())
+                .as_ref()
+                .key(self.handle)
                 .ok_or_else(|| PyRuntimeError::new_err("Failed to resolved annotationset"))?;
             f(datakey, &store).map_err(|err| PyStamError::new_err(format!("{}", err)))
         } else {
@@ -346,7 +348,7 @@ impl PyAnnotationData {
         self.map(|annotationdata| {
             Ok(PyDataKey {
                 set: self.set,
-                handle: annotationdata.key().handle().expect("key must have handle"),
+                handle: annotationdata.key().handle(),
                 store: self.store.clone(),
             })
         })
@@ -406,7 +408,7 @@ impl PyAnnotationData {
             for (i, annotation) in data.annotations(store).into_iter().flatten().enumerate() {
                 list.append(
                     PyAnnotation {
-                        handle: annotation.handle().expect("must have handle"),
+                        handle: annotation.handle(),
                         store: self.store.clone(),
                     }
                     .into_py(py)
@@ -441,14 +443,15 @@ impl MapStore for PyAnnotationData {
 impl PyAnnotationData {
     fn map<T, F>(&self, f: F) -> Result<T, PyErr>
     where
-        F: FnOnce(WrappedItem<AnnotationData>) -> Result<T, StamError>,
+        F: FnOnce(ResultItem<AnnotationData>) -> Result<T, StamError>,
     {
         if let Ok(store) = self.store.read() {
             let annotationset = store
-                .annotationset(&self.set.into())
+                .annotationset(self.set)
                 .ok_or_else(|| PyRuntimeError::new_err("Failed to resolve annotationset"))?;
             let data = annotationset
-                .annotationdata(&self.handle.into())
+                .as_ref()
+                .annotationdata(self.handle)
                 .ok_or_else(|| PyRuntimeError::new_err("Failed to resolve annotationset"))?;
             f(data).map_err(|err| PyStamError::new_err(format!("{}", err)))
         } else {
@@ -460,14 +463,15 @@ impl PyAnnotationData {
 
     fn map_with_store<T, F>(&self, f: F) -> Result<T, PyErr>
     where
-        F: FnOnce(WrappedItem<AnnotationData>, &AnnotationStore) -> Result<T, StamError>,
+        F: FnOnce(ResultItem<AnnotationData>, &AnnotationStore) -> Result<T, StamError>,
     {
         if let Ok(store) = self.store.read() {
             let annotationset = store
-                .annotationset(&self.set.into())
+                .annotationset(self.set)
                 .ok_or_else(|| PyRuntimeError::new_err("Failed to resolve annotationset"))?;
             let data = annotationset
-                .annotationdata(&self.handle.into())
+                .as_ref()
+                .annotationdata(self.handle)
                 .ok_or_else(|| PyRuntimeError::new_err("Failed to resolve annotationset"))?;
             f(data, &store).map_err(|err| PyStamError::new_err(format!("{}", err)))
         } else {

@@ -64,7 +64,7 @@ impl PyAnnotation {
     /// Returns a Selector (AnnotationSelector) pointing to this Annotation
     /// If the annotation references any text, so will this
     fn selector(&self) -> PyResult<PySelector> {
-        self.map(|annotation| annotation.selector().map(|sel| sel.into()))
+        self.map(|annotation| annotation.as_ref().selector().map(|sel| sel.into()))
     }
 
     /// Returns the text of the annotation.
@@ -110,10 +110,9 @@ impl PyAnnotation {
                     .expect("Resource must have handle");
                 list.append(
                     PyTextSelection {
-                        textselection: if textselection.is_borrowed() {
-                            textselection.unwrap().clone()
-                        } else {
-                            textselection.unwrap_owned()
+                        textselection: match textselection {
+                            ResultTextSelection::Bound(item) => item.as_ref().clone(),
+                            ResultTextSelection::Unbound(_, item) => item,
                         },
                         resource_handle,
                         store: self.store.clone(),
@@ -142,7 +141,7 @@ impl PyAnnotation {
             for (i, annotation) in annotation.annotations(recursive, false).enumerate() {
                 list.append(
                     PyAnnotation {
-                        handle: annotation.handle().expect("must have handle"),
+                        handle: annotation.handle(),
                         store: self.store.clone(),
                     }
                     .into_py(py)
@@ -172,7 +171,7 @@ impl PyAnnotation {
             {
                 list.append(
                     PyAnnotation {
-                        handle: annotation.handle().expect("must have handle"),
+                        handle: annotation.handle(),
                         store: self.store.clone(),
                     }
                     .into_py(py)
@@ -197,7 +196,7 @@ impl PyAnnotation {
             for (i, resource) in annotation.resources().enumerate() {
                 list.append(
                     PyTextResource {
-                        handle: resource.handle().expect("must have handle"),
+                        handle: resource.handle(),
                         store: self.store.clone(),
                     }
                     .into_py(py)
@@ -223,7 +222,7 @@ impl PyAnnotation {
             for (i, dataset) in annotation.annotationsets().enumerate() {
                 list.append(
                     PyAnnotationDataSet {
-                        handle: dataset.handle().expect("must have handle"),
+                        handle: dataset.handle(),
                         store: self.store.clone(),
                     }
                     .into_py(py)
@@ -243,7 +242,7 @@ impl PyAnnotation {
     /// Returns the target selector for this annotation
     fn target(&self) -> PyResult<PySelector> {
         self.map_store(|store| {
-            let annotation: &Annotation = store.get(&self.handle.into())?;
+            let annotation: &Annotation = store.get(self.handle)?;
             Ok(PySelector {
                 selector: annotation.target().clone(),
             })
@@ -258,7 +257,7 @@ impl PyAnnotation {
             for (i, data) in annotation.data().enumerate() {
                 list.append(
                     PyAnnotationData {
-                        handle: data.handle().expect("annotationdata must have handle"),
+                        handle: data.handle(),
                         set: data.set().handle().expect("set must have handle"),
                         store: self.store.clone(),
                     }
@@ -278,7 +277,8 @@ impl PyAnnotation {
 
     /// Returns the number of data items under this annotation
     fn __len__(&self) -> usize {
-        self.map(|annotation| Ok(annotation.len())).unwrap()
+        self.map(|annotation| Ok(annotation.as_ref().len()))
+            .unwrap()
     }
 
     /// Applies a `TextSelectionOperator` to find all other text selections
@@ -307,11 +307,7 @@ impl PyAnnotation {
                     .expect("resource must have handle");
                 list.append(
                     PyTextSelection {
-                        textselection: if foundtextselection.is_borrowed() {
-                            foundtextselection.unwrap().clone()
-                        } else {
-                            foundtextselection.unwrap_owned()
-                        },
+                        textselection: foundtextselection.as_ref().clone(),
                         resource_handle,
                         store: self.store.clone(),
                     }
@@ -347,7 +343,7 @@ impl PyAnnotation {
             {
                 list.append(
                     PyAnnotation {
-                        handle: annotation.handle().expect("annotation must have a handle"),
+                        handle: annotation.handle(),
                         store: self.store.clone(),
                     }
                     .into_py(py)
@@ -381,7 +377,7 @@ impl PyDataIter {
     fn __next__(mut pyself: PyRefMut<'_, Self>) -> Option<PyAnnotationData> {
         pyself.index += 1; //increment first (prevent exclusive mutability issues)
         pyself.map(|annotation| {
-            if let Some((set, handle)) = annotation.data_by_index(pyself.index - 1) {
+            if let Some((set, handle)) = annotation.as_ref().data_by_index(pyself.index - 1) {
                 //index is one ahead, prevents exclusive lock issues
                 Some(PyAnnotationData {
                     set: *set,
@@ -398,10 +394,10 @@ impl PyDataIter {
 impl PyDataIter {
     fn map<T, F>(&self, f: F) -> Option<T>
     where
-        F: FnOnce(WrappedItem<'_, Annotation>) -> Option<T>,
+        F: FnOnce(ResultItem<'_, Annotation>) -> Option<T>,
     {
         if let Ok(store) = self.store.read() {
-            if let Some(annotation) = store.annotation(&self.handle.into()) {
+            if let Some(annotation) = store.annotation(self.handle) {
                 f(annotation)
             } else {
                 None
@@ -425,11 +421,11 @@ impl PyAnnotation {
     /// Map function to act on the actual underlying store, helps reduce boilerplate
     fn map<T, F>(&self, f: F) -> Result<T, PyErr>
     where
-        F: FnOnce(WrappedItem<'_, Annotation>) -> Result<T, StamError>,
+        F: FnOnce(ResultItem<'_, Annotation>) -> Result<T, StamError>,
     {
         if let Ok(store) = self.store.read() {
-            let annotation: WrappedItem<'_, Annotation> = store
-                .annotation(&self.handle.into())
+            let annotation: ResultItem<'_, Annotation> = store
+                .annotation(self.handle)
                 .ok_or_else(|| PyRuntimeError::new_err("Failed to resolve textresource"))?;
             f(annotation).map_err(|err| PyStamError::new_err(format!("{}", err)))
         } else {

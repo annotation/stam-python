@@ -88,10 +88,9 @@ impl PyTextSelection {
         self.map(|textselection| {
             let textselection = textselection.textselection(&offset.offset)?;
             Ok(PyTextSelection {
-                textselection: if textselection.is_borrowed() {
-                    textselection.unwrap().clone()
-                } else {
-                    textselection.unwrap_owned()
+                textselection: match textselection {
+                    ResultTextSelection::Bound(item) => item.as_ref().clone(),
+                    ResultTextSelection::Unbound(_, item) => item,
                 },
                 resource_handle: self.resource_handle,
                 store: self.store.clone(),
@@ -113,10 +112,9 @@ impl PyTextSelection {
                 for (i, textselection) in textselection.find_text_nocase(fragment).enumerate() {
                     list.append(
                         PyTextSelection {
-                            textselection: if textselection.is_borrowed() {
-                                textselection.unwrap().clone()
-                            } else {
-                                textselection.unwrap_owned()
+                            textselection: match textselection {
+                                ResultTextSelection::Bound(item) => item.as_ref().clone(),
+                                ResultTextSelection::Unbound(_, item) => item,
                             },
                             resource_handle: self.resource_handle,
                             store: self.store.clone(),
@@ -134,10 +132,9 @@ impl PyTextSelection {
                 for (i, textselection) in textselection.find_text(fragment).enumerate() {
                     list.append(
                         PyTextSelection {
-                            textselection: if textselection.is_borrowed() {
-                                textselection.unwrap().clone()
-                            } else {
-                                textselection.unwrap_owned()
+                            textselection: match textselection {
+                                ResultTextSelection::Bound(item) => item.as_ref().clone(),
+                                ResultTextSelection::Unbound(_, item) => item,
                             },
                             resource_handle: self.resource_handle,
                             store: self.store.clone(),
@@ -188,10 +185,9 @@ impl PyTextSelection {
                 for textselection in results {
                     list.append(
                         PyTextSelection {
-                            textselection: if textselection.is_borrowed() {
-                                textselection.unwrap().clone()
-                            } else {
-                                textselection.unwrap_owned()
+                            textselection: match textselection {
+                                ResultTextSelection::Bound(item) => item.as_ref().clone(),
+                                ResultTextSelection::Unbound(_, item) => item,
                             },
                             resource_handle: self.resource_handle,
                             store: self.store.clone(),
@@ -216,10 +212,9 @@ impl PyTextSelection {
             for (i, textselection) in textselection.split_text(delimiter).enumerate() {
                 list.append(
                     PyTextSelection {
-                        textselection: if textselection.is_borrowed() {
-                            textselection.unwrap().clone()
-                        } else {
-                            textselection.unwrap_owned()
+                        textselection: match textselection {
+                            ResultTextSelection::Bound(item) => item.as_ref().clone(),
+                            ResultTextSelection::Unbound(_, item) => item,
                         },
                         resource_handle: self.resource_handle,
                         store: self.store.clone(),
@@ -276,10 +271,9 @@ impl PyTextSelection {
             textselection
                 .trim_text(&chars)
                 .map(|textselection| PyTextSelection {
-                    textselection: if textselection.is_borrowed() {
-                        textselection.unwrap().clone()
-                    } else {
-                        textselection.unwrap_owned()
+                    textselection: match textselection {
+                        ResultTextSelection::Bound(item) => item.as_ref().clone(),
+                        ResultTextSelection::Unbound(_, item) => item,
                     },
                     resource_handle: self.resource_handle,
                     store: self.store.clone(),
@@ -308,7 +302,7 @@ impl PyTextSelection {
             {
                 list.append(
                     PyAnnotation {
-                        handle: annotation.handle().expect("annotation must have a handle"),
+                        handle: annotation.handle(),
                         store: self.store.clone(),
                     }
                     .into_py(py)
@@ -344,11 +338,7 @@ impl PyTextSelection {
             {
                 list.append(
                     PyTextSelection {
-                        textselection: if foundtextselection.is_borrowed() {
-                            foundtextselection.unwrap().clone()
-                        } else {
-                            foundtextselection.unwrap_owned()
-                        },
+                        textselection: foundtextselection.as_ref().clone(),
                         resource_handle: self.resource_handle,
                         store: self.store.clone(),
                     }
@@ -387,7 +377,7 @@ impl PyTextSelection {
             {
                 list.append(
                     PyAnnotation {
-                        handle: annotation.handle().expect("annotation must have a handle"),
+                        handle: annotation.handle(),
                         store: self.store.clone(),
                     }
                     .into_py(py)
@@ -414,6 +404,7 @@ impl PyTextSelection {
         }
         self.map(|textselection| {
             let offset = textselection
+                .inner()
                 .relative_offset(&container.textselection)
                 .ok_or(StamError::OtherError(
                     "TextSelection is not embedded in specified container, cursor out of bounds",
@@ -432,6 +423,7 @@ impl PyTextSelection {
         }
         self.map(|textselection| {
             let cursor = textselection
+                .inner()
                 .relative_begin(&container.textselection)
                 .ok_or(StamError::OtherError(
                     "TextSelection begin does not overlap with specified container, cursor out of bounds",
@@ -450,6 +442,7 @@ impl PyTextSelection {
         }
         self.map(|textselection| {
             let cursor = textselection
+                .inner()
                 .relative_end(&container.textselection)
                 .ok_or(StamError::OtherError(
                 "TextSelection end does not overlap with specified container, cursor out of bounds",
@@ -459,22 +452,26 @@ impl PyTextSelection {
     }
 
     fn test(&self, operator: PyTextSelectionOperator, other: &PyTextSelection) -> PyResult<bool> {
-        self.map(|textselection| Ok(textselection.test(&operator.operator, &other.textselection)))
+        self.map(|textselection| {
+            Ok(textselection
+                .inner()
+                .test(&operator.operator, &other.textselection))
+        })
     }
 }
 
 impl PyTextSelection {
     fn map<T, F>(&self, f: F) -> Result<T, PyErr>
     where
-        F: FnOnce(WrappedItem<TextSelection>) -> Result<T, StamError>,
+        F: FnOnce(ResultTextSelection) -> Result<T, StamError>,
     {
         if let Ok(store) = self.store.read() {
             let resource = store
-                .resource(&self.resource_handle.into())
+                .resource(self.resource_handle)
                 .ok_or_else(|| PyRuntimeError::new_err("Failed to resolve textresource"))?;
             let textselection = resource
-                .wrap_owned(self.textselection)
-                .expect("wrap of textselection must succeed");
+                .textselection(&self.textselection.into())
+                .map_err(|err| PyStamError::new_err(format!("{}", err)))?;
             f(textselection).map_err(|err| PyStamError::new_err(format!("{}", err)))
         } else {
             Err(PyRuntimeError::new_err(
@@ -485,15 +482,15 @@ impl PyTextSelection {
 
     fn map_with_store<T, F>(&self, f: F) -> Result<T, PyErr>
     where
-        F: FnOnce(WrappedItem<TextSelection>, &AnnotationStore) -> Result<T, StamError>,
+        F: FnOnce(ResultTextSelection, &AnnotationStore) -> Result<T, StamError>,
     {
         if let Ok(store) = self.store.read() {
             let resource = store
-                .resource(&self.resource_handle.into())
+                .resource(self.resource_handle)
                 .ok_or_else(|| PyRuntimeError::new_err("Failed to resolve textresource"))?;
             let textselection = resource
-                .wrap_owned(self.textselection)
-                .expect("wrap of textselection must succeed");
+                .textselection(&self.textselection.into())
+                .map_err(|err| PyStamError::new_err(format!("{}", err)))?;
             f(textselection, &store).map_err(|err| PyStamError::new_err(format!("{}", err)))
         } else {
             Err(PyRuntimeError::new_err(
@@ -537,7 +534,7 @@ impl Iterator for PyTextSelectionIter {
 
     fn next(&mut self) -> Option<Self::Item> {
         if let Ok(store) = self.store.read() {
-            if let Some(resource) = store.resource(&self.resource_handle.into()) {
+            if let Some(resource) = store.resource(self.resource_handle) {
                 loop {
                     if let Some(position) = self.positions.get(self.index) {
                         if let Some(positionitem) = resource.position(*position) {
@@ -552,7 +549,7 @@ impl Iterator for PyTextSelectionIter {
                                 }
 
                                 let textselection: Result<&TextSelection, _> =
-                                    resource.get(&handle.into());
+                                    resource.as_ref().get(*handle);
                                 if let Ok(textselection) = textselection {
                                     //forward iteration only
                                     return Some(PyTextSelection {
@@ -640,7 +637,7 @@ impl PyTextSelectionOperator {
     /// If modifier `all` is set: All TextSelections in A precede (come before) all textselections in B. There is no overlap (cf. textfabric's `<<`)
     fn precedes(all: Option<bool>, negate: Option<bool>) -> PyResult<Self> {
         Ok(Self {
-            operator: TextSelectionOperator::Precedes {
+            operator: TextSelectionOperator::Before {
                 all: all.unwrap_or(false),
                 negate: negate.unwrap_or(false),
             },
@@ -653,7 +650,7 @@ impl PyTextSelectionOperator {
     /// If modifier `all` is set: All TextSelections in A succeed (come after) all textselections in B. There is no overlap (cf. textfabric's `>>`)
     fn succeeds(all: Option<bool>, negate: Option<bool>) -> PyResult<Self> {
         Ok(Self {
-            operator: TextSelectionOperator::Succeeds {
+            operator: TextSelectionOperator::After {
                 all: all.unwrap_or(false),
                 negate: negate.unwrap_or(false),
             },
@@ -666,7 +663,7 @@ impl PyTextSelectionOperator {
     /// If modifier `all` is set: The rightmost TextSelections in A end where the leftmost TextSelection in B begins  (cf. textfabric's `<:`)
     fn leftadjacent(all: Option<bool>, negate: Option<bool>) -> PyResult<Self> {
         Ok(Self {
-            operator: TextSelectionOperator::LeftAdjacent {
+            operator: TextSelectionOperator::Precedes {
                 all: all.unwrap_or(false),
                 negate: negate.unwrap_or(false),
             },
@@ -679,7 +676,7 @@ impl PyTextSelectionOperator {
     /// If modifier `all` is set: The leftmost TextSelection in A starts where the rightmost TextSelection in B ends  (cf. textfabric's `:>`)
     fn rightadjacent(all: Option<bool>, negate: Option<bool>) -> PyResult<Self> {
         Ok(Self {
-            operator: TextSelectionOperator::RightAdjacent {
+            operator: TextSelectionOperator::Succeeds {
                 all: all.unwrap_or(false),
                 negate: negate.unwrap_or(false),
             },

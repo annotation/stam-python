@@ -240,6 +240,7 @@ impl PyAnnotation {
     }
 
     /// Returns the target selector for this annotation
+    /// If you know what you are interested in; you can use :meth:`annotations`, :meth:`resources`, :meth:`annotationset`, :meth:`textselections` instead"""
     fn target(&self) -> PyResult<PySelector> {
         self.map_store(|store| {
             let annotation: &Annotation = store.get(self.handle)?;

@@ -194,7 +194,8 @@ class Annotation:
         """
 
     def target(self) -> Selector:
-        """Returns the target selector for this annotation"""
+        """Returns the target selector for this annotation. Note that you usually do not need this methods
+        if you know what you are interested in; you can use :meth:`annotations`, :meth:`resources`, :meth:`annotationset`, :meth:`textselections` instead"""
 
     def data(self, limit: Optional[int] = None) -> List[AnnotationData]:
         """Returns a list of annotation data instances this annotation refers to."""

@@ -527,6 +527,13 @@ class Selector:
         Requires to explicitly pass the store so the dataset can be found.
         """
 
+    def annotation(self, store: AnnotationStore) -> Optional[Annotation]:
+        """
+        Returns the annotation this selector points at, if any.
+        Works only for AnnotationSelector, returns None otherwise.
+        Requires to explicitly pass the store so the resource can be found.
+        """
+
 class SelectorKind:
     """An enumeration of possible selector types"""
 

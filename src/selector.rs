@@ -378,6 +378,19 @@ impl PySelector {
         }
     }
 
+    /// Returns the annotation this selector points at, if any.
+    /// Works only for AnnotationSelector, returns None otherwise.
+    /// Requires to explicitly pass the store so the resource can be found.
+    fn annotation(&self, store: PyRef<PyAnnotationStore>) -> PyResult<Option<PyAnnotation>> {
+        match &self.selector {
+            Selector::AnnotationSelector(annotation_handle, _) => Ok(Some(PyAnnotation {
+                handle: *annotation_handle,
+                store: store.get_store().clone(),
+            })),
+            _ => Ok(None),
+        }
+    }
+
     /// Returns the annotation dataset this selector points at, ff any.
     /// Works only for DataSetSelector, returns None otherwise.
     /// Requires to explicitly pass the store so the dataset can be found.

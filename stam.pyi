@@ -505,7 +505,7 @@ class Selector:
         """Returns the type of selector"""
 
     def is_kind(self, kind: SelectorKind) -> bool:
-        """Tests whether a selector if a is of a particular type"""
+        """Tests whether a selector is of a particular type"""
 
     def offset(self) -> Optional[Offset]:
         """

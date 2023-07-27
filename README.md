@@ -60,9 +60,9 @@ Once loaded, you can retrieve anything by its public ID:
 ```python
 annotation = store.annotation("my-annotation")
 resource = store.resource("my-resource")
-annotationset = store.annotationset("my-annotationset")
-key = annotationset.key("my-key")
-data = annotationset.annotationdata("my-data")
+dataset = store.dataset("my-annotationset")
+key = dataset.key("my-key")
+data = dataset.annotationdata("my-data")
 ```
 
 You can also iterate through all annotations in the store, and output a simple tab separated format:
@@ -105,9 +105,9 @@ next snippet, resulting in the exact same store:
 ```python
 store = AnnotationStore(id="test")
 resource = store.add_resource(id="testres", text="Hello world")
-annotationset = store.add_annotationset(id="testdataset")
-annotationset.add_key("pos")
-data = annotationset.add_data("pos","noun","D1")
+dataset = store.add_dataset(id="testdataset")
+dataset.add_key("pos")
+data = dataset.add_data("pos","noun","D1")
 store.annotate(id="A1", 
     target=Selector.textselector(resource, Offset.simple(6,11)),
     data=data)

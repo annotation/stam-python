@@ -117,34 +117,29 @@ impl PyAnnotationStore {
     }
 
     /// Returns an AnnotationDataSet by ID
-    fn annotationset(&self, id: &str) -> PyResult<PyAnnotationDataSet> {
+    fn dataset(&self, id: &str) -> PyResult<PyAnnotationDataSet> {
         self.map(|store| {
             store
                 .resolve_dataset_id(id)
-                .map(|handle| PyAnnotationDataSet {
-                    handle,
-                    store: self.store.clone(), //just a smart pointer clone, not the whole store
-                })
+                .map(|handle| PyAnnotationDataSet::new(handle, &self.store))
         })
     }
 
     /// Returns an Annotation by ID
     fn annotation(&self, id: &str) -> PyResult<PyAnnotation> {
         self.map(|store| {
-            store.resolve_annotation_id(id).map(|handle| PyAnnotation {
-                handle,
-                store: self.store.clone(), //just a smart pointer clone, not the whole store
-            })
+            store
+                .resolve_annotation_id(id)
+                .map(|handle| PyAnnotation::new(handle, &self.store))
         })
     }
 
     /// Returns a TextResource by ID
     fn resource(&self, id: &str) -> PyResult<PyTextResource> {
         self.map(|store| {
-            store.resolve_resource_id(id).map(|handle| PyTextResource {
-                handle,
-                store: self.store.clone(), //just a smart pointer clone, not the whole store
-            })
+            store
+                .resolve_resource_id(id)
+                .map(|handle| PyTextResource::new(handle, &self.store))
         })
     }
 
@@ -167,15 +162,16 @@ impl PyAnnotationStore {
         }
         let store_clone = self.store.clone(); //just a smart pointer clone, not the whole store
         self.map_mut(|store| {
-            let mut resource = TextResource::new(
-                id.unwrap_or_else(|| filename.expect("filename"))
-                    .to_string(),
-                store.config().clone(),
-            );
+            let mut resource = TextResourceBuilder::new()
+                .with_id(
+                    id.unwrap_or_else(|| filename.expect("filename"))
+                        .to_string(),
+                )
+                .with_config(store.config().clone());
             if let Some(text) = text {
-                resource = resource.with_string(text);
+                resource = resource.with_text(text);
             }
-            let handle = store.insert(resource)?;
+            let handle = store.insert(resource.build()?)?;
             Ok(PyTextResource {
                 handle,
                 store: store_clone,
@@ -191,11 +187,11 @@ impl PyAnnotationStore {
     }
 
     /// Create a new AnnotationDataSet and adds it to the store
-    fn add_annotationset(&mut self, id: String) -> PyResult<PyAnnotationDataSet> {
+    fn add_dataset(&mut self, id: String) -> PyResult<PyAnnotationDataSet> {
         let store_clone = self.store.clone();
         self.map_mut(|store| {
-            let annotationset = AnnotationDataSet::new(store.config().clone()).with_id(id);
-            let handle = store.insert(annotationset)?;
+            let dataset = AnnotationDataSet::new(store.config().clone()).with_id(id);
+            let handle = store.insert(dataset)?;
             Ok(PyAnnotationDataSet {
                 handle,
                 store: store_clone,
@@ -251,7 +247,7 @@ impl PyAnnotationStore {
     }
 
     /// Returns a generator over all annotations in this store
-    fn annotationsets(&self) -> PyResult<PyAnnotationDataSetIter> {
+    fn datasets(&self) -> PyResult<PyAnnotationDataSetIter> {
         Ok(PyAnnotationDataSetIter {
             store: self.store.clone(),
             index: 0,
@@ -277,8 +273,8 @@ impl PyAnnotationStore {
     }
 
     /// Returns the number of annotation data sets in the store (not substracting deletions)
-    fn annotationsets_len(&self) -> PyResult<usize> {
-        self.map(|store| Ok(store.annotationsets_len()))
+    fn datasets_len(&self) -> PyResult<usize> {
+        self.map(|store| Ok(store.datasets_len()))
     }
 
     /// Applies a selector to the annotation store and returns the target(s)
@@ -286,66 +282,36 @@ impl PyAnnotationStore {
     /// a list if multiple targets were found (internally consumes an iterator).
     fn select<'py>(&self, selector: &PySelector, py: Python<'py>) -> PyResult<&'py PyAny> {
         match &selector.selector {
-            Selector::ResourceSelector(handle) => Ok(Py::new(
-                py,
-                PyTextResource {
-                    handle: *handle,
-                    store: self.store.clone(),
-                },
-            )?
-            .into_ref(py)),
-            Selector::DataSetSelector(handle) => Ok(Py::new(
-                py,
-                PyAnnotationDataSet {
-                    handle: *handle,
-                    store: self.store.clone(),
-                },
-            )?
-            .into_ref(py)),
+            Selector::ResourceSelector(handle) => {
+                Ok(PyTextResource::new_py(*handle, &self.store, py))
+            }
+            Selector::DataSetSelector(handle) => {
+                Ok(PyAnnotationDataSet::new_py(*handle, &self.store, py))
+            }
             Selector::TextSelector(handle, offset) => self.map(|store| {
-                let resource: &TextResource = store.get(*handle)?;
+                let resource = store.resource(*handle).expect("handle must be valid");
                 let textselection = resource.textselection(offset)?;
-                let pytextselection: &'py PyAny = Py::new(
-                    py,
-                    PyTextSelection {
-                        resource_handle: *handle,
-                        textselection: match textselection {
-                            ResultTextSelection::Bound(item) => item.as_ref().clone(),
-                            ResultTextSelection::Unbound(_, item) => item,
-                        },
-                        store: self.store.clone(),
-                    },
-                )
-                .expect("creating PyTextSelection")
-                .into_ref(py);
+                let pytextselection: &'py PyAny =
+                    PyTextSelection::from_result_to_py(textselection, &self.store, py);
                 Ok(pytextselection)
             }),
             Selector::InternalTextSelector {
                 resource: handle,
                 textselection: textselection_handle,
             } => self.map(|store| {
-                let resource: &TextResource = store.get(*handle)?;
-                let textselection: &TextSelection = resource.get(*textselection_handle)?;
-                let pytextselection: &'py PyAny = Py::new(
+                let resource = store.resource(*handle).expect("must exist");
+                let textselection: &TextSelection = resource.as_ref().get(*textselection_handle)?;
+                let pytextselection: &'py PyAny = PyTextSelection::new_py(
+                    textselection.clone(),
+                    resource.handle(),
+                    &self.store,
                     py,
-                    PyTextSelection {
-                        resource_handle: *handle,
-                        textselection: *textselection,
-                        store: self.store.clone(),
-                    },
-                )
-                .expect("creating PyTextSelection")
-                .into_ref(py);
+                );
                 Ok(pytextselection)
             }),
-            Selector::AnnotationSelector(handle, None) => Ok(Py::new(
-                py,
-                PyAnnotation {
-                    handle: *handle,
-                    store: self.store.clone(),
-                },
-            )?
-            .into_ref(py)),
+            Selector::AnnotationSelector(handle, None) => {
+                Ok(PyAnnotation::new_py(*handle, &self.store, py))
+            }
             Selector::AnnotationSelector(handle, _offset) => {
                 self.map(|store| {
                     let annotation = store
@@ -355,37 +321,14 @@ impl PyAnnotationStore {
                     let textselections = PyList::empty(py);
                     for textselection in annotation.textselections() {
                         textselections
-                            .append(
-                                Py::new(
-                                    py,
-                                    PyTextSelection {
-                                        resource_handle: textselection
-                                            .resource()
-                                            .handle()
-                                            .expect("resource must have handle"),
-                                        textselection: match textselection {
-                                            ResultTextSelection::Bound(item) => {
-                                                item.as_ref().clone()
-                                            }
-                                            ResultTextSelection::Unbound(_, item) => item,
-                                        },
-                                        store: self.store.clone(),
-                                    },
-                                )
-                                .unwrap()
-                                .into_ref(py),
-                            )
+                            .append(PyTextSelection::from_result_to_py(
+                                textselection,
+                                &self.store,
+                                py,
+                            ))
                             .expect("adding textselection");
                     }
-                    let pyannotation: &PyAny = Py::new(
-                        py,
-                        PyAnnotation {
-                            handle: *handle,
-                            store: self.store.clone(),
-                        },
-                    )
-                    .unwrap()
-                    .into_ref(py);
+                    let pyannotation: &PyAny = PyAnnotation::new_py(*handle, &self.store, py);
                     let textselections: &PyAny = textselections.into();
                     result.append(pyannotation).expect("adding to result"); //TODO: should go into tuple rather than list
                     result.append(textselections).expect("adding to result");
@@ -400,15 +343,7 @@ impl PyAnnotationStore {
             } => {
                 self.map(|store| {
                     let result = PyList::empty(py); //TODO: I want a tuple rather than a list but didn't succeed
-                    let pyannotation: &PyAny = Py::new(
-                        py,
-                        PyAnnotation {
-                            handle: *handle,
-                            store: self.store.clone(),
-                        },
-                    )
-                    .unwrap()
-                    .into_ref(py);
+                    let pyannotation: &PyAny = PyAnnotation::new_py(*handle, &self.store, py);
                     let resource: &TextResource = store.get(*resource_handle)?;
                     let textselection: &TextSelection = resource.get(*textselection_handle)?;
                     let pytextselection: &PyAny = Py::new(
@@ -450,15 +385,7 @@ impl PyAnnotationStore {
                         TargetIter::new(store, selector.selector.iter(store, false, false));
                     for resource in iter {
                         let handle = resource.handle();
-                        let pyresource: &PyAny = Py::new(
-                            py,
-                            PyTextResource {
-                                handle,
-                                store: self.store.clone(),
-                            },
-                        )
-                        .unwrap()
-                        .into_ref(py);
+                        let pyresource: &PyAny = PyTextResource::new_py(handle, &self.store, py);
                         results
                             .append(pyresource)
                             .map_err(|_| StamError::OtherError("append failed"))?;
@@ -476,15 +403,7 @@ impl PyAnnotationStore {
                         TargetIter::new(store, selector.selector.iter(store, false, false));
                     for annotation in iter {
                         let handle = annotation.handle();
-                        let pyannotation: &PyAny = Py::new(
-                            py,
-                            PyAnnotation {
-                                handle,
-                                store: self.store.clone(),
-                            },
-                        )
-                        .unwrap()
-                        .into_ref(py);
+                        let pyannotation: &PyAny = PyAnnotation::new_py(handle, &self.store, py);
                         results
                             .append(pyannotation)
                             .map_err(|_| StamError::OtherError("append failed"))?;
@@ -502,15 +421,8 @@ impl PyAnnotationStore {
                         TargetIter::new(store, selector.selector.iter(store, false, false));
                     for dataset in iter {
                         let handle = dataset.handle();
-                        let pydataset: &PyAny = Py::new(
-                            py,
-                            PyAnnotationDataSet {
-                                handle,
-                                store: self.store.clone(),
-                            },
-                        )
-                        .unwrap()
-                        .into_ref(py);
+                        let pydataset: &PyAny =
+                            PyAnnotationDataSet::new_py(handle, &self.store, py);
                         results
                             .append(pydataset)
                             .map_err(|_| StamError::OtherError("append failed"))?;
@@ -699,11 +611,7 @@ impl PyAnnotationDataSetIter {
         if result.is_some() {
             result
         } else {
-            if pyself.index
-                >= pyself
-                    .map(|store| Some(store.annotationsets_len()))
-                    .unwrap()
-            {
+            if pyself.index >= pyself.map(|store| Some(store.datasets_len())).unwrap() {
                 None
             } else {
                 Self::__next__(pyself)

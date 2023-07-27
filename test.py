@@ -42,7 +42,7 @@ class Test1(unittest.TestCase):
         """Create some data from scratch"""
         self.store = AnnotationStore(id="test")
         resource = self.store.add_resource(id="testres", text="Hello world")
-        dataset = self.store.add_annotationset(id="testdataset")
+        dataset = self.store.add_dataset(id="testdataset")
         dataset.add_key("pos")
         data = dataset.add_data("pos","noun","D1")
         self.store.annotate(id="A1", 
@@ -63,7 +63,7 @@ class Test1(unittest.TestCase):
         self.assertTrue(resource.has_id("testres")) #quicker than the above (no copy)
 
     def test_sanity_3(self):
-        dataset = self.store.annotationset("testdataset")
+        dataset = self.store.dataset("testdataset")
         self.assertIsInstance( dataset, AnnotationDataSet)
         key = dataset.key("pos")
         self.assertIsInstance( key, DataKey)
@@ -75,7 +75,7 @@ class Test1(unittest.TestCase):
     def test_sanity_4_id_error(self):
         """Exceptions should be raised if IDs don't exist"""
         with self.assertRaises(StamError):
-            self.store.annotationset("non-existent-id")
+            self.store.dataset("non-existent-id")
         with self.assertRaises(StamError):
             self.store.annotation("non-existent-id")
         with self.assertRaises(StamError):
@@ -173,7 +173,7 @@ class Test1(unittest.TestCase):
 
     def test_annotationset_iter(self):
         """Iterate over all data in an annotationset"""
-        annotationset = self.store.annotationset("testdataset")
+        annotationset = self.store.dataset("testdataset")
         count = 0
         for annotationdata in annotationset:
             count += 1
@@ -191,7 +191,7 @@ class Test1(unittest.TestCase):
 
     def test_annotationset_iter_keys(self):
         """Iterate over all keys in an annotationset"""
-        annotationset = self.store.annotationset("testdataset")
+        annotationset = self.store.dataset("testdataset")
         count = 0
         for key in annotationset.keys():
             count += 1
@@ -203,7 +203,7 @@ class Test1(unittest.TestCase):
 
     def test_annotationset_iter_data_by_key(self):
         """finds all annotation data that has key 'pos'"""
-        annotationset = self.store.annotationset("testdataset")
+        annotationset = self.store.dataset("testdataset")
         key = annotationset.key("pos")
         count = 0
         for annotationdata in key.annotationdata():
@@ -222,7 +222,7 @@ class Test1(unittest.TestCase):
 
     def test_annotations_by_data(self):
         """finds all annotations that have pos -> noun"""
-        annotationset = self.store.annotationset("testdataset")
+        annotationset = self.store.dataset("testdataset")
         data = annotationset.annotationdata("D1")
         count = 0
         for annotation in data.annotations():
@@ -234,7 +234,7 @@ class Test1(unittest.TestCase):
 
     def test_find_data(self):
         """Find annotationdata by value"""
-        annotationset = self.store.annotationset("testdataset")
+        annotationset = self.store.dataset("testdataset")
         results = annotationset.find_data("pos","noun")
         self.assertIsInstance(results, list)
         self.assertEqual(len(results), 1)
@@ -243,7 +243,7 @@ class Test1(unittest.TestCase):
 
     def test_find_data_from_key(self):
         """Find annotationdata by value, when key already known"""
-        annotationset = self.store.annotationset("testdataset")
+        annotationset = self.store.dataset("testdataset")
         datakey = annotationset.key("pos")
         results = datakey.find_data("noun")
         self.assertIsInstance(results, list)
@@ -253,7 +253,7 @@ class Test1(unittest.TestCase):
 
     def test_find_data_missing(self):
         """Find annotationdata by value, test mismatches"""
-        annotationset = self.store.annotationset("testdataset")
+        annotationset = self.store.dataset("testdataset")
         results = annotationset.find_data("pos","non-existent")
         self.assertEqual(results, [])
 
@@ -290,7 +290,7 @@ class Test2(unittest.TestCase):
         self.assertTrue(resource.has_id("testres")) #quicker than the above (no copy)
 
     def test_sanity_3(self):
-        dataset = self.store.annotationset("testdataset")
+        dataset = self.store.dataset("testdataset")
         self.assertIsInstance( dataset, AnnotationDataSet)
         key = dataset.key("pos")
         self.assertIsInstance( key, DataKey)

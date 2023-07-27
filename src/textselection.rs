@@ -18,6 +18,54 @@ pub(crate) struct PyTextSelection {
     pub(crate) store: Arc<RwLock<AnnotationStore>>,
 }
 
+impl PyTextSelection {
+    pub(crate) fn new(
+        textselection: TextSelection,
+        resource: TextResourceHandle,
+        store: &Arc<RwLock<AnnotationStore>>,
+    ) -> PyTextSelection {
+        PyTextSelection {
+            textselection,
+            resource_handle: resource,
+            store: store.clone(),
+        }
+    }
+
+    pub(crate) fn new_py<'py>(
+        textselection: TextSelection,
+        resource: TextResourceHandle,
+        store: &Arc<RwLock<AnnotationStore>>,
+        py: Python<'py>,
+    ) -> &'py PyAny {
+        Self::new(textselection, resource, store)
+            .into_py(py)
+            .into_ref(py)
+    }
+
+    pub(crate) fn from_result(
+        result: ResultTextSelection<'_>,
+        store: &Arc<RwLock<AnnotationStore>>,
+    ) -> Self {
+        let resource_handle = result.resource().handle();
+        PyTextSelection {
+            textselection: match result {
+                ResultTextSelection::Bound(item) => item.as_ref().clone(),
+                ResultTextSelection::Unbound(_, _, item) => item,
+            },
+            resource_handle,
+            store: store.clone(),
+        }
+    }
+
+    pub(crate) fn from_result_to_py<'py>(
+        result: ResultTextSelection<'_>,
+        store: &Arc<RwLock<AnnotationStore>>,
+        py: Python<'py>,
+    ) -> &'py PyAny {
+        Self::from_result(result, store).into_py(py).into_ref(py)
+    }
+}
+
 #[pymethods]
 impl PyTextSelection {
     /// Resolves a text selection to the actual underlying text
@@ -87,14 +135,7 @@ impl PyTextSelection {
     fn textselection(&self, offset: &PyOffset) -> PyResult<PyTextSelection> {
         self.map(|textselection| {
             let textselection = textselection.textselection(&offset.offset)?;
-            Ok(PyTextSelection {
-                textselection: match textselection {
-                    ResultTextSelection::Bound(item) => item.as_ref().clone(),
-                    ResultTextSelection::Unbound(_, item) => item,
-                },
-                resource_handle: self.resource_handle,
-                store: self.store.clone(),
-            })
+            Ok(PyTextSelection::from_result(textselection, &self.store))
         })
     }
 
@@ -110,18 +151,11 @@ impl PyTextSelection {
         self.map(|textselection| {
             if case_sensitive == Some(false) {
                 for (i, textselection) in textselection.find_text_nocase(fragment).enumerate() {
-                    list.append(
-                        PyTextSelection {
-                            textselection: match textselection {
-                                ResultTextSelection::Bound(item) => item.as_ref().clone(),
-                                ResultTextSelection::Unbound(_, item) => item,
-                            },
-                            resource_handle: self.resource_handle,
-                            store: self.store.clone(),
-                        }
-                        .into_py(py)
-                        .into_ref(py),
-                    )
+                    list.append(PyTextSelection::from_result_to_py(
+                        textselection,
+                        &self.store,
+                        py,
+                    ))
                     .ok();
                     if Some(i + 1) == limit {
                         break;
@@ -130,18 +164,11 @@ impl PyTextSelection {
                 Ok(())
             } else {
                 for (i, textselection) in textselection.find_text(fragment).enumerate() {
-                    list.append(
-                        PyTextSelection {
-                            textselection: match textselection {
-                                ResultTextSelection::Bound(item) => item.as_ref().clone(),
-                                ResultTextSelection::Unbound(_, item) => item,
-                            },
-                            resource_handle: self.resource_handle,
-                            store: self.store.clone(),
-                        }
-                        .into_py(py)
-                        .into_ref(py),
-                    )
+                    list.append(PyTextSelection::from_result_to_py(
+                        textselection,
+                        &self.store,
+                        py,
+                    ))
                     .ok();
                     if Some(i + 1) == limit {
                         break;
@@ -183,18 +210,11 @@ impl PyTextSelection {
             );
             if let Some(results) = results {
                 for textselection in results {
-                    list.append(
-                        PyTextSelection {
-                            textselection: match textselection {
-                                ResultTextSelection::Bound(item) => item.as_ref().clone(),
-                                ResultTextSelection::Unbound(_, item) => item,
-                            },
-                            resource_handle: self.resource_handle,
-                            store: self.store.clone(),
-                        }
-                        .into_py(py)
-                        .into_ref(py),
-                    )
+                    list.append(PyTextSelection::from_result_to_py(
+                        textselection,
+                        &self.store,
+                        py,
+                    ))
                     .ok();
                 }
             }
@@ -210,18 +230,11 @@ impl PyTextSelection {
         let list: &PyList = PyList::empty(py);
         self.map(|textselection| {
             for (i, textselection) in textselection.split_text(delimiter).enumerate() {
-                list.append(
-                    PyTextSelection {
-                        textselection: match textselection {
-                            ResultTextSelection::Bound(item) => item.as_ref().clone(),
-                            ResultTextSelection::Unbound(_, item) => item,
-                        },
-                        resource_handle: self.resource_handle,
-                        store: self.store.clone(),
-                    }
-                    .into_py(py)
-                    .into_ref(py),
-                )
+                list.append(PyTextSelection::from_result_to_py(
+                    textselection,
+                    &self.store,
+                    py,
+                ))
                 .ok();
                 if Some(i + 1) == limit {
                     break;
@@ -270,14 +283,7 @@ impl PyTextSelection {
         self.map(|textselection| {
             textselection
                 .trim_text(&chars)
-                .map(|textselection| PyTextSelection {
-                    textselection: match textselection {
-                        ResultTextSelection::Bound(item) => item.as_ref().clone(),
-                        ResultTextSelection::Unbound(_, item) => item,
-                    },
-                    resource_handle: self.resource_handle,
-                    store: self.store.clone(),
-                })
+                .map(|textselection| PyTextSelection::from_result(textselection, &self.store))
         })
     }
 
@@ -293,22 +299,15 @@ impl PyTextSelection {
     #[pyo3(signature = (limit=None))]
     fn annotations(&self, limit: Option<usize>, py: Python) -> Py<PyList> {
         let list: &PyList = PyList::empty(py);
-        self.map_with_store(|textselection, store| {
+        self.map(|textselection| {
             for (i, annotation) in textselection
-                .annotations(store)
+                .annotations()
                 .into_iter()
                 .flatten()
                 .enumerate()
             {
-                list.append(
-                    PyAnnotation {
-                        handle: annotation.handle(),
-                        store: self.store.clone(),
-                    }
-                    .into_py(py)
-                    .into_ref(py),
-                )
-                .ok();
+                list.append(PyAnnotation::new_py(annotation.handle(), &self.store, py))
+                    .ok();
                 if Some(i + 1) == limit {
                     break;
                 }
@@ -324,7 +323,7 @@ impl PyTextSelection {
     ///
     /// If you are interested in the annotations associated with the found text selections, then use `find_annotations()` instead.
     #[pyo3(signature = (operator,limit=None))]
-    fn find_textselections(
+    fn related_text(
         &self,
         operator: PyTextSelectionOperator,
         limit: Option<usize>,
@@ -332,19 +331,13 @@ impl PyTextSelection {
     ) -> Py<PyList> {
         let list: &PyList = PyList::empty(py);
         self.map(|textselection| {
-            for (i, foundtextselection) in textselection
-                .find_textselections(operator.operator)
-                .enumerate()
+            for (i, foundtextselection) in textselection.related_text(operator.operator).enumerate()
             {
-                list.append(
-                    PyTextSelection {
-                        textselection: foundtextselection.as_ref().clone(),
-                        resource_handle: self.resource_handle,
-                        store: self.store.clone(),
-                    }
-                    .into_py(py)
-                    .into_ref(py),
-                )
+                list.append(PyTextSelection::from_result_to_py(
+                    foundtextselection,
+                    &self.store,
+                    py,
+                ))
                 .ok();
                 if Some(i + 1) == limit {
                     break;
@@ -357,33 +350,28 @@ impl PyTextSelection {
     }
 
     fn annotations_len(&self) -> usize {
-        self.map_with_store(|textselection, store| Ok(textselection.annotations_len(store)))
+        self.map(|textselection| Ok(textselection.annotations_len()))
             .unwrap()
     }
+
     /// Applies a `TextSelectionOperator` to find all other annotations whose text selections
     /// are in a specific relation with the current one. Returns all matching Annotations in a list
     #[pyo3(signature = (operator,limit=None))]
-    fn find_annotations(
+    fn annotations_by_related_text(
         &self,
         operator: PyTextSelectionOperator,
         limit: Option<usize>,
         py: Python,
     ) -> Py<PyList> {
         let list: &PyList = PyList::empty(py);
-        self.map_with_store(|textselection, store| {
+        self.map(|textselection| {
             for (i, annotation) in textselection
-                .find_annotations(operator.operator, store)
+                .annotations_by_related_text(operator.operator)
+                .into_iter()
                 .enumerate()
             {
-                list.append(
-                    PyAnnotation {
-                        handle: annotation.handle(),
-                        store: self.store.clone(),
-                    }
-                    .into_py(py)
-                    .into_ref(py),
-                )
-                .ok();
+                list.append(PyAnnotation::new_py(annotation.handle(), &self.store, py))
+                    .ok();
                 if Some(i + 1) == limit {
                     break;
                 }
@@ -479,25 +467,6 @@ impl PyTextSelection {
             ))
         }
     }
-
-    fn map_with_store<T, F>(&self, f: F) -> Result<T, PyErr>
-    where
-        F: FnOnce(ResultTextSelection, &AnnotationStore) -> Result<T, StamError>,
-    {
-        if let Ok(store) = self.store.read() {
-            let resource = store
-                .resource(self.resource_handle)
-                .ok_or_else(|| PyRuntimeError::new_err("Failed to resolve textresource"))?;
-            let textselection = resource
-                .textselection(&self.textselection.into())
-                .map_err(|err| PyStamError::new_err(format!("{}", err)))?;
-            f(textselection, &store).map_err(|err| PyStamError::new_err(format!("{}", err)))
-        } else {
-            Err(PyRuntimeError::new_err(
-                "Unable to obtain store (should never happen)",
-            ))
-        }
-    }
 }
 
 impl From<PyTextSelection> for TextSelection {
@@ -537,7 +506,7 @@ impl Iterator for PyTextSelectionIter {
             if let Some(resource) = store.resource(self.resource_handle) {
                 loop {
                     if let Some(position) = self.positions.get(self.index) {
-                        if let Some(positionitem) = resource.position(*position) {
+                        if let Some(positionitem) = resource.as_ref().position(*position) {
                             if let Some((_, handle)) =
                                 positionitem.iter_begin2end().nth(self.subindex)
                             {

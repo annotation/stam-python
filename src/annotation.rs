@@ -30,6 +30,26 @@ pub(crate) struct PyAnnotation {
     pub(crate) store: Arc<RwLock<AnnotationStore>>,
 }
 
+impl PyAnnotation {
+    pub(crate) fn new(
+        handle: AnnotationHandle,
+        store: &Arc<RwLock<AnnotationStore>>,
+    ) -> PyAnnotation {
+        PyAnnotation {
+            handle,
+            store: store.clone(),
+        }
+    }
+
+    pub(crate) fn new_py<'py>(
+        handle: AnnotationHandle,
+        store: &Arc<RwLock<AnnotationStore>>,
+        py: Python<'py>,
+    ) -> &'py PyAny {
+        Self::new(handle, store).into_py(py).into_ref(py)
+    }
+}
+
 #[pymethods]
 impl PyAnnotation {
     /// Returns the public ID (by value, aka a copy)
@@ -71,7 +91,7 @@ impl PyAnnotation {
     /// Note that this will always return a list (even it if only contains a single element),
     /// as an annotation may reference multiple texts.
     ///
-    /// If you are sure an annotation only reference a single contingent text slice or are okay with slices being concatenated, then you can use `str()` instead.
+    /// If you are sure an annotation only references a single contingent text slice or are okay with slices being concatenated, then you can use `str()` instead.
     fn text<'py>(&self, py: Python<'py>) -> Py<PyList> {
         let list: &PyList = PyList::empty(py);
         self.map(|annotation| {
@@ -104,22 +124,12 @@ impl PyAnnotation {
         let list: &PyList = PyList::empty(py);
         self.map(|annotation| {
             for textselection in annotation.textselections() {
-                let resource_handle = textselection
-                    .resource()
-                    .handle()
-                    .expect("Resource must have handle");
-                list.append(
-                    PyTextSelection {
-                        textselection: match textselection {
-                            ResultTextSelection::Bound(item) => item.as_ref().clone(),
-                            ResultTextSelection::Unbound(_, item) => item,
-                        },
-                        resource_handle,
-                        store: self.store.clone(),
-                    }
-                    .into_py(py)
-                    .into_ref(py),
-                )
+                let resource_handle = textselection.resource().handle();
+                list.append(PyTextSelection::from_result_to_py(
+                    textselection,
+                    &self.store,
+                    py,
+                ))
                 .ok();
             }
             Ok(())
@@ -130,7 +140,7 @@ impl PyAnnotation {
 
     /// Returns a list of annotations this annotation refers to (i.e. using an AnnotationSelector)
     #[pyo3(signature = (recursive=false,limit=None))]
-    fn annotations<'py>(
+    fn annotations_in_targets<'py>(
         &self,
         recursive: bool,
         limit: Option<usize>,
@@ -138,16 +148,12 @@ impl PyAnnotation {
     ) -> Py<PyList> {
         let list: &PyList = PyList::empty(py);
         self.map(|annotation| {
-            for (i, annotation) in annotation.annotations(recursive, false).enumerate() {
-                list.append(
-                    PyAnnotation {
-                        handle: annotation.handle(),
-                        store: self.store.clone(),
-                    }
-                    .into_py(py)
-                    .into_ref(py),
-                )
-                .ok();
+            for (i, annotation) in annotation
+                .annotations_in_targets(recursive, false)
+                .enumerate()
+            {
+                list.append(PyAnnotation::new_py(annotation.handle(), &self.store, py))
+                    .ok();
                 if Some(i + 1) == limit {
                     break;
                 }
@@ -160,24 +166,12 @@ impl PyAnnotation {
 
     /// Returns a list of annotations that are referring to this annotation (i.e. others using an AnnotationSelector)
     #[pyo3(signature = (limit=None))]
-    fn annotations_reverse<'py>(&self, limit: Option<usize>, py: Python<'py>) -> Py<PyList> {
+    fn annotations<'py>(&self, limit: Option<usize>, py: Python<'py>) -> Py<PyList> {
         let list: &PyList = PyList::empty(py);
         self.map(|annotation| {
-            for (i, annotation) in annotation
-                .annotations_reverse()
-                .into_iter()
-                .flatten()
-                .enumerate()
-            {
-                list.append(
-                    PyAnnotation {
-                        handle: annotation.handle(),
-                        store: self.store.clone(),
-                    }
-                    .into_py(py)
-                    .into_ref(py),
-                )
-                .ok();
+            for (i, annotation) in annotation.annotations().enumerate() {
+                list.append(PyAnnotation::new_py(annotation.handle(), &self.store, py))
+                    .ok();
                 if Some(i + 1) == limit {
                     break;
                 }
@@ -194,15 +188,8 @@ impl PyAnnotation {
         let list: &PyList = PyList::empty(py);
         self.map(|annotation| {
             for (i, resource) in annotation.resources().enumerate() {
-                list.append(
-                    PyTextResource {
-                        handle: resource.handle(),
-                        store: self.store.clone(),
-                    }
-                    .into_py(py)
-                    .into_ref(py),
-                )
-                .ok();
+                list.append(PyTextResource::new_py(resource.handle(), &self.store, py))
+                    .ok();
                 if Some(i + 1) == limit {
                     break;
                 }
@@ -213,21 +200,18 @@ impl PyAnnotation {
         list.into()
     }
 
-    /// Returns the resources this annotation refers to
+    /// Returns the resources this annotation refers to (as metadata)
     /// They will be returned in a tuple.
     #[pyo3(signature = (limit=None))]
-    fn annotationsets<'py>(&self, limit: Option<usize>, py: Python<'py>) -> Py<PyList> {
+    fn datasets<'py>(&self, limit: Option<usize>, py: Python<'py>) -> Py<PyList> {
         let list: &PyList = PyList::empty(py);
         self.map(|annotation| {
-            for (i, dataset) in annotation.annotationsets().enumerate() {
-                list.append(
-                    PyAnnotationDataSet {
-                        handle: dataset.handle(),
-                        store: self.store.clone(),
-                    }
-                    .into_py(py)
-                    .into_ref(py),
-                )
+            for (i, dataset) in annotation.datasets().enumerate() {
+                list.append(PyAnnotationDataSet::new_py(
+                    dataset.handle(),
+                    &self.store,
+                    py,
+                ))
                 .ok();
                 if Some(i + 1) == limit {
                     break;
@@ -256,15 +240,12 @@ impl PyAnnotation {
         let list: &PyList = PyList::empty(py);
         self.map(|annotation| {
             for (i, data) in annotation.data().enumerate() {
-                list.append(
-                    PyAnnotationData {
-                        handle: data.handle(),
-                        set: data.set().handle().expect("set must have handle"),
-                        store: self.store.clone(),
-                    }
-                    .into_py(py)
-                    .into_ref(py),
-                )
+                list.append(PyAnnotationData::new_py(
+                    data.handle(),
+                    data.set().handle(),
+                    &self.store,
+                    py,
+                ))
                 .ok();
                 if Some(i + 1) == limit {
                     break;
@@ -288,7 +269,7 @@ impl PyAnnotation {
     /// If you are interested in the annotations associated with the found text selections, then
     /// use `find_annotations()` instead.
     #[pyo3(signature = (operator,limit=None))]
-    fn find_textselections(
+    fn related_text(
         &self,
         operator: PyTextSelectionOperator,
         limit: Option<usize>,
@@ -296,25 +277,12 @@ impl PyAnnotation {
     ) -> Py<PyList> {
         let list: &PyList = PyList::empty(py);
         self.map(|annotation| {
-            for (i, foundtextselection) in annotation
-                .find_textselections(operator.operator)
-                .into_iter()
-                .flatten()
-                .enumerate()
-            {
-                let resource_handle = foundtextselection
-                    .resource()
-                    .handle()
-                    .expect("resource must have handle");
-                list.append(
-                    PyTextSelection {
-                        textselection: foundtextselection.as_ref().clone(),
-                        resource_handle,
-                        store: self.store.clone(),
-                    }
-                    .into_py(py)
-                    .into_ref(py),
-                )
+            for (i, foundtextselection) in annotation.related_text(operator.operator).enumerate() {
+                list.append(PyTextSelection::from_result_to_py(
+                    foundtextselection,
+                    &self.store,
+                    py,
+                ))
                 .ok();
                 if Some(i + 1) == limit {
                     break;
@@ -328,7 +296,7 @@ impl PyAnnotation {
     /// Applies a `TextSelectionOperator` to find all other annotations whose text selections
     /// are in a specific relation with the text selections of the current one. Returns all matching Annotations in a list
     #[pyo3(signature = (operator,limit=None))]
-    fn find_annotations(
+    fn annotations_by_related_text(
         &self,
         operator: PyTextSelectionOperator,
         limit: Option<usize>,
@@ -337,20 +305,11 @@ impl PyAnnotation {
         let list: &PyList = PyList::empty(py);
         self.map(|annotation| {
             for (i, annotation) in annotation
-                .find_annotations(operator.operator)
-                .into_iter()
-                .flatten()
+                .annotations_by_related_text(operator.operator)
                 .enumerate()
             {
-                list.append(
-                    PyAnnotation {
-                        handle: annotation.handle(),
-                        store: self.store.clone(),
-                    }
-                    .into_py(py)
-                    .into_ref(py),
-                )
-                .ok();
+                list.append(PyAnnotation::new_py(annotation.handle(), &self.store, py))
+                    .ok();
                 if Some(i + 1) == limit {
                     break;
                 }

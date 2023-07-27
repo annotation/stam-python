@@ -21,6 +21,29 @@ pub(crate) struct PyDataKey {
     pub(crate) store: Arc<RwLock<AnnotationStore>>,
 }
 
+impl PyDataKey {
+    pub(crate) fn new(
+        handle: DataKeyHandle,
+        set: AnnotationDataSetHandle,
+        store: &Arc<RwLock<AnnotationStore>>,
+    ) -> PyDataKey {
+        PyDataKey {
+            set,
+            handle,
+            store: store.clone(),
+        }
+    }
+
+    pub(crate) fn new_py<'py>(
+        handle: DataKeyHandle,
+        set: AnnotationDataSetHandle,
+        store: &Arc<RwLock<AnnotationStore>>,
+        py: Python<'py>,
+    ) -> &'py PyAny {
+        Self::new(handle, set, store).into_py(py).into_ref(py)
+    }
+}
+
 #[pymethods]
 impl PyDataKey {
     /// Returns the public ID (by value, aka a copy)
@@ -50,7 +73,7 @@ impl PyDataKey {
     }
 
     /// Returns the AnnotationDataSet this key is part of
-    fn annotationset(&self) -> PyResult<PyAnnotationDataSet> {
+    fn dataset(&self) -> PyResult<PyAnnotationDataSet> {
         Ok(PyAnnotationDataSet {
             handle: self.set,
             store: self.store.clone(),
@@ -62,16 +85,13 @@ impl PyDataKey {
     fn annotationdata<'py>(&self, limit: Option<usize>, py: Python<'py>) -> Py<PyList> {
         let list: &PyList = PyList::empty(py);
         self.map(|annotationset| {
-            for (i, data) in annotationset.data().into_iter().flatten().enumerate() {
-                list.append(
-                    PyAnnotationData {
-                        handle: data.handle(),
-                        set: self.set,
-                        store: self.store.clone(),
-                    }
-                    .into_py(py)
-                    .into_ref(py),
-                )
+            for (i, data) in annotationset.data().enumerate() {
+                list.append(PyAnnotationData::new_py(
+                    data.handle(),
+                    self.set,
+                    &self.store,
+                    py,
+                ))
                 .ok();
                 if Some(i + 1) == limit {
                     break;
@@ -87,7 +107,7 @@ impl PyDataKey {
     /// Returns an AnnotationData instance if found, None otherwise
     /// Use AnnotationDataSet.find_data() instead if you don't have a DataKey instance yet.
     fn find_data<'py>(&self, value: &PyAny, py: Python<'py>) -> Py<PyList> {
-        if let Ok(annotationset) = self.annotationset() {
+        if let Ok(annotationset) = self.dataset() {
             annotationset.find_data_aux(Some(self.handle), value, py)
         } else {
             PyList::empty(py).into()
@@ -97,17 +117,10 @@ impl PyDataKey {
     /// Returns a list of  Annotation instances that use this key
     fn annotations<'py>(&self, limit: Option<usize>, py: Python<'py>) -> Py<PyList> {
         let list: &PyList = PyList::empty(py);
-        self.map_with_store(|key, store| {
-            for (i, annotation) in key.annotations(store).into_iter().flatten().enumerate() {
-                list.append(
-                    PyAnnotation {
-                        handle: annotation.handle(),
-                        store: self.store.clone(),
-                    }
-                    .into_py(py)
-                    .into_ref(py),
-                )
-                .ok();
+        self.map(|key| {
+            for (i, annotation) in key.annotations().enumerate() {
+                list.append(PyAnnotation::new_py(annotation.handle(), &self.store, py))
+                    .ok();
                 if Some(i + 1) == limit {
                     break;
                 }
@@ -119,8 +132,7 @@ impl PyDataKey {
     }
 
     fn annotations_count(&self) -> usize {
-        self.map_with_store(|key, store| Ok(key.annotations_count(store)))
-            .unwrap()
+        self.map(|key| Ok(key.annotations_count())).unwrap()
     }
 }
 
@@ -140,33 +152,12 @@ impl PyDataKey {
     {
         if let Ok(store) = self.store.read() {
             let annotationset = store
-                .annotationset(self.set)
+                .dataset(self.set)
                 .ok_or_else(|| PyRuntimeError::new_err("Failed to resolved annotationset"))?;
             let datakey = annotationset
-                .as_ref()
                 .key(self.handle)
                 .ok_or_else(|| PyRuntimeError::new_err("Failed to resolved annotationset"))?;
             f(datakey).map_err(|err| PyStamError::new_err(format!("{}", err)))
-        } else {
-            Err(PyRuntimeError::new_err(
-                "Unable to obtain store (should never happen)",
-            ))
-        }
-    }
-
-    fn map_with_store<T, F>(&self, f: F) -> Result<T, PyErr>
-    where
-        F: FnOnce(ResultItem<DataKey>, &AnnotationStore) -> Result<T, StamError>,
-    {
-        if let Ok(store) = self.store.read() {
-            let annotationset = store
-                .annotationset(self.set)
-                .ok_or_else(|| PyRuntimeError::new_err("Failed to resolve annotationset"))?;
-            let datakey = annotationset
-                .as_ref()
-                .key(self.handle)
-                .ok_or_else(|| PyRuntimeError::new_err("Failed to resolved annotationset"))?;
-            f(datakey, &store).map_err(|err| PyStamError::new_err(format!("{}", err)))
         } else {
             Err(PyRuntimeError::new_err(
                 "Unable to obtain store (should never happen)",
@@ -191,6 +182,29 @@ pub(crate) struct PyAnnotationData {
     pub(crate) set: AnnotationDataSetHandle,
     pub(crate) handle: AnnotationDataHandle,
     pub(crate) store: Arc<RwLock<AnnotationStore>>,
+}
+
+impl PyAnnotationData {
+    pub(crate) fn new(
+        handle: AnnotationDataHandle,
+        set: AnnotationDataSetHandle,
+        store: &Arc<RwLock<AnnotationStore>>,
+    ) -> PyAnnotationData {
+        PyAnnotationData {
+            set,
+            handle,
+            store: store.clone(),
+        }
+    }
+
+    pub(crate) fn new_py<'py>(
+        handle: AnnotationDataHandle,
+        set: AnnotationDataSetHandle,
+        store: &Arc<RwLock<AnnotationStore>>,
+        py: Python<'py>,
+    ) -> &'py PyAny {
+        Self::new(handle, set, store).into_py(py).into_ref(py)
+    }
 }
 
 pub(crate) fn py_into_datavalue<'py>(value: &'py PyAny) -> Result<DataValue, StamError> {
@@ -394,27 +408,17 @@ impl PyAnnotationData {
 
     /// Returns the AnnotationDataSet this data is part of
     fn annotationset(&self) -> PyResult<PyAnnotationDataSet> {
-        Ok(PyAnnotationDataSet {
-            handle: self.set,
-            store: self.store.clone(),
-        })
+        Ok(PyAnnotationDataSet::new(self.set, &self.store))
     }
 
     /// Returns a list of  Annotation instances that use this data
     /// This is a lookup in the reverse index.
     fn annotations<'py>(&self, limit: Option<usize>, py: Python<'py>) -> Py<PyList> {
         let list: &PyList = PyList::empty(py);
-        self.map_with_store(|data, store| {
-            for (i, annotation) in data.annotations(store).into_iter().flatten().enumerate() {
-                list.append(
-                    PyAnnotation {
-                        handle: annotation.handle(),
-                        store: self.store.clone(),
-                    }
-                    .into_py(py)
-                    .into_ref(py),
-                )
-                .ok();
+        self.map(|data| {
+            for (i, annotation) in data.annotations().enumerate() {
+                list.append(PyAnnotation::new_py(annotation.handle(), &self.store, py))
+                    .ok();
                 if Some(i + 1) == limit {
                     break;
                 }
@@ -426,8 +430,7 @@ impl PyAnnotationData {
     }
 
     fn annotations_len(&self) -> usize {
-        self.map_with_store(|data, store| Ok(data.annotations_len(store)))
-            .unwrap()
+        self.map(|data| Ok(data.annotations_len())).unwrap()
     }
 }
 
@@ -447,33 +450,12 @@ impl PyAnnotationData {
     {
         if let Ok(store) = self.store.read() {
             let annotationset = store
-                .annotationset(self.set)
+                .dataset(self.set)
                 .ok_or_else(|| PyRuntimeError::new_err("Failed to resolve annotationset"))?;
             let data = annotationset
-                .as_ref()
                 .annotationdata(self.handle)
                 .ok_or_else(|| PyRuntimeError::new_err("Failed to resolve annotationset"))?;
             f(data).map_err(|err| PyStamError::new_err(format!("{}", err)))
-        } else {
-            Err(PyRuntimeError::new_err(
-                "Unable to obtain store (should never happen)",
-            ))
-        }
-    }
-
-    fn map_with_store<T, F>(&self, f: F) -> Result<T, PyErr>
-    where
-        F: FnOnce(ResultItem<AnnotationData>, &AnnotationStore) -> Result<T, StamError>,
-    {
-        if let Ok(store) = self.store.read() {
-            let annotationset = store
-                .annotationset(self.set)
-                .ok_or_else(|| PyRuntimeError::new_err("Failed to resolve annotationset"))?;
-            let data = annotationset
-                .as_ref()
-                .annotationdata(self.handle)
-                .ok_or_else(|| PyRuntimeError::new_err("Failed to resolve annotationset"))?;
-            f(data, &store).map_err(|err| PyStamError::new_err(format!("{}", err)))
         } else {
             Err(PyRuntimeError::new_err(
                 "Unable to obtain store (should never happen)",
@@ -490,7 +472,7 @@ pub(crate) fn annotationdata_builder<'a>(data: &'a PyAny) -> PyResult<Annotation
     if data.is_instance_of::<PyAnnotationData>() {
         let adata: PyRef<'_, PyAnnotationData> = data.extract()?;
         builder = builder.with_id(adata.handle.into());
-        builder = builder.with_annotationset(adata.set.into());
+        builder = builder.with_dataset(adata.set.into());
         Ok(builder)
     } else if data.is_instance_of::<PyDict>() {
         let data = data.downcast::<PyDict>()?;
@@ -498,7 +480,7 @@ pub(crate) fn annotationdata_builder<'a>(data: &'a PyAny) -> PyResult<Annotation
             if id.is_instance_of::<PyAnnotationData>() {
                 let adata: PyRef<'_, PyAnnotationData> = id.extract()?;
                 builder = builder.with_id(adata.handle.into());
-                builder = builder.with_annotationset(adata.set.into());
+                builder = builder.with_dataset(adata.set.into());
             } else {
                 let id: String = id.extract()?;
                 builder = builder.with_id(id.into());
@@ -516,10 +498,10 @@ pub(crate) fn annotationdata_builder<'a>(data: &'a PyAny) -> PyResult<Annotation
         if let Some(set) = data.get_item("set") {
             if set.is_instance_of::<PyAnnotationDataSet>() {
                 let set: PyRef<'_, PyAnnotationDataSet> = set.extract()?;
-                builder = builder.with_annotationset(set.handle.into());
+                builder = builder.with_dataset(set.handle.into());
             } else {
                 let set: String = set.extract()?;
-                builder = builder.with_annotationset(set.into());
+                builder = builder.with_dataset(set.into());
             }
         }
         if let Some(value) = data.get_item("value") {

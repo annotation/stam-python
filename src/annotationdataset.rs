@@ -21,6 +21,26 @@ pub(crate) struct PyAnnotationDataSet {
     pub(crate) store: Arc<RwLock<AnnotationStore>>,
 }
 
+impl PyAnnotationDataSet {
+    pub(crate) fn new(
+        handle: AnnotationDataSetHandle,
+        store: &Arc<RwLock<AnnotationStore>>,
+    ) -> PyAnnotationDataSet {
+        PyAnnotationDataSet {
+            handle,
+            store: store.clone(),
+        }
+    }
+
+    pub(crate) fn new_py<'py>(
+        handle: AnnotationDataSetHandle,
+        store: &Arc<RwLock<AnnotationStore>>,
+        py: Python<'py>,
+    ) -> &'py PyAny {
+        Self::new(handle, store).into_py(py).into_ref(py)
+    }
+}
+
 #[pymethods]
 impl PyAnnotationDataSet {
     /// Returns the public ID (by value, aka a copy)
@@ -65,13 +85,8 @@ impl PyAnnotationDataSet {
     fn key(&self, key: &str) -> PyResult<PyDataKey> {
         self.map(|annotationset| {
             Ok(annotationset
-                .as_ref()
                 .key(key)
-                .map(|key| PyDataKey {
-                    set: self.handle,
-                    handle: key.handle(),
-                    store: self.store.clone(),
-                })
+                .map(|key| PyDataKey::new(key.handle(), self.handle, &self.store))
                 .ok_or_else(|| StamError::IdNotFoundError(key.to_string(), "key not found"))?)
         })
     }
@@ -81,11 +96,7 @@ impl PyAnnotationDataSet {
         self.map_mut(|annotationset| {
             let datakey = DataKey::new(key.to_string());
             let handle = annotationset.insert(datakey)?;
-            Ok(PyDataKey {
-                set: self.handle,
-                handle,
-                store: self.store.clone(),
-            })
+            Ok(PyDataKey::new(handle, self.handle, &self.store))
         })
     }
 
@@ -113,13 +124,14 @@ impl PyAnnotationDataSet {
         };
         self.map_mut(|annotationset| {
             let value = py_into_datavalue(value)?;
-            let datakey = AnnotationData::new(id.map(|x| x.to_string()), datakey.handle, value);
-            let handle = annotationset.insert(datakey)?;
-            Ok(PyAnnotationData {
-                set: self.handle,
-                handle,
-                store: self.store.clone(),
-            })
+            let mut databuilder = AnnotationDataBuilder::new()
+                .with_key(datakey.handle.into())
+                .with_value(value);
+            if let Some(id) = id {
+                databuilder = databuilder.with_id(id.into());
+            }
+            let handle = annotationset.build_insert_data(databuilder, true)?;
+            Ok(PyAnnotationData::new(handle, self.handle, &self.store))
         })
     }
 
@@ -127,13 +139,8 @@ impl PyAnnotationDataSet {
     fn annotationdata(&self, data_id: &str) -> PyResult<PyAnnotationData> {
         self.map(|annotationset| {
             Ok(annotationset
-                .as_ref()
                 .annotationdata(data_id)
-                .map(|data| PyAnnotationData {
-                    set: self.handle,
-                    handle: data.handle(),
-                    store: self.store.clone(),
-                })
+                .map(|data| PyAnnotationData::new(data.handle(), self.handle, &self.store))
                 .ok_or_else(|| {
                     StamError::IdNotFoundError(data_id.to_string(), "annotatiodata not found")
                 })?)
@@ -167,7 +174,7 @@ impl PyAnnotationDataSet {
     /// Returns a list of found AnnotationData instances
     /// Use AnnotationDataSet.find_data() instead if you don't have a DataKey instance yet.
     fn find_data<'py>(&self, key: &str, value: &PyAny, py: Python<'py>) -> Py<PyList> {
-        self.find_data_aux(Some(key), value, py)
+        self.find_data_aux(key, value, py)
     }
 }
 
@@ -179,7 +186,7 @@ impl PyAnnotationDataSet {
     {
         if let Ok(store) = self.store.read() {
             let annotationset: ResultItem<AnnotationDataSet> = store
-                .annotationset(self.handle)
+                .dataset(self.handle)
                 .ok_or_else(|| PyRuntimeError::new_err("Failed to resolved annotationset"))?;
             f(annotationset).map_err(|err| PyStamError::new_err(format!("{}", err)))
         } else {
@@ -213,47 +220,36 @@ impl PyAnnotationDataSet {
     /// Auxiliary function that does the actual job
     pub(crate) fn find_data_aux<'a, 'py>(
         &'a self,
-        key: Option<impl ToHandle<DataKey>>,
+        key: impl Request<DataKey>,
         value: &PyAny,
         py: Python<'py>,
     ) -> Py<PyList> {
         let list: &PyList = PyList::empty(py);
         self.map(|set| {
-            let iter = if let Ok(value) = value.extract() {
-                set.find_data(key, DataOperator::Equals(value))
-                    .into_iter()
-                    .flatten()
+            let op: DataOperator = if let Ok(value) = value.extract() {
+                DataOperator::Equals(value)
             } else if let Ok(value) = value.extract() {
-                set.find_data(key, DataOperator::EqualsInt(value))
-                    .into_iter()
-                    .flatten()
+                DataOperator::EqualsInt(value)
             } else if let Ok(value) = value.extract() {
-                set.find_data(key, DataOperator::EqualsFloat(value))
-                    .into_iter()
-                    .flatten()
+                DataOperator::EqualsFloat(value)
             } else if let Ok(value) = value.extract::<bool>() {
                 if value {
-                    set.find_data(key, DataOperator::True).into_iter().flatten()
+                    DataOperator::True
                 } else {
-                    set.find_data(key, DataOperator::False)
-                        .into_iter()
-                        .flatten()
+                    DataOperator::False
                 }
             } else {
                 return Err(StamError::OtherError(
                     "could not convert from python type to DataOperator",
                 ));
             };
-            for annotationdata in iter {
-                list.append(
-                    PyAnnotationData {
-                        handle: annotationdata.handle(),
-                        set: self.handle,
-                        store: self.store.clone(),
-                    }
-                    .into_py(py)
-                    .into_ref(py),
-                )
+            for annotationdata in set.find_data(key, &op).into_iter().flatten() {
+                list.append(PyAnnotationData::new_py(
+                    annotationdata.handle(),
+                    self.handle,
+                    &self.store,
+                    py,
+                ))
                 .ok();
             }
             Ok(())
@@ -314,7 +310,7 @@ impl PyDataKeyIter {
         F: FnOnce(ResultItem<'_, AnnotationDataSet>) -> Option<T>,
     {
         if let Ok(store) = self.store.read() {
-            if let Some(annotationset) = store.annotationset(self.handle) {
+            if let Some(annotationset) = store.dataset(self.handle) {
                 f(annotationset)
             } else {
                 None
@@ -344,11 +340,11 @@ impl PyAnnotationDataIter {
             let data_handle = AnnotationDataHandle::new(pyself.index - 1);
             if dataset.as_ref().has(data_handle) {
                 //index is one ahead, prevents exclusive lock issues
-                Some(PyAnnotationData {
-                    set: pyself.handle,
-                    handle: data_handle,
-                    store: pyself.store.clone(),
-                })
+                Some(PyAnnotationData::new(
+                    data_handle,
+                    pyself.handle,
+                    &pyself.store,
+                ))
             } else {
                 None
             }
@@ -376,7 +372,7 @@ impl PyAnnotationDataIter {
         F: FnOnce(ResultItem<'_, AnnotationDataSet>) -> Option<T>,
     {
         if let Ok(store) = self.store.read() {
-            if let Some(annotationset) = store.annotationset(self.handle) {
+            if let Some(annotationset) = store.dataset(self.handle) {
                 f(annotationset)
             } else {
                 None

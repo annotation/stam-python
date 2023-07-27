@@ -61,7 +61,7 @@ class AnnotationStore:
     def to_json_string(self) -> str:
         """Returns the annotation store as one big STAM JSON string"""
 
-    def annotationset(self, id: str) -> AnnotationDataSet:
+    def dataset(self, id: str) -> AnnotationDataSet:
         """Basic retrieval method that returns an :class:`AnnotationDataSet` by ID"""
 
     def annotation(self, id: str) -> Annotation:
@@ -73,7 +73,7 @@ class AnnotationStore:
     def add_resource(self, filename: Optional[str] = None, text: Optional[str] = None, id: Optional[str] = None) -> TextResource:
         """Create a new :class:`TextResource` and add it to the store. Returns the added instance."""
 
-    def add_annotationset(self, id: str) -> AnnotationDataSet:
+    def add_dataset(self, id: str) -> AnnotationDataSet:
         """Create a new :class:`AnnotationDataSet` and add it to the store. Returns the added instance."""
 
     def set_filename(self, filename: str) -> None:
@@ -98,7 +98,7 @@ class AnnotationStore:
     def annotations(self) -> Iterator[Annotation]:
         """Returns an iterator over all annotations (:class:`Annotation`) in this store"""
 
-    def annotationsets(self) -> Iterator[AnnotationDataSet]:
+    def datasets(self) -> Iterator[AnnotationDataSet]:
         """Returns an iterator over all annotation data sets (:class:`AnnotationDataSet`) in this store"""
 
     def resources(self) -> Iterator[TextResource]:
@@ -107,7 +107,7 @@ class AnnotationStore:
     def annotations_len(self) -> int:
         """Returns the number of annotations in the store (not substracting deletions)"""
 
-    def annotationsets_len(self) -> int:
+    def datasets_len(self) -> int:
         """Returns the number of annotation data sets in the store (not substracting deletions)"""
 
     def resources_len(self) -> int:
@@ -205,7 +205,7 @@ class Annotation:
             The maximum number of results to return (default: unlimited)
         """
 
-    def annotationsets(self, limit: Optional[int] = None) -> List[AnnotationDataSet]:
+    def datasets(self, limit: Optional[int] = None) -> List[AnnotationDataSet]:
         """Returns a list of annotation data sets (:class:`AnnotationDataSet`) this annotation refers to. This only returns the ones
         referred to via a *DataSetSelector*, i.e. as metadata.
 
@@ -223,7 +223,7 @@ class Annotation:
     def data(self, limit: Optional[int] = None) -> List[AnnotationData]:
         """Returns a list of annotation data instances this annotation refers to."""
 
-    def find_textselections(self, operator: TextSelectionOperator, limit: Optional[int] = None) -> List[TextSelection]:
+    def related_text(self, operator: TextSelectionOperator, limit: Optional[int] = None) -> List[TextSelection]:
         """
         Applies a :class:`TextSelectionOperator` to find all other
         text selections who are in a specific relation with the ones from the current annotation. 
@@ -241,11 +241,11 @@ class Annotation:
             The maximum number of results to return (default: unlimited)
         """
 
-    def find_annotations(self, operator: TextSelectionOperator, limit: Optional[int] = None) -> List[Annotation]:
+    def annotations_by_related_text(self, operator: TextSelectionOperator, limit: Optional[int] = None) -> List[Annotation]:
         """
         Applies a :class:`TextSelectionOperator` to find all other annotations whose text selections
         are in a specific relation with the ones from the current annotation. 
-        Returns all matching :class:`Annotation` instances in a list.
+        Returns all matching :class:`Annotation` instances in a list, in textual order.
        
         If you are interested in the annotations associated with the found text selections, then
         use :meth:`find_annotations` instead.
@@ -325,7 +325,7 @@ class DataKey:
     def has_id(self, id: str) -> Optional[str]:
         """Tests the ID"""
 
-    def annotationset(self) -> AnnotationDataSet:
+    def dataset(self) -> AnnotationDataSet:
         """Returns the :class:`AnnotationDataSet` this key is part of"""
 
     def annotationdata(self) -> List[AnnotationData]:
@@ -742,6 +742,16 @@ class TextResource:
         """
 
     def annotations(self, limit: Optional[int] = None) -> List[Annotation]:
+        """Returns a list of annotations (:class:`Annotation`) that reference this resource via any selector.
+
+        Parameters
+        ------------
+
+        limit: Optional[int] = None
+            The maximum number of results to return (default: unlimited)
+        """
+
+    def annotations_on_text(self, limit: Optional[int] = None) -> List[Annotation]:
         """Returns a list of annotations (:class:`Annotation`) that reference this resource via a *TextSelector* (if any).
         Does *NOT* include those that use a ResourceSelector, use :meth:`annotations_metadata` instead for those instead.
 
@@ -753,7 +763,7 @@ class TextResource:
         """
 
 
-    def annotations_metadata(self, limit: Optional[int] = None) -> List[Annotation]:
+    def annotations_as_metadata(self, limit: Optional[int] = None) -> List[Annotation]:
         """Returns a list of annotations (:class:`Annotation`) that reference this resource via a *ResourceSelector* (if any).
         Does *NOT* include those that use a TextSelector, use :meth:`annotations` instead for those instead.
 
@@ -764,7 +774,7 @@ class TextResource:
             The maximum number of results to return (default: unlimited)
         """
 
-    def find_textselections(self, operator: TextSelectionOperator, referenceselections: List[TextSelection], limit: Optional[int] = None) -> List[TextSelection]:
+    def related_text(self, operator: TextSelectionOperator, referenceselections: List[TextSelection], limit: Optional[int] = None) -> List[TextSelection]:
         """
         Applies a :class:`TextSelectionOperator` to find all other
         text selections who are in a specific relation with the ones from `referenceselections`.
@@ -935,7 +945,7 @@ class TextSelection:
             The maximum number of results to return (default: unlimited)
         """
 
-    def find_textselections(self, operator: TextSelectionOperator, limit: Optional[int] = None) -> List[TextSelection]:
+    def related_text(self, operator: TextSelectionOperator, limit: Optional[int] = None) -> List[TextSelection]:
         """
         Applies a :class:`TextSelectionOperator` to find all other
         text selections who are in a specific relation with this one.
@@ -950,7 +960,7 @@ class TextSelection:
             The maximum number of results to return (default: unlimited)
         """
 
-    def find_annotations(self, operator: TextSelectionOperator, limit: Optional[int] = None) -> List[Annotation]:
+    def annotations_by_related_text(self, operator: TextSelectionOperator, limit: Optional[int] = None) -> List[Annotation]:
         """
         Applies a :class:`TextSelectionOperator` to find all annotations whose text selections
         are in a specific relation with the this one.. 

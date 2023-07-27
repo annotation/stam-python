@@ -313,6 +313,52 @@ class Annotation:
         See :meth:`find_data` for possible keyword arguments.
         """
 
+    def related_text_with_data(self, operator: TextSelectionOperator, limit: Optional[int] = None) -> List[tuple[TextSelection,List[tuple[AnnotationData,Annotation]]]]:
+        """
+        Applies a :class:`TextSelectionOperator` to find all other
+        text selections who are in a specific relation with the text selections of the current annotation.
+    
+        Furthermore, it only returns text that has certain data describing it.
+        It returns both the matching text and for each also the matching annotation data and matching annotation
+
+        If you do not wish to return the data, but merely test for it, then use :meth:`related_text_test_data()` instead.
+
+        This method effectively combines `related_text()` with `find_data_about()` on its results, into a single method.
+
+        Parameters
+        ------------
+
+        operator: TextSelectionOperator
+            The operator to apply when comparing text selections
+        limit: Optional[int] = None
+            The maximum number of results to return (default: unlimited)
+
+        See :meth:`find_data_about` for possible keyword arguments to filter on data.
+        """
+
+    def related_text_test_data(self, operator: TextSelectionOperator, limit: Optional[int] = None) -> List[tuple[TextSelection]]:
+        """
+        Applies a :class:`TextSelectionOperator` to find all other
+        text selections who are in a specific relation with the text selections of the current annotation.
+    
+        Furthermore, it only returns text that has certain data describing it.
+        It returns only the matching text.
+
+        If you wish to return the data as well, then use :meth:`related_text_with_data()` instead.
+
+        This method effectively combines `related_text()` with `test_data_about()` on its results, into a single method.
+
+        Parameters
+        ------------
+
+        operator: TextSelectionOperator
+            The operator to apply when comparing text selections
+        limit: Optional[int] = None
+            The maximum number of results to return (default: unlimited)
+
+        See :meth:`find_data_about` for possible keyword arguments to filter on data.
+        """
+
 class AnnotationDataSet:
     """
     An `AnnotationDataSet` stores the keys (:class:`DataKey`) and values
@@ -1229,6 +1275,52 @@ class TextSelection:
         Test for the presence of data *about* this text, i.e. data on annotations that refer to this text via a TextSelector.
  
         See :meth:`find_data_about` for possible keyword arguments.
+        """
+
+    def related_text_with_data(self, operator: TextSelectionOperator, limit: Optional[int] = None) -> List[tuple[TextSelection,List[tuple[AnnotationData,Annotation]]]]:
+        """
+        Applies a :class:`TextSelectionOperator` to find all other
+        text selections who are in a specific relation with this one.
+    
+        Furthermore, it only returns text has certain data describing it.
+        It returns both the matching text and for each also the matching annotation data and matching annotation
+
+        If you do not wish to return the data, but merely test for it, then use :meth:`related_text_test_data()` instead.
+
+        This method effectively combines `related_text()` with `find_data_about()` on its results, into a single method.
+
+        Parameters
+        ------------
+
+        operator: TextSelectionOperator
+            The operator to apply when comparing text selections
+        limit: Optional[int] = None
+            The maximum number of results to return (default: unlimited)
+
+        See :meth:`find_data_about` for possible keyword arguments to filter on data.
+        """
+
+    def related_text_test_data(self, operator: TextSelectionOperator, limit: Optional[int] = None) -> List[tuple[TextSelection]]:
+        """
+        Applies a :class:`TextSelectionOperator` to find all other
+        text selections who are in a specific relation with this one.
+    
+        Furthermore, it only returns text has certain data describing it.
+        It returns only the matching text.
+
+        If you wish to return the data as well, then use :meth:`related_text_with_data()` instead.
+
+        This method effectively combines `related_text()` with `test_data_about()` on its results, into a single method.
+
+        Parameters
+        ------------
+
+        operator: TextSelectionOperator
+            The operator to apply when comparing text selections
+        limit: Optional[int] = None
+            The maximum number of results to return (default: unlimited)
+
+        See :meth:`find_data_about` for possible keyword arguments to filter on data.
         """
 
 

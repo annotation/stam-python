@@ -486,6 +486,73 @@ impl PyTextSelection {
             Ok(textselection.test_data_about(sethandle, keyhandle, &op))
         })
     }
+
+    #[pyo3(signature = (operator,**kwargs))]
+    fn related_text_with_data<'py>(
+        &self,
+        operator: PyTextSelectionOperator,
+        kwargs: Option<&'py PyDict>,
+        py: Python<'py>,
+    ) -> PyResult<&'py PyList> {
+        self.map(|textselection| {
+            let list: &PyList = PyList::empty(py);
+            let (sethandle, keyhandle, op) =
+                data_request_parser(kwargs, textselection.rootstore(), None, None)?;
+            for (textselection, data_and_annotations) in textselection
+                .related_text_with_data(operator.operator, sethandle, keyhandle, &op)
+                .into_iter()
+                .flatten()
+            {
+                let innerlist: &PyList = PyList::empty(py);
+                for (annotationdata, annotation) in data_and_annotations {
+                    innerlist
+                        .append((
+                            PyAnnotationData::new_py(
+                                annotationdata.handle(),
+                                annotationdata.set().handle(),
+                                &self.store,
+                                py,
+                            ),
+                            PyAnnotation::new_py(annotation.handle(), &self.store, py),
+                        ))
+                        .ok();
+                }
+                list.append((
+                    PyTextSelection::from_result_to_py(textselection, &self.store, py),
+                    innerlist,
+                ))
+                .ok();
+            }
+            Ok(list.into())
+        })
+    }
+
+    #[pyo3(signature = (operator,**kwargs))]
+    fn related_text_test_data<'py>(
+        &self,
+        operator: PyTextSelectionOperator,
+        kwargs: Option<&'py PyDict>,
+        py: Python<'py>,
+    ) -> PyResult<&'py PyList> {
+        self.map(|textselection| {
+            let list: &PyList = PyList::empty(py);
+            let (sethandle, keyhandle, op) =
+                data_request_parser(kwargs, textselection.rootstore(), None, None)?;
+            for textselection in textselection
+                .related_text_test_data(operator.operator, sethandle, keyhandle, &op)
+                .into_iter()
+                .flatten()
+            {
+                list.append(PyTextSelection::from_result_to_py(
+                    textselection,
+                    &self.store,
+                    py,
+                ))
+                .ok();
+            }
+            Ok(list.into())
+        })
+    }
 }
 
 impl PyTextSelection {

@@ -247,8 +247,11 @@ class Annotation:
         are in a specific relation with the ones from the current annotation. 
         Returns all matching :class:`Annotation` instances in a list, in textual order.
        
-        If you are interested in the annotations associated with the found text selections, then
-        use :meth:`find_annotations` instead.
+        If you want to additionally filter on data, use :meth:`annotations_by_related_text_and_data` instead.
+
+        If you are primarily interested in the text selections and not so much in the annotatons,
+        then use :meth:`related_text` instead.
+
 
         Parameters
         ------------
@@ -257,6 +260,23 @@ class Annotation:
             The operator to apply when comparing the underlying text selections
         limit: Optional[int] = None
             The maximum number of results to return (default: unlimited)
+
+        See :meth:`find_data` for possible keyword arguments.
+        """
+
+    def annotations_by_related_text_and_data(self, operator: TextSelectionOperator, **kwargs) -> List[Annotation]:
+        """
+        Applies a :class:`TextSelectionOperator` to find all other annotations whose text selections
+        are in a specific relation with the ones from the current annotation. Furthermore, annotations
+        are immediately filtered on data.
+
+        Returns all matching :class:`Annotation` instances in a list, in textual order.
+
+        Parameters
+        ------------
+
+        operator: TextSelectionOperator
+            The operator to apply when comparing the underlying text selections
         """
 
     def find_data(self, **kwargs) -> List[AnnotationData]:
@@ -1224,6 +1244,21 @@ class TextSelection:
             The operator to apply when comparing the underlying text selections
         limit: Optional[int] = None
             The maximum number of results to return (default: unlimited)
+        """
+
+    def annotations_by_related_text_and_data(self, operator: TextSelectionOperator, **kwargs) -> List[Annotation]:
+        """
+        Applies a :class:`TextSelectionOperator` to find all annotations whose text selections
+        are in a specific relation with this one. Furthermore, annotations
+        are immediately filtered on data.
+
+        Returns all matching :class:`Annotation` instances in a list, in textual order.
+
+        Parameters
+        ------------
+
+        operator: TextSelectionOperator
+            The operator to apply when comparing the underlying text selections
         """
 
     def relative_offset(self, container: TextSelection) -> Offset:

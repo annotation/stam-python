@@ -383,6 +383,28 @@ impl PyTextSelection {
         list.into()
     }
 
+    #[pyo3(signature = (operator, **kwargs))]
+    fn annotations_by_related_text_and_data<'py>(
+        &self,
+        operator: PyTextSelectionOperator,
+        kwargs: Option<&'py PyDict>,
+        py: Python<'py>,
+    ) -> PyResult<&'py PyList> {
+        self.map(|textselection| {
+            let list: &PyList = PyList::empty(py);
+            let (sethandle, keyhandle, op) =
+                data_request_parser(kwargs, textselection.rootstore(), None, None)?;
+            for annotation in textselection
+                .annotations_by_related_text_and_data(operator.operator, sethandle, keyhandle, &op)
+                .into_iter()
+            {
+                list.append(PyAnnotation::new_py(annotation.handle(), &self.store, py))
+                    .ok();
+            }
+            Ok(list.into())
+        })
+    }
+
     /// Returns the offset of this text selection relative to another in which it is *embedded*.
     /// Raises a `StamError` exception if they are not embedded, or not belonging to the same resource.
     fn relative_offset(&self, container: &PyTextSelection) -> PyResult<PyOffset> {

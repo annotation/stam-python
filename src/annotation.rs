@@ -365,6 +365,7 @@ impl PyAnnotation {
         .ok();
         list.into()
     }
+
     /// Applies a `TextSelectionOperator` to find all other annotations whose text selections
     /// are in a specific relation with the text selections of the current one. Returns all matching Annotations in a list
     #[pyo3(signature = (operator,limit=None))]
@@ -390,6 +391,28 @@ impl PyAnnotation {
         })
         .ok();
         list.into()
+    }
+
+    #[pyo3(signature = (operator, **kwargs))]
+    fn annotations_by_related_text_and_data<'py>(
+        &self,
+        operator: PyTextSelectionOperator,
+        kwargs: Option<&'py PyDict>,
+        py: Python<'py>,
+    ) -> PyResult<&'py PyList> {
+        self.map(|annotation| {
+            let list: &PyList = PyList::empty(py);
+            let (sethandle, keyhandle, op) =
+                data_request_parser(kwargs, annotation.rootstore(), None, None)?;
+            for annotation in annotation
+                .annotations_by_related_text_and_data(operator.operator, sethandle, keyhandle, &op)
+                .into_iter()
+            {
+                list.append(PyAnnotation::new_py(annotation.handle(), &self.store, py))
+                    .ok();
+            }
+            Ok(list.into())
+        })
     }
 
     #[pyo3(signature = (operator,**kwargs))]

@@ -53,7 +53,7 @@ class Test1(unittest.TestCase):
         self.assertIsInstance( self.store, AnnotationStore)
         self.assertEqual(self.store.id(), "test")
         self.assertEqual(self.store.annotations_len(), 1)
-        self.assertEqual(self.store.annotationsets_len(), 1)
+        self.assertEqual(self.store.datasets_len(), 1)
         self.assertEqual(self.store.resources_len(), 1)
 
     def test_sanity_2(self):
@@ -91,7 +91,7 @@ class Test1(unittest.TestCase):
             #we can test in loop body because we only have one:
             self.assertIsInstance(annotationdata, AnnotationData)
             self.assertTrue(annotationdata.has_id("D1"))
-            self.assertTrue(annotationdata.annotationset().has_id("testdataset"))
+            self.assertTrue(annotationdata.dataset().has_id("testdataset"))
             self.assertTrue(annotationdata.key().has_id("pos")) #this is the most performant in comparisons, it doesn't make a copy of the key
             self.assertEqual(str(annotationdata.key()), "pos") #force a string
 
@@ -173,16 +173,16 @@ class Test1(unittest.TestCase):
 
     def test_annotationset_iter(self):
         """Iterate over all data in an annotationset"""
-        annotationset = self.store.dataset("testdataset")
+        dataset = self.store.dataset("testdataset")
         count = 0
-        for annotationdata in annotationset:
+        for annotationdata in dataset:
             count += 1
             #we can test in loop body because we only have one:
             self.assertIsInstance(annotationdata, AnnotationData)
             self.assertTrue(annotationdata.has_id("D1"))
             self.assertTrue(annotationdata.key().has_id("pos")) #this is the most performant in comparisons, it doesn't make a copy of the key
             self.assertEqual(str(annotationdata.key()), "pos") #force a string
-            self.assertEqual(annotationdata.annotationset(), annotationset)
+            self.assertEqual(annotationdata.dataset(), dataset)
 
             self.assertEqual(annotationdata.value().get(), "noun")
             self.assertTrue(annotationdata.test_value(DataValue("noun"))) #this is the most performant in comparisons, it doesn't make a copy of the value
@@ -191,20 +191,20 @@ class Test1(unittest.TestCase):
 
     def test_annotationset_iter_keys(self):
         """Iterate over all keys in an annotationset"""
-        annotationset = self.store.dataset("testdataset")
+        dataset = self.store.dataset("testdataset")
         count = 0
-        for key in annotationset.keys():
+        for key in dataset.keys():
             count += 1
             #we can test in loop body because we only have one:
             self.assertIsInstance(key, DataKey)
             self.assertTrue(key.has_id("pos")) #this is the most performant in comparisons, it doesn't make a copy of the key
-            self.assertEqual(key.annotationset(), annotationset)
+            self.assertEqual(key.dataset(), dataset)
         self.assertEqual(count,1)
 
     def test_annotationset_iter_data_by_key(self):
         """finds all annotation data that has key 'pos'"""
-        annotationset = self.store.dataset("testdataset")
-        key = annotationset.key("pos")
+        dataset = self.store.dataset("testdataset")
+        key = dataset.key("pos")
         count = 0
         for annotationdata in key.annotationdata():
             count += 1
@@ -213,7 +213,7 @@ class Test1(unittest.TestCase):
             self.assertTrue(annotationdata.has_id("D1"))
             self.assertTrue(annotationdata.key(),key) #this is the most performant in comparisons, it doesn't make a copy of the key
             self.assertEqual(str(annotationdata.key()), "pos") #force a string
-            self.assertEqual(annotationdata.annotationset(), annotationset)
+            self.assertEqual(annotationdata.dataset(), dataset)
 
             self.assertEqual(annotationdata.value().get(), "noun")
             self.assertTrue(annotationdata.test_value(DataValue("noun"))) #this is the most performant in comparisons, it doesn't make a copy of the value
@@ -280,7 +280,7 @@ class Test2(unittest.TestCase):
         self.assertIsInstance( self.store, AnnotationStore)
         self.assertEqual(self.store.id(), "test")
         self.assertEqual(self.store.annotations_len(), 1)
-        self.assertEqual(self.store.annotationsets_len(), 1)
+        self.assertEqual(self.store.datasets_len(), 1)
         self.assertEqual(self.store.resources_len(), 1)
 
     def test_sanity_2(self):
@@ -363,7 +363,7 @@ EXAMPLE3JSON = """{
 def common_sanity(self): 
     self.assertIsInstance( self.store, AnnotationStore)
     self.assertEqual(self.store.annotations_len(), 1)
-    self.assertEqual(self.store.annotationsets_len(), 1)
+    self.assertEqual(self.store.datasets_len(), 1)
     self.assertEqual(self.store.resources_len(), 1)
 
     resource = self.store.resource("testres")
@@ -371,7 +371,7 @@ def common_sanity(self):
     self.assertEqual(resource.id(), "testres")
     self.assertTrue(resource.has_id("testres")) #quicker than the above (no copy)
 
-    dataset = self.store.annotationset("testdataset")
+    dataset = self.store.dataset("testdataset")
     self.assertIsInstance( dataset, AnnotationDataSet)
     key = dataset.key("pos")
     self.assertIsInstance( key, DataKey)
@@ -513,7 +513,7 @@ class Test6(unittest.TestCase):
     def test_find_textselections_embedded(self):
         phrase1 = self.store.annotation("Phrase1")
         for reftextselection in phrase1.textselections():
-            textselections = reftextselection.find_textselections(TextSelectionOperator.embedded())
+            textselections = reftextselection.related_text(TextSelectionOperator.embedded())
             self.assertEqual(len(textselections), 1)
             for textselection in textselections:
                 self.assertEqual(textselection.begin(), 0)
@@ -522,7 +522,7 @@ class Test6(unittest.TestCase):
     def test_find_textselections_embeds(self):
         sentence1 = self.store.annotation("Sentence1")
         for reftextselection in sentence1.textselections():
-            textselections = reftextselection.find_textselections(TextSelectionOperator.embeds())
+            textselections = reftextselection.related_text(TextSelectionOperator.embeds())
             self.assertEqual(len(textselections), 1)
             for textselection in textselections:
                 self.assertEqual(textselection.begin(), 17)
@@ -530,13 +530,13 @@ class Test6(unittest.TestCase):
 
     def test_find_annotation_embedded(self):
         phrase1 = self.store.annotation("Phrase1")
-        annotations = phrase1.find_annotations(TextSelectionOperator.embedded())
+        annotations = phrase1.annotations_by_related_text(TextSelectionOperator.embedded())
         self.assertEqual(len(annotations),1)
         self.assertEqual(annotations[0].id(), "Sentence1")
 
     def test_find_annotation_embeds(self):
         phrase1 = self.store.annotation("Sentence1")
-        annotations = phrase1.find_annotations(TextSelectionOperator.embeds())
+        annotations = phrase1.annotations_by_related_text(TextSelectionOperator.embeds())
         self.assertEqual(len(annotations),1)
         self.assertEqual(annotations[0].id(), "Phrase1")
 
@@ -550,14 +550,14 @@ class Test6(unittest.TestCase):
     def test_find_annotation_precedes(self):
         self.setup_example_6b()
         phrase2 = self.store.annotation("Phrase2")
-        annotations = phrase2.find_annotations(TextSelectionOperator.precedes())
+        annotations = phrase2.annotations_by_related_text(TextSelectionOperator.precedes())
         self.assertEqual(len(annotations),1)
         self.assertEqual(annotations[0].id(), "Phrase3")
 
     def test_find_annotation_succeeds(self):
         self.setup_example_6b()
         phrase3 = self.store.annotation("Phrase3")
-        annotations = phrase3.find_annotations(TextSelectionOperator.succeeds())
+        annotations = phrase3.annotations_by_related_text(TextSelectionOperator.succeeds())
         self.assertEqual(len(annotations),2)
         self.assertTrue(any(annotation.id() == "Phrase2" for annotation in annotations))
         self.assertTrue(any(annotation.id() == "Phrase1" for annotation in annotations))
@@ -566,7 +566,7 @@ class Test6(unittest.TestCase):
     def test_find_annotation_overlaps(self):
         self.setup_example_6b()
         phrase1 = self.store.annotation("Phrase1")
-        annotations = phrase1.find_annotations(TextSelectionOperator.overlaps())
+        annotations = phrase1.annotations_by_related_text(TextSelectionOperator.overlaps())
         self.assertEqual(len(annotations),2)
         self.assertTrue(any(annotation.id() == "Phrase2" for annotation in annotations))
         self.assertTrue(any(annotation.id() == "Sentence1" for annotation in annotations))
@@ -574,7 +574,7 @@ class Test6(unittest.TestCase):
     def test_find_annotation_overlaps_2(self):
         self.setup_example_6b()
         phrase2 = self.store.annotation("Phrase2")
-        annotations = phrase2.find_annotations(TextSelectionOperator.overlaps())
+        annotations = phrase2.annotations_by_related_text(TextSelectionOperator.overlaps())
         self.assertEqual(len(annotations),2)
         self.assertTrue(any(annotation.id() == "Phrase1" for annotation in annotations))
         self.assertTrue(any(annotation.id() == "Sentence1" for annotation in annotations))

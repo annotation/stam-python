@@ -313,7 +313,7 @@ class Annotation:
         See :meth:`find_data` for possible keyword arguments.
         """
 
-    def related_text_with_data(self, operator: TextSelectionOperator, limit: Optional[int] = None) -> List[tuple[TextSelection,List[tuple[AnnotationData,Annotation]]]]:
+    def related_text_with_data(self, operator: TextSelectionOperator, **kwargs) -> List[tuple[TextSelection,List[tuple[AnnotationData,Annotation]]]]:
         """
         Applies a :class:`TextSelectionOperator` to find all other
         text selections who are in a specific relation with the text selections of the current annotation.
@@ -336,7 +336,7 @@ class Annotation:
         See :meth:`find_data_about` for possible keyword arguments to filter on data.
         """
 
-    def related_text_test_data(self, operator: TextSelectionOperator, limit: Optional[int] = None) -> List[tuple[TextSelection]]:
+    def related_text_test_data(self, operator: TextSelectionOperator,  **kwargs) -> List[tuple[TextSelection]]:
         """
         Applies a :class:`TextSelectionOperator` to find all other
         text selections who are in a specific relation with the text selections of the current annotation.
@@ -1277,7 +1277,7 @@ class TextSelection:
         See :meth:`find_data_about` for possible keyword arguments.
         """
 
-    def related_text_with_data(self, operator: TextSelectionOperator, limit: Optional[int] = None) -> List[tuple[TextSelection,List[tuple[AnnotationData,Annotation]]]]:
+    def related_text_with_data(self, operator: TextSelectionOperator, **kwargs) -> List[tuple[TextSelection,List[tuple[AnnotationData,Annotation]]]]:
         """
         Applies a :class:`TextSelectionOperator` to find all other
         text selections who are in a specific relation with this one.
@@ -1300,7 +1300,7 @@ class TextSelection:
         See :meth:`find_data_about` for possible keyword arguments to filter on data.
         """
 
-    def related_text_test_data(self, operator: TextSelectionOperator, limit: Optional[int] = None) -> List[tuple[TextSelection]]:
+    def related_text_test_data(self, operator: TextSelectionOperator, **kwargs) -> List[tuple[TextSelection]]:
         """
         Applies a :class:`TextSelectionOperator` to find all other
         text selections who are in a specific relation with this one.

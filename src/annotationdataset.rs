@@ -5,7 +5,9 @@ use pyo3::types::*;
 use std::ops::FnOnce;
 use std::sync::{Arc, RwLock};
 
-use crate::annotationdata::{py_into_datavalue, PyAnnotationData, PyDataKey};
+use crate::annotationdata::{
+    data_request_parser, dataoperator_from_py, datavalue_from_py, PyAnnotationData, PyDataKey,
+};
 use crate::error::PyStamError;
 use crate::selector::PySelector;
 use stam::*;
@@ -123,7 +125,7 @@ impl PyAnnotationDataSet {
             self.add_key(key)?
         };
         self.map_mut(|annotationset| {
-            let value = py_into_datavalue(value)?;
+            let value = datavalue_from_py(value)?;
             let mut databuilder = AnnotationDataBuilder::new()
                 .with_key(datakey.handle.into())
                 .with_value(value);
@@ -142,7 +144,7 @@ impl PyAnnotationDataSet {
                 .annotationdata(data_id)
                 .map(|data| PyAnnotationData::new(data.handle(), self.handle, &self.store))
                 .ok_or_else(|| {
-                    StamError::IdNotFoundError(data_id.to_string(), "annotatiodata not found")
+                    StamError::IdNotFoundError(data_id.to_string(), "annotationdata not found")
                 })?)
         })
     }
@@ -172,9 +174,32 @@ impl PyAnnotationDataSet {
 
     /// Find annotation data for the specified key and specified value
     /// Returns a list of found AnnotationData instances
-    /// Use AnnotationDataSet.find_data() instead if you don't have a DataKey instance yet.
-    fn find_data<'py>(&self, key: &str, value: &PyAny, py: Python<'py>) -> Py<PyList> {
-        self.find_data_aux(key, value, py)
+    #[pyo3(signature = (**kwargs))]
+    fn find_data<'py>(&self, kwargs: Option<&PyDict>, py: Python<'py>) -> PyResult<&'py PyList> {
+        self.map(|set| {
+            let list: &PyList = PyList::empty(py);
+            let (_, keyhandle, op) =
+                data_request_parser(kwargs, set.store(), Some(self.handle), None)?;
+            for annotationdata in set.find_data(keyhandle, &op).into_iter().flatten() {
+                list.append(PyAnnotationData::new_py(
+                    annotationdata.handle(),
+                    self.handle,
+                    &self.store,
+                    py,
+                ))
+                .ok();
+            }
+            Ok(list.into())
+        })
+    }
+
+    #[pyo3(signature = (**kwargs))]
+    fn test_data<'py>(&self, kwargs: Option<&'py PyDict>) -> PyResult<bool> {
+        self.map(|set| {
+            let (_, keyhandle, op) =
+                data_request_parser(kwargs, set.store(), Some(self.handle), None)?;
+            Ok(set.test_data(keyhandle, &op))
+        })
     }
 }
 
@@ -211,51 +236,6 @@ impl PyAnnotationDataSet {
                 "Can't get exclusive lock to write to store",
             ))
         }
-    }
-
-    /// Find annotation data for the specified key and specified value
-    /// Returns a list of found AnnotationData instances
-    /// Use AnnotationDataSet.find_data() instead if you don't have a DataKey instance yet.
-    ///
-    /// Auxiliary function that does the actual job
-    pub(crate) fn find_data_aux<'a, 'py>(
-        &'a self,
-        key: impl Request<DataKey>,
-        value: &PyAny,
-        py: Python<'py>,
-    ) -> Py<PyList> {
-        let list: &PyList = PyList::empty(py);
-        self.map(|set| {
-            let op: DataOperator = if let Ok(value) = value.extract() {
-                DataOperator::Equals(value)
-            } else if let Ok(value) = value.extract() {
-                DataOperator::EqualsInt(value)
-            } else if let Ok(value) = value.extract() {
-                DataOperator::EqualsFloat(value)
-            } else if let Ok(value) = value.extract::<bool>() {
-                if value {
-                    DataOperator::True
-                } else {
-                    DataOperator::False
-                }
-            } else {
-                return Err(StamError::OtherError(
-                    "could not convert from python type to DataOperator",
-                ));
-            };
-            for annotationdata in set.find_data(key, &op).into_iter().flatten() {
-                list.append(PyAnnotationData::new_py(
-                    annotationdata.handle(),
-                    self.handle,
-                    &self.store,
-                    py,
-                ))
-                .ok();
-            }
-            Ok(())
-        })
-        .ok();
-        list.into()
     }
 }
 

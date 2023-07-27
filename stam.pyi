@@ -305,10 +305,40 @@ class AnnotationDataSet:
     def selector(self) -> Selector:
         """Returns a selector pointing to this annotation dataset (via a *DataSetSelector*)"""
 
-    def find_data(self, key: str, value: Union[DataValue,str,int,bool,float,List]) -> List[AnnotationData]:
+    def find_data(self, **kwargs) -> List[AnnotationData]:
         """
         Find annotation data by key and value.
         Returns a list of :class:`AnnotationData` instances
+
+        Keyword arguments
+        -------------------
+
+        key: Optional[Union[str,DataKey]]
+            The key to search for; it will search all keys if not specified
+        value: Optional[Union[str,int,float,bool]]
+            The exact value to search for, if this or any of its variants mentioned below is omitted, it will search all values.
+        value_not: Optional[Union[str,int,float,bool]]
+            Value
+        value_greater: Optional[Union[int,float]]
+            Value must be greater than specified (int or float)
+        value_less: Optional[Union[int,float]]
+            Value must be less than specified (int or float)
+        value_greatereq: Optional[Union[int,float]]
+            Value must be greater than specified or equal (int or float)
+        value_lesseq: Optional[Union[int,float]]
+            Value must be less than specified or equal (int or float)
+        value_in: Optional[Tuple[Union[str,int,float,bool]]]
+            Value must match any in the tuple (this is a logical OR statement)
+        value_not_in: Optional[Tuple[Union[str,int,float,bool]]]
+            Value must not match any in the tuple
+        value_in_range: Optional[Tuple[Union[int,float]]]
+            Must be a numeric 2-tuple with min and max (inclusive) values
+        """
+
+    def test_data(self, **kwargs) -> bool:
+        """
+        Tests whether the dataset has certain keys and data.
+        See :meth:`find_data` for possible keywords arguments.
         """
 
 class DataKey:
@@ -333,10 +363,40 @@ class DataKey:
         Returns a list of :class:`AnnotationData` instances that use this key.
         """
 
-    def find_data(self, value: Union[DataValue,str,int,bool,float,List]) -> List[AnnotationData]:
+    def find_data(self, **kwargs) -> List[AnnotationData]:
         """
         Find annotation data for the current key by value.
         Returns a list of :class:`AnnotationData` instances
+
+        Keyword arguments
+        -------------------
+
+        key: Optional[Union[str,DataKey]]
+            The key to search for; it will search all keys if not specified
+        value: Optional[Union[str,int,float,bool]]
+            The exact value to search for, if this or any of its variants mentioned below is omitted, it will search all values.
+        value_not: Optional[Union[str,int,float,bool]]
+            Value
+        value_greater: Optional[Union[int,float]]
+            Value must be greater than specified (int or float)
+        value_less: Optional[Union[int,float]]
+            Value must be less than specified (int or float)
+        value_greatereq: Optional[Union[int,float]]
+            Value must be greater than specified or equal (int or float)
+        value_lesseq: Optional[Union[int,float]]
+            Value must be less than specified or equal (int or float)
+        value_in: Optional[Tuple[Union[str,int,float,bool]]]
+            Value must match any in the tuple (this is a logical OR statement)
+        value_not_in: Optional[Tuple[Union[str,int,float,bool]]]
+            Value must not match any in the tuple
+        value_in_range: Optional[Tuple[Union[int,float]]]
+            Must be a numeric 2-tuple with min and max (inclusive) values
+        """
+
+    def test_data(self, **kwargs) -> bool:
+        """
+        Tests whether the DataKey has certain data.
+        See :meth:`find_data` for possible keywords arguments.
         """
 
     def annotations(self, limit: Optional[int] = None) -> List[Annotation]:

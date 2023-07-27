@@ -106,12 +106,36 @@ impl PyDataKey {
     /// Find annotation data for the current key and specified value
     /// Returns an AnnotationData instance if found, None otherwise
     /// Use AnnotationDataSet.find_data() instead if you don't have a DataKey instance yet.
-    fn find_data<'py>(&self, value: &PyAny, py: Python<'py>) -> Py<PyList> {
-        if let Ok(annotationset) = self.dataset() {
-            annotationset.find_data_aux(Some(self.handle), value, py)
-        } else {
-            PyList::empty(py).into()
-        }
+    #[pyo3(signature = (**kwargs))]
+    fn find_data<'py>(
+        &self,
+        kwargs: Option<&'py PyDict>,
+        py: Python<'py>,
+    ) -> PyResult<&'py PyList> {
+        self.map(|key| {
+            let list: &PyList = PyList::empty(py);
+            let (_, _, op) =
+                data_request_parser(kwargs, key.rootstore(), Some(self.set), Some(self.handle))?;
+            for annotationdata in key.find_data(&op) {
+                list.append(PyAnnotationData::new_py(
+                    annotationdata.handle(),
+                    self.set,
+                    &self.store,
+                    py,
+                ))
+                .ok();
+            }
+            Ok(list.into())
+        })
+    }
+
+    #[pyo3(signature = (**kwargs))]
+    fn test_data<'py>(&self, kwargs: Option<&'py PyDict>) -> PyResult<bool> {
+        self.map(|key| {
+            let (_, _, op) =
+                data_request_parser(kwargs, key.rootstore(), Some(self.set), Some(self.handle))?;
+            Ok(key.test_data(&op))
+        })
     }
 
     /// Returns a list of  Annotation instances that use this key
@@ -207,7 +231,7 @@ impl PyAnnotationData {
     }
 }
 
-pub(crate) fn py_into_datavalue<'py>(value: &'py PyAny) -> Result<DataValue, StamError> {
+pub(crate) fn datavalue_from_py<'py>(value: &'py PyAny) -> Result<DataValue, StamError> {
     if let Ok(value) = value.extract() {
         Ok(DataValue::String(value))
     } else if let Ok(value) = value.extract() {
@@ -223,7 +247,7 @@ pub(crate) fn py_into_datavalue<'py>(value: &'py PyAny) -> Result<DataValue, Sta
             let value: &PyList = value.downcast().unwrap();
             let mut list: Vec<DataValue> = Vec::new();
             for item in value {
-                let pyitem = py_into_datavalue(item)?;
+                let pyitem = datavalue_from_py(item)?;
                 list.push(pyitem);
             }
             return Ok(DataValue::List(list));
@@ -282,7 +306,7 @@ impl PyDataValue {
     #[new]
     fn new<'py>(value: &PyAny) -> PyResult<Self> {
         Ok(PyDataValue {
-            value: py_into_datavalue(value)
+            value: datavalue_from_py(value)
                 .map_err(|err| PyStamError::new_err(format!("{}", err)))?,
         })
     }
@@ -506,7 +530,7 @@ pub(crate) fn annotationdata_builder<'a>(data: &'a PyAny) -> PyResult<Annotation
         }
         if let Some(value) = data.get_item("value") {
             builder = builder.with_value(
-                py_into_datavalue(value)
+                datavalue_from_py(value)
                     .map_err(|_e| PyValueError::new_err("Invalid type for value"))?,
             )
         }
@@ -517,6 +541,213 @@ pub(crate) fn annotationdata_builder<'a>(data: &'a PyAny) -> PyResult<Annotation
     } else {
         Err(PyValueError::new_err(
             "Argument to build AnnotationData must be a dictionary (with fields id, key, set, value), a string (with a public ID), or an AnnotationData instance. A list containing any multiple of those types is also allowed in certain circumstances.",
+        ))
+    }
+}
+
+pub(crate) fn dataoperator_from_py(value: &PyAny) -> Result<DataOperator, StamError> {
+    if value.is_none() {
+        Ok(DataOperator::Null)
+    } else if let Ok(value) = value.extract() {
+        Ok(DataOperator::Equals(value))
+    } else if let Ok(value) = value.extract() {
+        Ok(DataOperator::EqualsInt(value))
+    } else if let Ok(value) = value.extract() {
+        Ok(DataOperator::EqualsFloat(value))
+    } else if let Ok(value) = value.extract::<bool>() {
+        if value {
+            Ok(DataOperator::True)
+        } else {
+            Ok(DataOperator::False)
+        }
+    } else {
+        Err(StamError::OtherError(
+            "Could not convert value to a DataOperator",
+        ))
+    }
+}
+
+pub(crate) fn dataoperator_greater_from_py(value: &PyAny) -> Result<DataOperator, StamError> {
+    if let Ok(value) = value.extract() {
+        Ok(DataOperator::GreaterThan(value))
+    } else if let Ok(value) = value.extract() {
+        Ok(DataOperator::GreaterThanFloat(value))
+    } else {
+        Err(StamError::OtherError(
+            "Could not convert value to a greater than DataOperator",
+        ))
+    }
+}
+
+pub(crate) fn dataoperator_less_from_py(value: &PyAny) -> Result<DataOperator, StamError> {
+    if let Ok(value) = value.extract() {
+        Ok(DataOperator::LessThan(value))
+    } else if let Ok(value) = value.extract() {
+        Ok(DataOperator::LessThanFloat(value))
+    } else {
+        Err(StamError::OtherError(
+            "Could not convert value to a less than DataOperator",
+        ))
+    }
+}
+
+pub(crate) fn dataoperator_greatereq_from_py(value: &PyAny) -> Result<DataOperator, StamError> {
+    if let Ok(value) = value.extract() {
+        Ok(DataOperator::GreaterThanOrEqual(value))
+    } else if let Ok(value) = value.extract() {
+        Ok(DataOperator::GreaterThanOrEqualFloat(value))
+    } else {
+        Err(StamError::OtherError(
+            "Could not convert value to a greater-equal than DataOperator",
+        ))
+    }
+}
+
+pub(crate) fn dataoperator_lesseq_from_py(value: &PyAny) -> Result<DataOperator, StamError> {
+    if let Ok(value) = value.extract() {
+        Ok(DataOperator::LessThanOrEqual(value))
+    } else if let Ok(value) = value.extract() {
+        Ok(DataOperator::LessThanOrEqualFloat(value))
+    } else {
+        Err(StamError::OtherError(
+            "Could not convert value to a less-equal than DataOperator",
+        ))
+    }
+}
+
+pub(crate) fn data_request_parser<'py, 'store>(
+    kwargs: Option<&'py PyDict>,
+    store: &'store AnnotationStore,
+    mut set_handle: Option<AnnotationDataSetHandle>,
+    mut key_handle: Option<DataKeyHandle>,
+) -> Result<
+    (
+        Option<AnnotationDataSetHandle>,
+        Option<DataKeyHandle>,
+        DataOperator<'store>,
+    ),
+    StamError,
+>
+where
+    'py: 'store,
+{
+    let mut op = DataOperator::Any;
+    if let Some(kwargs) = kwargs {
+        if let Some(set) = kwargs.get_item("set") {
+            if set.is_instance_of::<PyAnnotationDataSet>() {
+                let set: PyRef<'py, PyAnnotationDataSet> =
+                    set.extract().expect("extract should succeed");
+                set_handle = Some(set.handle);
+            } else if set.is_none() || set.is_instance_of::<PyBool>() {
+                set_handle = None;
+            } else if let Ok(set) = set.extract() {
+                set_handle = Some(store.resolve_dataset_id(set)?);
+            }
+        }
+        if let Some(key) = kwargs.get_item("key") {
+            if key.is_instance_of::<PyDataKey>() {
+                let key: PyRef<'py, PyDataKey> = key.extract().expect("extract should succeed");
+                set_handle = Some(key.set);
+                key_handle = Some(key.handle);
+            } else if key.is_none() || key.is_instance_of::<PyBool>() {
+                key_handle = None;
+            } else if let Ok(key) = key.extract::<&str>() {
+                if let Some(set_handle) = set_handle {
+                    let set = store.dataset(set_handle).expect("set handle must be valid");
+                    if let Some(key) = set.key(key) {
+                        key_handle = Some(key.handle());
+                    } else {
+                        return Err(StamError::IdNotFoundError(
+                            key.to_string(),
+                            "Specified key does not exist",
+                        ));
+                    }
+                } else {
+                    return Err(StamError::OtherError(
+                        "Can not specify a key identifier without a set!",
+                    ));
+                }
+            }
+        }
+        if let Some(value) = kwargs.get_item("value") {
+            op = dataoperator_from_py(value)?;
+        } else if let Some(value) = kwargs.get_item("value_not") {
+            op = DataOperator::Not(Box::new(dataoperator_from_py(value)?));
+        } else if let Some(value) = kwargs.get_item("value_greater") {
+            op = dataoperator_greater_from_py(value)?;
+        } else if let Some(value) = kwargs.get_item("value_not_greater") {
+            op = DataOperator::Not(Box::new(dataoperator_greater_from_py(value)?));
+        } else if let Some(value) = kwargs.get_item("value_less") {
+            op = dataoperator_less_from_py(value)?;
+        } else if let Some(value) = kwargs.get_item("value_not_less") {
+            op = DataOperator::Not(Box::new(dataoperator_less_from_py(value)?));
+        } else if let Some(value) = kwargs.get_item("value_greatereq") {
+            op = dataoperator_greatereq_from_py(value)?;
+        } else if let Some(value) = kwargs.get_item("value_not_greatereq") {
+            op = DataOperator::Not(Box::new(dataoperator_greatereq_from_py(value)?));
+        } else if let Some(value) = kwargs.get_item("value_lesseq") {
+            op = dataoperator_lesseq_from_py(value)?;
+        } else if let Some(value) = kwargs.get_item("value_not_lesseq") {
+            op = DataOperator::Not(Box::new(dataoperator_lesseq_from_py(value)?));
+        } else if let Some(values) = kwargs.get_item("value_in") {
+            if values.is_instance_of::<PyTuple>() {
+                let values: &PyTuple = values.downcast().unwrap();
+                let mut suboperators = Vec::with_capacity(values.len());
+                for value in values {
+                    suboperators.push(dataoperator_from_py(value)?)
+                }
+                op = DataOperator::Or(suboperators);
+            } else {
+                return Err(StamError::OtherError("`value_in` must be a tuple"));
+            }
+        } else if let Some(values) = kwargs.get_item("value_not_in") {
+            if values.is_instance_of::<PyTuple>() {
+                let values: &PyTuple = values.downcast().unwrap();
+                let mut suboperators = Vec::with_capacity(values.len());
+                for value in values {
+                    suboperators.push(dataoperator_from_py(value)?)
+                }
+                op = DataOperator::Not(Box::new(DataOperator::Or(suboperators)));
+            } else {
+                return Err(StamError::OtherError("`value_in` must be a tuple"));
+            }
+        } else if let Some(values) = kwargs.get_item("value_in_range") {
+            if let Ok((min, max)) = values.extract::<(isize, isize)>() {
+                op = DataOperator::And(vec![
+                    DataOperator::GreaterThanOrEqual(min),
+                    DataOperator::LessThanOrEqual(max),
+                ]);
+            } else if let Ok((min, max)) = values.extract::<(f64, f64)>() {
+                op = DataOperator::And(vec![
+                    DataOperator::GreaterThanOrEqualFloat(min),
+                    DataOperator::LessThanOrEqualFloat(max),
+                ]);
+            } else {
+                return Err(StamError::OtherError(
+                    "`value_in_range` must be a 2-tuple min,max (exclusive) with numbers (both int or both float)",
+                ));
+            }
+        } else if let Some(values) = kwargs.get_item("value_not_in_range") {
+            if let Ok((min, max)) = values.extract::<(isize, isize)>() {
+                op = DataOperator::And(vec![
+                    DataOperator::LessThan(min),
+                    DataOperator::GreaterThan(max),
+                ]);
+            } else if let Ok((min, max)) = values.extract::<(f64, f64)>() {
+                op = DataOperator::And(vec![
+                    DataOperator::LessThanFloat(min),
+                    DataOperator::GreaterThanFloat(max),
+                ]);
+            } else {
+                return Err(StamError::OtherError(
+                    "`value_not_in_range` must be a 2-tuple min,max (exclusive) with numbers (both int or both float)",
+                ));
+            }
+        }
+        Ok((set_handle, key_handle, op))
+    } else {
+        Err(StamError::OtherError(
+            "No keyword arguments specified for search: provide a combination of `set`,`key`, and `value`",
         ))
     }
 }

@@ -5,7 +5,7 @@ use pyo3::types::*;
 use std::ops::FnOnce;
 use std::sync::{Arc, RwLock};
 
-use crate::annotationdata::PyAnnotationData;
+use crate::annotationdata::{data_request_parser, PyAnnotationData};
 use crate::annotationdataset::PyAnnotationDataSet;
 use crate::annotationstore::MapStore;
 use crate::error::PyStamError;
@@ -261,6 +261,39 @@ impl PyAnnotation {
     fn __len__(&self) -> usize {
         self.map(|annotation| Ok(annotation.as_ref().len()))
             .unwrap()
+    }
+
+    /// Find annotation data for the specified key and specified value
+    /// Returns a list of found AnnotationData instances
+    #[pyo3(signature = (**kwargs))]
+    fn find_data<'py>(&self, kwargs: Option<&PyDict>, py: Python<'py>) -> PyResult<&'py PyList> {
+        self.map(|annotation| {
+            let list: &PyList = PyList::empty(py);
+            let (sethandle, keyhandle, op) =
+                data_request_parser(kwargs, annotation.store(), None, None)?;
+            for annotationdata in annotation
+                .find_data(sethandle, keyhandle, &op)
+                .into_iter()
+                .flatten()
+            {
+                list.append(PyAnnotationData::new_py(
+                    annotationdata.handle(),
+                    annotationdata.set().handle(),
+                    &self.store,
+                    py,
+                ))
+                .ok();
+            }
+            Ok(list.into())
+        })
+    }
+
+    #[pyo3(signature = (**kwargs))]
+    fn test_data<'py>(&self, kwargs: Option<&'py PyDict>) -> PyResult<bool> {
+        self.map(|set| {
+            let (sethandle, keyhandle, op) = data_request_parser(kwargs, set.store(), None, None)?;
+            Ok(set.test_data(sethandle, keyhandle, &op))
+        })
     }
 
     /// Applies a `TextSelectionOperator` to find all other text selections

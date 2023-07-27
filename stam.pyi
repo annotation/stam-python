@@ -292,7 +292,25 @@ class Annotation:
     def test_data(self, **kwargs) -> bool:
         """
         Tests whether the annotation has certain keys and data.
-        See :meth:`find_data` for possible keywords arguments.
+        See :meth:`find_data` for possible keyword arguments.
+        """
+
+    def find_data_about(self, **kwargs) -> List[tuple[AnnotationData,Annotation]]:
+        """
+        Search for data *about* this annotation, i.e. data on other annotation that refer to this one.
+        Do not confuse this with the data this annotation holds, which can be searched with :meth:`find_data`.
+ 
+        Both the matching data (:class:`AnnotationData`) as well as the matching annotation (:class:`Annotation`) will be returned in a list of two-tuples
+
+        See :meth:`find_data` for possible keyword arguments.
+        """
+
+    def test_data_about(self, **kwargs) -> bool:
+        """
+        Test for the presence of data *about* this annotation, i.e. data on other annotation that refer to this one.
+        Do not confuse this with the data this annotation holds, which can be tested with :meth:`test_data`.
+ 
+        See :meth:`find_data` for possible keyword arguments.
         """
 
 class AnnotationDataSet:
@@ -374,7 +392,23 @@ class AnnotationDataSet:
     def test_data(self, **kwargs) -> bool:
         """
         Tests whether the dataset has certain keys and data.
-        See :meth:`find_data` for possible keywords arguments.
+        See :meth:`find_data` for possible keyword arguments.
+        """
+
+    def find_data_about(self, **kwargs) -> List[tuple[AnnotationData,Annotation]]:
+        """
+        Search for data *about* this dataset, i.e. data on annotations that refer to this dataset via a DataSetSelector.
+ 
+        Both the matching data (:class:`AnnotationData`) as well as the matching annotation (:class:`Annotation`) will be returned in a list of two-tuples
+
+        See :meth:`find_data` for possible keyword arguments.
+        """
+
+    def test_metadata_about(self, **kwargs) -> bool:
+        """
+        Test for the presence of data *about* this dataset, i.e. data on annotations that refer to this dataset via a DataSetSelector.
+ 
+        See :meth:`find_data` for possible keyword arguments.
         """
 
 class DataKey:
@@ -432,7 +466,7 @@ class DataKey:
     def test_data(self, **kwargs) -> bool:
         """
         Tests whether the DataKey has certain data.
-        See :meth:`find_data` for possible keywords arguments.
+        See :meth:`find_data` for possible keyword arguments.
         """
 
     def annotations(self, limit: Optional[int] = None) -> List[Annotation]:
@@ -887,6 +921,91 @@ class TextResource:
             The maximum number of results to return (default: unlimited)
         """
 
+    def find_data_about(self, **kwargs) -> List[tuple[AnnotationData,Annotation]]:
+        """
+        Search for data *about* this resource, i.e. data on annotations that refer to this resource by any means.
+ 
+        Both the matching data (:class:`AnnotationData`) as well as the matching annotation (:class:`Annotation`) will be returned in a list of two-tuples
+
+        Two other specialised variants are available that further constrain the search:
+            
+            * :meth:`find_metadata_about`
+            * :meth:`find_data_about_text`
+
+        Keyword arguments
+        -------------------
+
+        key: Optional[Union[str,DataKey]]
+            The key to search for; it will search all keys if not specified
+        value: Optional[Union[str,int,float,bool]]
+            The exact value to search for, if this or any of its variants mentioned below is omitted, it will search all values.
+        value_not: Optional[Union[str,int,float,bool]]
+            Value
+        value_greater: Optional[Union[int,float]]
+            Value must be greater than specified (int or float)
+        value_less: Optional[Union[int,float]]
+            Value must be less than specified (int or float)
+        value_greatereq: Optional[Union[int,float]]
+            Value must be greater than specified or equal (int or float)
+        value_lesseq: Optional[Union[int,float]]
+            Value must be less than specified or equal (int or float)
+        value_in: Optional[Tuple[Union[str,int,float,bool]]]
+            Value must match any in the tuple (this is a logical OR statement)
+        value_not_in: Optional[Tuple[Union[str,int,float,bool]]]
+            Value must not match any in the tuple
+        value_in_range: Optional[Tuple[Union[int,float]]]
+            Must be a numeric 2-tuple with min and max (inclusive) values
+        """
+
+    def test_data_about(self, **kwargs) -> bool:
+        """
+        Test for the presence of data *about* this resource, i.e. data on annotations that refer to this resource by any means.
+ 
+        See :meth:`find_data_about` for possible keyword arguments.
+        """
+
+    def find_metadata_about(self, **kwargs) -> List[tuple[AnnotationData,Annotation]]:
+        """
+        Search for (meta)data *about* this resource, i.e. data on annotations that refers to this resource using a ResourceSelector.
+ 
+        Both the matching data (:class:`AnnotationData`) as well as the matching annotation (:class:`Annotation`) will be returned in a list of two-tuples
+
+        Two other variants are available:
+            
+            * :meth:`find_data_about` - More generic variant
+            * :meth:`find_data_about_text` - Other specialized variant
+
+        See :meth:`find_data_about` for possible keyword arguments.
+        """
+
+    def test_metadata_about(self, **kwargs) -> bool:
+        """
+        Test for the presence of data *about* this resource, i.e. data on annotations that refer to this resource by any means.
+ 
+        See :meth:`find_data_about` for possible keyword arguments.
+        """
+
+    def find_data_about_text(self, **kwargs) -> List[tuple[AnnotationData,Annotation]]:
+        """
+        Search for data *about* this text in this resource, i.e. data on annotations that refers to this resource using a TextSelector.
+ 
+        Both the matching data (:class:`AnnotationData`) as well as the matching annotation (:class:`Annotation`) will be returned in a list of two-tuples
+
+        Two other variants are available:
+            
+            * :meth:`find_data_about` - More generic variant
+            * :meth:`find_metadata_about` - Other specialized variant
+
+        See :meth:`find_data_about` for possible keyword arguments.
+        """
+
+    def test_data_about_text(self, **kwargs) -> bool:
+        """
+        Test for the presence of data *about* this text in this resource, i.e. data on annotations that refers to this resource using a TextSelector.
+ 
+        See :meth:`find_data_about` for possible keyword arguments.
+        """
+
 class TextSelection:
     """
     This holds a slice of a text.
@@ -1019,20 +1138,7 @@ class TextSelection:
         """Returns the number of annotations this text selection references"""
 
     def annotations(self, limit: Optional[int] = None) -> List[Annotation]:
-        """Returns a list of annotations (:class:`Annotation`) that reference this resource via a *TextSelector* (if any).
-        Does *NOT* include those that use a ResourceSelector, use :meth:`annotations_metadata` instead for those instead.
-
-        Parameters
-        ------------
-
-        limit: Optional[int] = None
-            The maximum number of results to return (default: unlimited)
-        """
-
-
-    def annotations_metadata(self, limit: Optional[int] = None) -> List[Annotation]:
-        """Returns a list of annotations (:class:`Annotation`) that reference this resource via a *ResourceSelector* (if any).
-        Does *NOT* include those that use a TextSelector, use :meth:`annotations` instead for those instead.
+        """Returns a list of annotations (:class:`Annotation`) that reference this text selection via a *TextSelector* (if any).
 
         Parameters
         ------------
@@ -1085,6 +1191,44 @@ class TextSelection:
         This method is called to test whether a specific spatial relation (as expressed by the
         passed operator) holds between a [`TextSelection`] and another.
         A boolean is returned with the test result.
+        """
+
+    def find_data_about(self, **kwargs) -> List[tuple[AnnotationData,Annotation]]:
+        """
+        Search for data *about* this text, i.e. data on annotations that refer to this text via a TextSelector.
+ 
+        Both the matching data (:class:`AnnotationData`) as well as the matching annotation (:class:`Annotation`) will be returned in a list of two-tuples
+
+        Keyword arguments
+        -------------------
+
+        key: Optional[Union[str,DataKey]]
+            The key to search for; it will search all keys if not specified
+        value: Optional[Union[str,int,float,bool]]
+            The exact value to search for, if this or any of its variants mentioned below is omitted, it will search all values.
+        value_not: Optional[Union[str,int,float,bool]]
+            Value
+        value_greater: Optional[Union[int,float]]
+            Value must be greater than specified (int or float)
+        value_less: Optional[Union[int,float]]
+            Value must be less than specified (int or float)
+        value_greatereq: Optional[Union[int,float]]
+            Value must be greater than specified or equal (int or float)
+        value_lesseq: Optional[Union[int,float]]
+            Value must be less than specified or equal (int or float)
+        value_in: Optional[Tuple[Union[str,int,float,bool]]]
+            Value must match any in the tuple (this is a logical OR statement)
+        value_not_in: Optional[Tuple[Union[str,int,float,bool]]]
+            Value must not match any in the tuple
+        value_in_range: Optional[Tuple[Union[int,float]]]
+            Must be a numeric 2-tuple with min and max (inclusive) values
+        """
+
+    def test_data_about(self, **kwargs) -> bool:
+        """
+        Test for the presence of data *about* this text, i.e. data on annotations that refer to this text via a TextSelector.
+ 
+        See :meth:`find_data_about` for possible keyword arguments.
         """
 
 

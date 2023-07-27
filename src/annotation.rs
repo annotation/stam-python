@@ -296,6 +296,45 @@ impl PyAnnotation {
         })
     }
 
+    #[pyo3(signature = (**kwargs))]
+    fn find_data_about<'py>(
+        &self,
+        kwargs: Option<&PyDict>,
+        py: Python<'py>,
+    ) -> PyResult<&'py PyList> {
+        self.map(|annotation| {
+            let list: &PyList = PyList::empty(py);
+            let (sethandle, keyhandle, op) =
+                data_request_parser(kwargs, annotation.store(), None, None)?;
+            for (annotationdata, annotation) in annotation
+                .find_data_about(sethandle, keyhandle, &op)
+                .into_iter()
+                .flatten()
+            {
+                list.append((
+                    PyAnnotationData::new_py(
+                        annotationdata.handle(),
+                        annotationdata.set().handle(),
+                        &self.store,
+                        py,
+                    ),
+                    PyAnnotation::new_py(annotation.handle(), &self.store, py),
+                ))
+                .ok();
+            }
+            Ok(list.into())
+        })
+    }
+
+    #[pyo3(signature = (**kwargs))]
+    fn test_data_about<'py>(&self, kwargs: Option<&'py PyDict>) -> PyResult<bool> {
+        self.map(|annotation| {
+            let (sethandle, keyhandle, op) =
+                data_request_parser(kwargs, annotation.store(), None, None)?;
+            Ok(annotation.test_data_about(sethandle, keyhandle, &op))
+        })
+    }
+
     /// Applies a `TextSelectionOperator` to find all other text selections
     /// are in a specific relation with the ones from the current annotations. Returns all matching TextSelections in a list.
     ///

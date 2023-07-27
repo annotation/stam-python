@@ -6,6 +6,7 @@ use std::ops::FnOnce;
 use std::sync::{Arc, RwLock};
 
 use crate::annotation::PyAnnotation;
+use crate::annotationdata::{data_request_parser, PyAnnotationData};
 use crate::error::PyStamError;
 use crate::selector::PySelector;
 use crate::textselection::{PyTextSelection, PyTextSelectionIter, PyTextSelectionOperator};
@@ -441,6 +442,123 @@ impl PyTextResource {
         })
         .ok();
         list.into()
+    }
+
+    #[pyo3(signature = (**kwargs))]
+    fn find_data_about<'py>(
+        &self,
+        kwargs: Option<&PyDict>,
+        py: Python<'py>,
+    ) -> PyResult<&'py PyList> {
+        self.map(|resource| {
+            let list: &PyList = PyList::empty(py);
+            let (sethandle, keyhandle, op) =
+                data_request_parser(kwargs, resource.store(), None, None)?;
+            for (annotationdata, annotation) in resource
+                .find_data_about(sethandle, keyhandle, &op)
+                .into_iter()
+                .flatten()
+            {
+                list.append((
+                    PyAnnotationData::new_py(
+                        annotationdata.handle(),
+                        annotationdata.set().handle(),
+                        &self.store,
+                        py,
+                    ),
+                    PyAnnotation::new_py(annotation.handle(), &self.store, py),
+                ))
+                .ok();
+            }
+            Ok(list.into())
+        })
+    }
+
+    #[pyo3(signature = (**kwargs))]
+    fn test_data_about<'py>(&self, kwargs: Option<&'py PyDict>) -> PyResult<bool> {
+        self.map(|resource| {
+            let (sethandle, keyhandle, op) =
+                data_request_parser(kwargs, resource.store(), None, None)?;
+            Ok(resource.test_data_about(sethandle, keyhandle, &op))
+        })
+    }
+
+    #[pyo3(signature = (**kwargs))]
+    fn find_metadata_about<'py>(
+        &self,
+        kwargs: Option<&PyDict>,
+        py: Python<'py>,
+    ) -> PyResult<&'py PyList> {
+        self.map(|resource| {
+            let list: &PyList = PyList::empty(py);
+            let (sethandle, keyhandle, op) =
+                data_request_parser(kwargs, resource.store(), None, None)?;
+            for (annotationdata, annotation) in resource
+                .find_data_about(sethandle, keyhandle, &op)
+                .into_iter()
+                .flatten()
+            {
+                list.append((
+                    PyAnnotationData::new_py(
+                        annotationdata.handle(),
+                        annotationdata.set().handle(),
+                        &self.store,
+                        py,
+                    ),
+                    PyAnnotation::new_py(annotation.handle(), &self.store, py),
+                ))
+                .ok();
+            }
+            Ok(list.into())
+        })
+    }
+
+    #[pyo3(signature = (**kwargs))]
+    fn test_metadata_about<'py>(&self, kwargs: Option<&'py PyDict>) -> PyResult<bool> {
+        self.map(|resource| {
+            let (sethandle, keyhandle, op) =
+                data_request_parser(kwargs, resource.store(), None, None)?;
+            Ok(resource.test_metadata_about(sethandle, keyhandle, &op))
+        })
+    }
+
+    #[pyo3(signature = (**kwargs))]
+    fn find_data_about_text<'py>(
+        &self,
+        kwargs: Option<&PyDict>,
+        py: Python<'py>,
+    ) -> PyResult<&'py PyList> {
+        self.map(|resource| {
+            let list: &PyList = PyList::empty(py);
+            let (sethandle, keyhandle, op) =
+                data_request_parser(kwargs, resource.store(), None, None)?;
+            for (annotationdata, annotation) in resource
+                .find_data_about_text(sethandle, keyhandle, &op)
+                .into_iter()
+                .flatten()
+            {
+                list.append((
+                    PyAnnotationData::new_py(
+                        annotationdata.handle(),
+                        annotationdata.set().handle(),
+                        &self.store,
+                        py,
+                    ),
+                    PyAnnotation::new_py(annotation.handle(), &self.store, py),
+                ))
+                .ok();
+            }
+            Ok(list.into())
+        })
+    }
+
+    #[pyo3(signature = (**kwargs))]
+    fn test_data_about_text<'py>(&self, kwargs: Option<&'py PyDict>) -> PyResult<bool> {
+        self.map(|resource| {
+            let (sethandle, keyhandle, op) =
+                data_request_parser(kwargs, resource.store(), None, None)?;
+            Ok(resource.test_data_about_text(sethandle, keyhandle, &op))
+        })
     }
 }
 

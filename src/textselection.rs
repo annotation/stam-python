@@ -6,6 +6,7 @@ use std::ops::FnOnce;
 use std::sync::{Arc, RwLock};
 
 use crate::annotation::PyAnnotation;
+use crate::annotationdata::{data_request_parser, PyAnnotationData};
 use crate::error::PyStamError;
 use crate::resources::{PyOffset, PyTextResource};
 use stam::*;
@@ -444,6 +445,45 @@ impl PyTextSelection {
             Ok(textselection
                 .inner()
                 .test(&operator.operator, &other.textselection))
+        })
+    }
+
+    #[pyo3(signature = (**kwargs))]
+    fn find_data_about<'py>(
+        &self,
+        kwargs: Option<&PyDict>,
+        py: Python<'py>,
+    ) -> PyResult<&'py PyList> {
+        self.map(|textselection| {
+            let list: &PyList = PyList::empty(py);
+            let (sethandle, keyhandle, op) =
+                data_request_parser(kwargs, textselection.rootstore(), None, None)?;
+            for (annotationdata, annotation) in textselection
+                .find_data_about(sethandle, keyhandle, &op)
+                .into_iter()
+                .flatten()
+            {
+                list.append((
+                    PyAnnotationData::new_py(
+                        annotationdata.handle(),
+                        annotationdata.set().handle(),
+                        &self.store,
+                        py,
+                    ),
+                    PyAnnotation::new_py(annotation.handle(), &self.store, py),
+                ))
+                .ok();
+            }
+            Ok(list.into())
+        })
+    }
+
+    #[pyo3(signature = (**kwargs))]
+    fn test_data_about<'py>(&self, kwargs: Option<&'py PyDict>) -> PyResult<bool> {
+        self.map(|textselection| {
+            let (sethandle, keyhandle, op) =
+                data_request_parser(kwargs, textselection.rootstore(), None, None)?;
+            Ok(textselection.test_data_about(sethandle, keyhandle, &op))
         })
     }
 }

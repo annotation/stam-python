@@ -5,9 +5,8 @@ use pyo3::types::*;
 use std::ops::FnOnce;
 use std::sync::{Arc, RwLock};
 
-use crate::annotationdata::{
-    data_request_parser, dataoperator_from_py, datavalue_from_py, PyAnnotationData, PyDataKey,
-};
+use crate::annotation::PyAnnotation;
+use crate::annotationdata::{data_request_parser, datavalue_from_py, PyAnnotationData, PyDataKey};
 use crate::error::PyStamError;
 use crate::selector::PySelector;
 use stam::*;
@@ -199,6 +198,45 @@ impl PyAnnotationDataSet {
             let (_, keyhandle, op) =
                 data_request_parser(kwargs, set.store(), Some(self.handle), None)?;
             Ok(set.test_data(keyhandle, &op))
+        })
+    }
+
+    #[pyo3(signature = (**kwargs))]
+    fn find_data_about<'py>(
+        &self,
+        kwargs: Option<&PyDict>,
+        py: Python<'py>,
+    ) -> PyResult<&'py PyList> {
+        self.map(|dataset| {
+            let list: &PyList = PyList::empty(py);
+            let (sethandle, keyhandle, op) =
+                data_request_parser(kwargs, dataset.store(), None, None)?;
+            for (annotationdata, annotation) in dataset
+                .find_data_about(sethandle, keyhandle, &op)
+                .into_iter()
+                .flatten()
+            {
+                list.append((
+                    PyAnnotationData::new_py(
+                        annotationdata.handle(),
+                        annotationdata.set().handle(),
+                        &self.store,
+                        py,
+                    ),
+                    PyAnnotation::new_py(annotation.handle(), &self.store, py),
+                ))
+                .ok();
+            }
+            Ok(list.into())
+        })
+    }
+
+    #[pyo3(signature = (**kwargs))]
+    fn test_data_about<'py>(&self, kwargs: Option<&'py PyDict>) -> PyResult<bool> {
+        self.map(|dataset| {
+            let (sethandle, keyhandle, op) =
+                data_request_parser(kwargs, dataset.store(), None, None)?;
+            Ok(dataset.test_data_about(sethandle, keyhandle, &op))
         })
     }
 }

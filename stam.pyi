@@ -113,12 +113,6 @@ class AnnotationStore:
     def resources_len(self) -> int:
         """Returns the number of text resources in the store (not substracting deletions)"""
 
-    def select(self, selector: Selector) -> Union[TextResource,Annotation,AnnotationDataSet,TextSelection, List[TextResource],List[Annotation],List[AnnotationDataSet],List[TextSelection]]:
-        """
-        Applies a selector to the annotation store and returns the target(s)
-        May return a multitude of types depending on the selector, returns
-        a list if multiple targets were found (internally consumes an iterator).
-        """
 
 class Annotation:
     """
@@ -147,7 +141,7 @@ class Annotation:
     def __len__(self) -> Iterator[AnnotationData]:
         """Returns the number of data items (:class:`AnnotationData`) in this annotation"""
 
-    def selector(self) -> Selector:
+    def select(self) -> Selector:
         """Returns a selector pointing to this annotation"""
 
     def text(self) -> List[str]:
@@ -216,9 +210,12 @@ class Annotation:
             The maximum number of results to return (default: unlimited)
         """
 
-    def target(self) -> Selector:
-        """Returns the target selector for this annotation. Note that you usually do not need this methods
-        if you know what you are interested in; you can use :meth:`annotations`, :meth:`resources`, :meth:`annotationset`, :meth:`textselections` instead"""
+    def offset(self) -> Optional[Offset]:
+        """Returns the offset this annotation's selector targets, exactly as specified"""
+
+    def selector_kind(self) -> SelectorKind:
+        """Returns the type of the selector of this annotation"""
+
 
     def data(self, limit: Optional[int] = None) -> List[AnnotationData]:
         """Returns a list of annotation data instances this annotation refers to."""
@@ -422,7 +419,7 @@ class AnnotationDataSet:
     def __iter__(self) -> Iterator[AnnotationData]:
         """Returns an iterator over all :class:`AnnotationData` in the dataset"""
 
-    def selector(self) -> Selector:
+    def select(self) -> Selector:
         """Returns a selector pointing to this annotation dataset (via a *DataSetSelector*)"""
 
     def find_data(self, **kwargs) -> List[AnnotationData]:
@@ -847,7 +844,7 @@ class TextResource:
     def textselections(self) -> Iterator[TextSelection]:
         """Iterates over all known textselections in this resource, in sorted order. Same as :meth:`__iter__`"""
 
-    def selector(self) -> Selector:
+    def select(self) -> Selector:
         """Returns a selector pointing to this resource"""
 
     def text(self) -> str:
@@ -1086,7 +1083,7 @@ class TextSelection:
     def end(self) -> int:
         """Return the absolute end position in unicode points (non-inclusive)"""
 
-    def selector(self) -> Selector:
+    def select(self) -> Selector:
         """Returns a selector pointing to this resource"""
 
     def text(self) -> str:

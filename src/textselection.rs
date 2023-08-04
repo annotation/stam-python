@@ -416,7 +416,7 @@ impl PyTextSelection {
         self.map(|textselection| {
             let offset = textselection
                 .inner()
-                .relative_offset(&container.textselection)
+                .relative_offset(&container.textselection, OffsetMode::default())
                 .ok_or(StamError::OtherError(
                     "TextSelection is not embedded in specified container, cursor out of bounds",
                 ))?;

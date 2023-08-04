@@ -9,8 +9,8 @@ use crate::annotationdata::{data_request_parser, PyAnnotationData};
 use crate::annotationdataset::PyAnnotationDataSet;
 use crate::annotationstore::MapStore;
 use crate::error::PyStamError;
-use crate::resources::PyTextResource;
-use crate::selector::PySelector;
+use crate::resources::{PyOffset, PyTextResource};
+use crate::selector::{PySelector, PySelectorKind};
 use crate::textselection::{PyTextSelection, PyTextSelectionOperator};
 use stam::*;
 
@@ -83,8 +83,30 @@ impl PyAnnotation {
 
     /// Returns a Selector (AnnotationSelector) pointing to this Annotation
     /// If the annotation references any text, so will this
-    fn selector(&self) -> PyResult<PySelector> {
-        self.map(|annotation| annotation.as_ref().selector().map(|sel| sel.into()))
+    fn select(&self) -> PyResult<PySelector> {
+        self.map(|annotation| {
+            Ok(PySelector {
+                kind: PySelectorKind {
+                    kind: SelectorKind::AnnotationSelector,
+                },
+                annotation: Some(annotation.handle()),
+                resource: None,
+                dataset: None,
+                offset: if annotation
+                    .as_ref()
+                    .target()
+                    .offset(annotation.store())
+                    .is_some()
+                {
+                    Some(PyOffset {
+                        offset: Offset::whole(),
+                    })
+                } else {
+                    None
+                },
+                subselectors: Vec::new(),
+            })
+        })
     }
 
     /// Returns the text of the annotation.
@@ -200,8 +222,7 @@ impl PyAnnotation {
         list.into()
     }
 
-    /// Returns the resources this annotation refers to (as metadata)
-    /// They will be returned in a tuple.
+    /// Returns the resources this annotation refers to (as metadata) in a list
     #[pyo3(signature = (limit=None))]
     fn datasets<'py>(&self, limit: Option<usize>, py: Python<'py>) -> Py<PyList> {
         let list: &PyList = PyList::empty(py);
@@ -223,15 +244,30 @@ impl PyAnnotation {
         list.into()
     }
 
-    /// Returns the target selector for this annotation
-    /// If you know what you are interested in; you can use :meth:`annotations`, :meth:`resources`, :meth:`annotationset`, :meth:`textselections` instead"""
-    fn target(&self) -> PyResult<PySelector> {
+    /// Returns the offset this annotation points to using its selector
+    fn offset(&self) -> PyResult<Option<PyOffset>> {
         self.map_store(|store| {
             let annotation: &Annotation = store.get(self.handle)?;
-            Ok(PySelector {
-                selector: annotation.target().clone(),
+            Ok(annotation
+                .target()
+                .offset(store)
+                .map(|offset| PyOffset { offset }))
+        })
+    }
+
+    /// Returns the type of the selector
+    fn selector_kind(&self) -> PyResult<PySelectorKind> {
+        self.map_store(|store| {
+            let annotation: &Annotation = store.get(self.handle)?;
+            Ok(PySelectorKind {
+                kind: annotation.target().kind(),
             })
         })
+    }
+
+    /// Returns a (possibly heterogeneous) list of all the direct targets of this annotation,
+    fn targets(&self) -> Py<PyList> {
+        todo!() //TODO: implement
     }
 
     /// Returns a list of annotation data instances this annotation refers to.

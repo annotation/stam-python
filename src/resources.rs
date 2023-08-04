@@ -8,7 +8,7 @@ use std::sync::{Arc, RwLock};
 use crate::annotation::PyAnnotation;
 use crate::annotationdata::{data_request_parser, PyAnnotationData};
 use crate::error::PyStamError;
-use crate::selector::PySelector;
+use crate::selector::{PySelector, PySelectorKind};
 use crate::textselection::{PyTextSelection, PyTextSelectionIter, PyTextSelectionOperator};
 use stam::*;
 
@@ -285,8 +285,19 @@ impl PyTextResource {
     }
 
     /// Returns a Selector (ResourceSelector) pointing to this TextResource
-    fn selector(&self) -> PyResult<PySelector> {
-        self.map(|res| res.as_ref().selector().map(|sel| sel.into()))
+    fn select(&self) -> PyResult<PySelector> {
+        self.map(|resource| {
+            Ok(PySelector {
+                kind: PySelectorKind {
+                    kind: SelectorKind::ResourceSelector,
+                },
+                resource: Some(resource.handle()),
+                annotation: None,
+                dataset: None,
+                offset: None,
+                subselectors: Vec::new(),
+            })
+        })
     }
 
     // Iterates over all known textselections in this resource, shortcut for __iter__()
@@ -668,6 +679,7 @@ impl PyCursor {
 }
 
 #[pyclass(dict, module = "stam", name = "Offset")]
+#[derive(Clone, PartialEq)]
 pub(crate) struct PyOffset {
     pub(crate) offset: Offset,
 }
@@ -719,7 +731,7 @@ impl PyOffset {
         }
     }
 
-    fn __richcmp__(&self, other: PyRef<Self>, op: CompareOp) -> Py<PyAny> {
+    pub(crate) fn __richcmp__(&self, other: PyRef<Self>, op: CompareOp) -> Py<PyAny> {
         let py = other.py();
         match op {
             CompareOp::Eq => (self.offset.begin == other.offset.begin

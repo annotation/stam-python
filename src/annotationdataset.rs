@@ -8,7 +8,7 @@ use std::sync::{Arc, RwLock};
 use crate::annotation::PyAnnotation;
 use crate::annotationdata::{data_request_parser, datavalue_from_py, PyAnnotationData, PyDataKey};
 use crate::error::PyStamError;
-use crate::selector::PySelector;
+use crate::selector::{PySelector, PySelectorKind};
 use stam::*;
 
 #[pyclass(dict, module = "stam", name = "AnnotationDataSet")]
@@ -167,8 +167,19 @@ impl PyAnnotationDataSet {
     }
 
     /// Returns a Selector (DataSetSelector) pointing to this AnnotationDataSet
-    fn selector(&self) -> PyResult<PySelector> {
-        self.map(|set| set.as_ref().selector().map(|sel| sel.into()))
+    fn select(&self) -> PyResult<PySelector> {
+        self.map(|dataset| {
+            Ok(PySelector {
+                kind: PySelectorKind {
+                    kind: SelectorKind::DataSetSelector,
+                },
+                dataset: Some(dataset.handle()),
+                annotation: None,
+                resource: None,
+                offset: None,
+                subselectors: Vec::new(),
+            })
+        })
     }
 
     /// Find annotation data for the specified key and specified value

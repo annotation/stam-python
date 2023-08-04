@@ -1,6 +1,7 @@
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 use pyo3::pyclass::CompareOp;
+use std::sync::{Arc, RwLock};
 
 use crate::annotation::PyAnnotation;
 use crate::annotationdataset::PyAnnotationDataSet;
@@ -9,9 +10,9 @@ use crate::resources::{PyOffset, PyTextResource};
 use stam::*;
 
 #[pyclass(dict, module = "stam", name = "SelectorKind")]
-#[derive(Clone)]
+#[derive(Clone, PartialEq)]
 pub struct PySelectorKind {
-    kind: SelectorKind,
+    pub(crate) kind: SelectorKind,
 }
 
 #[pymethods]
@@ -48,22 +49,67 @@ impl PySelectorKind {
     fn __richcmp__(&self, other: PyRef<Self>, op: CompareOp) -> Py<PyAny> {
         let py = other.py();
         match op {
-            CompareOp::Eq => (self.kind == other.kind).into_py(py),
-            CompareOp::Ne => (self.kind != other.kind).into_py(py),
+            CompareOp::Eq => (*self == *other).into_py(py),
+            CompareOp::Ne => (*self != *other).into_py(py),
             _ => py.NotImplemented(),
         }
     }
 }
 
 #[pyclass(dict, module = "stam", name = "Selector")]
-#[derive(Clone)]
+#[derive(Clone, PartialEq)]
+/// This is the Python variant of SelectorBuilder, we can't just wrap SelectorBuiler itself because it has a lifetime
 pub(crate) struct PySelector {
-    pub(crate) selector: Selector,
+    pub(crate) kind: PySelectorKind,
+    pub(crate) resource: Option<TextResourceHandle>,
+    pub(crate) annotation: Option<AnnotationHandle>,
+    pub(crate) dataset: Option<AnnotationDataSetHandle>,
+    pub(crate) offset: Option<PyOffset>,
+    pub(crate) subselectors: Vec<PySelector>,
 }
 
-impl From<Selector> for PySelector {
-    fn from(selector: Selector) -> Self {
-        Self { selector }
+pub(crate) struct PyTarget {
+    pub(crate) selector: PySelector,
+    pub(crate) store: Arc<RwLock<AnnotationStore>>,
+}
+
+impl PySelector {
+    pub(crate) fn build(&self) -> SelectorBuilder<'_> {
+        match self.kind.kind {
+            SelectorKind::ResourceSelector => SelectorBuilder::ResourceSelector(
+                self.resource
+                    .expect("pyselector of type resourceselector must have resource, was checked on instantiation")
+                    .into(),
+            ),
+            SelectorKind::TextSelector => SelectorBuilder::TextSelector(
+                self.resource
+                    .expect("pyselector of type textselector must have resource, was checked on instantiation")
+                    .into(),
+                self.offset.clone()
+                    .expect("pyselector of type textselector must have offset, was checked on instantiation").offset
+            ),
+            SelectorKind::AnnotationSelector => SelectorBuilder::AnnotationSelector(
+                self.annotation
+                    .expect("pyselector of type annotationselector must have annotation, was checked on instantiation")
+                    .into(),
+                self.offset.clone().map(|offset| offset.offset)
+            ),
+            SelectorKind::DataSetSelector => SelectorBuilder::DataSetSelector(
+                self.dataset
+                    .expect("pyselector of type datasetselector must have dataset, was checked on instantiation")
+                    .into(),
+            ),
+            SelectorKind::MultiSelector => {
+                SelectorBuilder::MultiSelector(self.subselectors.iter().map(|subselector| subselector.build()).collect())
+            }
+            SelectorKind::CompositeSelector => {
+                SelectorBuilder::CompositeSelector(self.subselectors.iter().map(|subselector| subselector.build()).collect())
+            }
+            SelectorKind::DirectionalSelector => {
+                SelectorBuilder::DirectionalSelector(self.subselectors.iter().map(|subselector| subselector.build()).collect())
+            }
+            SelectorKind::InternalRangedSelector => unreachable!("internalrangedselector should never be passable from python")
+        }
     }
 }
 
@@ -83,7 +129,12 @@ impl PySelector {
             SelectorKind::ResourceSelector => {
                 if let Some(resource) = resource {
                     Ok(PySelector {
-                        selector: Selector::ResourceSelector(resource.handle),
+                        kind: kind.clone(),
+                        resource: Some(resource.handle),
+                        annotation: None,
+                        dataset: None,
+                        offset: None,
+                        subselectors: Vec::new(),
                     })
                 } else {
                     Err(PyValueError::new_err("'resource' keyword argument must be specified for ResourceSelector and point to a TextResource instance"))
@@ -93,14 +144,21 @@ impl PySelector {
                 if let Some(annotation) = annotation {
                     if let Some(offset) = offset {
                         Ok(PySelector {
-                            selector: Selector::AnnotationSelector(
-                                annotation.handle,
-                                Some(offset.offset.clone()),
-                            ),
+                            kind: kind.clone(),
+                            annotation: Some(annotation.handle),
+                            resource: None,
+                            dataset: None,
+                            offset: Some(offset.clone()),
+                            subselectors: Vec::new(),
                         })
                     } else {
                         Ok(PySelector {
-                            selector: Selector::AnnotationSelector(annotation.handle, None),
+                            kind: kind.clone(),
+                            annotation: Some(annotation.handle),
+                            resource: None,
+                            dataset: None,
+                            offset: None,
+                            subselectors: Vec::new(),
                         })
                     }
                 } else {
@@ -111,10 +169,12 @@ impl PySelector {
                 if let Some(resource) = resource {
                     if let Some(offset) = offset {
                         Ok(PySelector {
-                            selector: Selector::TextSelector(
-                                resource.handle,
-                                offset.offset.clone(),
-                            ),
+                            kind: kind.clone(),
+                            resource: Some(resource.handle),
+                            annotation: None,
+                            dataset: None,
+                            offset: Some(offset.clone()),
+                            subselectors: Vec::new(),
                         })
                     } else {
                         Err(PyValueError::new_err("'offset' keyword argument must be specified for TextSelector and point to a Offset instance"))
@@ -126,60 +186,36 @@ impl PySelector {
             SelectorKind::DataSetSelector => {
                 if let Some(dataset) = dataset {
                     Ok(PySelector {
-                        selector: Selector::DataSetSelector(dataset.handle),
+                        kind: kind.clone(),
+                        resource: None,
+                        annotation: None,
+                        dataset: Some(dataset.handle),
+                        offset: None,
+                        subselectors: Vec::new(),
                     })
                 } else {
                     Err(PyValueError::new_err("'dataset' keyword argument must be specified for DataSetSelector and point to an AnnotationDataSet instance"))
                 }
             }
-            SelectorKind::MultiSelector => {
+            SelectorKind::MultiSelector
+            | SelectorKind::CompositeSelector
+            | SelectorKind::DirectionalSelector => {
                 if subselectors.is_empty() {
-                    Err(PyValueError::new_err("'subselectors' keyword argument must be specified for MultiSelector and point to a list of Selector instances"))
+                    Err(PyValueError::new_err("'subselectors' keyword argument must be specified for MultiSelector/CompositeSelector/DirectionalSelector and point to a list of Selector instances"))
                 } else {
                     Ok(PySelector {
-                        selector: Selector::MultiSelector(
-                            subselectors
-                                .into_iter()
-                                .map(|sel| sel.selector.clone())
-                                .collect(),
-                        ),
+                        kind: kind.clone(),
+                        resource: None,
+                        annotation: None,
+                        dataset: None,
+                        offset: None,
+                        subselectors: subselectors.into_iter().map(|sel| sel.clone()).collect(),
                     })
                 }
             }
-            SelectorKind::CompositeSelector => {
-                if subselectors.is_empty() {
-                    Err(PyValueError::new_err("'subselectors' keyword argument must be specified for CompositeSelector and point to a list of Selector instances"))
-                } else {
-                    Ok(PySelector {
-                        selector: Selector::CompositeSelector(
-                            subselectors
-                                .into_iter()
-                                .map(|sel| sel.selector.clone())
-                                .collect(),
-                        ),
-                    })
-                }
-            }
-            SelectorKind::DirectionalSelector => {
-                if subselectors.is_empty() {
-                    Err(PyValueError::new_err("'subselectors' keyword argument must be specified for DirectionalSelector and point to a list of Selector instances"))
-                } else {
-                    Ok(PySelector {
-                        selector: Selector::DirectionalSelector(
-                            subselectors
-                                .into_iter()
-                                .map(|sel| sel.selector.clone())
-                                .collect(),
-                        ),
-                    })
-                }
-            }
-            SelectorKind::InternalRangedSelector => {
-                //TODO: implement?
-                Err(PyValueError::new_err(
-                    "Construction of InternalRangedSelector is not implemented (yet)",
-                ))
-            }
+            SelectorKind::InternalRangedSelector => Err(PyValueError::new_err(
+                "Construction of InternalRangedSelector not allowed",
+            )),
         }
     }
 
@@ -282,133 +318,89 @@ impl PySelector {
 
     /// Returns the selector kind, use is_kind() instead if you want to test
     fn kind(&self) -> PySelectorKind {
-        PySelectorKind {
-            kind: self.selector.kind(),
-        }
+        self.kind.clone()
     }
 
     fn is_kind(&self, kind: &PySelectorKind) -> bool {
-        self.selector.kind() == kind.kind
+        self.kind.kind == kind.kind
     }
 
     /// Quicker test for specified selector kind
     fn is_resourceselector(&self) -> bool {
-        match self.selector {
-            Selector::ResourceSelector(_) => true,
-            _ => false,
-        }
+        self.kind.kind == SelectorKind::ResourceSelector
     }
 
     /// Quicker test for specified selector kind
     fn is_textselector(&self) -> bool {
-        match self.selector {
-            Selector::TextSelector(_, _) => true,
-            _ => false,
-        }
+        self.kind.kind == SelectorKind::TextSelector
     }
 
     /// Quicker test for specified selector kind
     fn is_annotationselector(&self) -> bool {
-        match self.selector {
-            Selector::AnnotationSelector(_, _) => true,
-            _ => false,
-        }
+        self.kind.kind == SelectorKind::AnnotationSelector
     }
 
     /// Quicker test for specified selector kind
     fn is_datasetselector(&self) -> bool {
-        match self.selector {
-            Selector::DataSetSelector(_) => true,
-            _ => false,
-        }
+        self.kind.kind == SelectorKind::DataSetSelector
     }
 
     /// Quicker test for specified selector kind
     fn is_multiselector(&self) -> bool {
-        match self.selector {
-            Selector::MultiSelector(_) => true,
-            _ => false,
-        }
+        self.kind.kind == SelectorKind::MultiSelector
     }
 
     /// Quicker test for specified selector kind
     fn is_directionalselector(&self) -> bool {
-        match self.selector {
-            Selector::DirectionalSelector(_) => true,
-            _ => false,
-        }
+        self.kind.kind == SelectorKind::DirectionalSelector
     }
 
     /// Quicker test for specified selector kind
     fn is_compositeselector(&self) -> bool {
-        match self.selector {
-            Selector::CompositeSelector(_) => true,
-            _ => false,
-        }
+        self.kind.kind == SelectorKind::CompositeSelector
     }
 
     /// Return offset information in the selector.
     /// Works for TextSelector and AnnotationSelector, returns None for others.
     fn offset(&self) -> PyResult<Option<PyOffset>> {
-        match &self.selector {
-            Selector::TextSelector(_, offset) => Ok(Some(PyOffset {
-                offset: offset.clone(),
-            })),
-            Selector::AnnotationSelector(_, Some(offset)) => Ok(Some(PyOffset {
-                offset: offset.clone(),
-            })),
-            _ => Ok(None),
-        }
+        Ok(self.offset.clone())
     }
 
     /// Returns the resource this selector points at, if any.
     /// Works only for TextSelector and ResourceSelector, returns None otherwise.
     /// Requires to explicitly pass the store so the resource can be found.
-    fn resource(&self, store: PyRef<PyAnnotationStore>) -> PyResult<Option<PyTextResource>> {
-        match &self.selector {
-            Selector::TextSelector(resource_handle, _) => Ok(Some(PyTextResource {
-                handle: *resource_handle,
-                store: store.get_store().clone(),
-            })),
-            Selector::ResourceSelector(resource_handle) => Ok(Some(PyTextResource {
-                handle: *resource_handle,
-                store: store.get_store().clone(),
-            })),
-            _ => Ok(None),
-        }
+    fn resource(&self, store: PyRef<PyAnnotationStore>) -> Option<PyTextResource> {
+        self.resource.map(|resource_handle| PyTextResource {
+            handle: resource_handle,
+            store: store.get_store().clone(),
+        })
     }
 
     /// Returns the annotation this selector points at, if any.
     /// Works only for AnnotationSelector, returns None otherwise.
     /// Requires to explicitly pass the store so the resource can be found.
-    fn annotation(&self, store: PyRef<PyAnnotationStore>) -> PyResult<Option<PyAnnotation>> {
-        match &self.selector {
-            Selector::AnnotationSelector(annotation_handle, _) => Ok(Some(PyAnnotation {
-                handle: *annotation_handle,
-                store: store.get_store().clone(),
-            })),
-            _ => Ok(None),
-        }
+    fn annotation(&self, store: PyRef<PyAnnotationStore>) -> Option<PyAnnotation> {
+        self.annotation.map(|annotation_handle| PyAnnotation {
+            handle: annotation_handle,
+            store: store.get_store().clone(),
+        })
     }
 
     /// Returns the annotation dataset this selector points at, ff any.
     /// Works only for DataSetSelector, returns None otherwise.
     /// Requires to explicitly pass the store so the dataset can be found.
-    fn dataset(&self, store: PyRef<PyAnnotationStore>) -> PyResult<Option<PyAnnotationDataSet>> {
-        match &self.selector {
-            Selector::DataSetSelector(handle) => Ok(Some(PyAnnotationDataSet {
-                handle: *handle,
-                store: store.get_store().clone(),
-            })),
-            _ => Ok(None),
-        }
+    fn dataset(&self, store: PyRef<PyAnnotationStore>) -> Option<PyAnnotationDataSet> {
+        self.dataset.map(|dataset_handle| PyAnnotationDataSet {
+            handle: dataset_handle,
+            store: store.get_store().clone(),
+        })
     }
 
     fn __richcmp__(&self, other: PyRef<Self>, op: CompareOp) -> Py<PyAny> {
         let py = other.py();
         match op {
-            CompareOp::Eq => (self.selector == other.selector).into_py(py),
-            CompareOp::Ne => (self.selector != other.selector).into_py(py),
+            CompareOp::Eq => (*self == *other).into_py(py),
+            CompareOp::Ne => (*self != *other).into_py(py),
             _ => py.NotImplemented(),
         }
     }

@@ -218,7 +218,7 @@ impl PyAnnotationStore {
         if let Some(id) = id {
             builder = builder.with_id(id);
         }
-        builder = builder.with_selector(target.selector);
+        builder = builder.with_target(target.build());
         if data.is_instance_of::<PyList>() {
             let data: &PyList = data.downcast().unwrap();
             for databuilder in data.iter() {
@@ -277,6 +277,7 @@ impl PyAnnotationStore {
         self.map(|store| Ok(store.datasets_len()))
     }
 
+    /*   (too low, level, removing)
     /// Applies a selector to the annotation store and returns the target(s)
     /// May return a multitude of types depending on the selector, returns
     /// a list if multiple targets were found (internally consumes an iterator).
@@ -469,6 +470,7 @@ impl PyAnnotationStore {
             }
         }
     }
+    */
 }
 
 pub(crate) trait MapStore {

@@ -305,31 +305,43 @@ impl PyAnnotation {
     fn find_data<'py>(&self, kwargs: Option<&PyDict>, py: Python<'py>) -> PyResult<&'py PyList> {
         self.map(|annotation| {
             let list: &PyList = PyList::empty(py);
-            let (sethandle, keyhandle, op) =
-                data_request_parser(kwargs, annotation.store(), None, None)?;
-            for annotationdata in annotation
-                .find_data(sethandle, keyhandle, &op)
-                .into_iter()
-                .flatten()
-            {
-                list.append(PyAnnotationData::new_py(
-                    annotationdata.handle(),
-                    annotationdata.set().handle(),
-                    &self.store,
-                    py,
-                ))
-                .ok();
+            match data_request_parser(kwargs, annotation.store(), None, None) {
+                Ok((sethandle, keyhandle, op)) => {
+                    for annotationdata in annotation
+                        .find_data(sethandle, keyhandle, &op)
+                        .into_iter()
+                        .flatten()
+                    {
+                        list.append(PyAnnotationData::new_py(
+                            annotationdata.handle(),
+                            annotationdata.set().handle(),
+                            &self.store,
+                            py,
+                        ))
+                        .ok();
+                    }
+                    Ok(list.into())
+                }
+                Err(StamError::IdNotFoundError(..)) => {
+                    //we don't raise this error but just return an empty list
+                    Ok(list)
+                }
+                Err(e) => Err(e),
             }
-            Ok(list.into())
         })
     }
 
     #[pyo3(signature = (**kwargs))]
     fn test_data<'py>(&self, kwargs: Option<&'py PyDict>) -> PyResult<bool> {
-        self.map(|set| {
-            let (sethandle, keyhandle, op) = data_request_parser(kwargs, set.store(), None, None)?;
-            Ok(set.test_data(sethandle, keyhandle, &op))
-        })
+        self.map(
+            |annotation| match data_request_parser(kwargs, annotation.store(), None, None) {
+                Ok((sethandle, keyhandle, op)) => {
+                    Ok(annotation.test_data(sethandle, keyhandle, &op))
+                }
+                Err(StamError::IdNotFoundError(..)) => Ok(false),
+                Err(e) => Err(e),
+            },
+        )
     }
 
     #[pyo3(signature = (**kwargs))]
@@ -340,35 +352,46 @@ impl PyAnnotation {
     ) -> PyResult<&'py PyList> {
         self.map(|annotation| {
             let list: &PyList = PyList::empty(py);
-            let (sethandle, keyhandle, op) =
-                data_request_parser(kwargs, annotation.store(), None, None)?;
-            for (annotationdata, annotation) in annotation
-                .find_data_about(sethandle, keyhandle, &op)
-                .into_iter()
-                .flatten()
-            {
-                list.append((
-                    PyAnnotationData::new_py(
-                        annotationdata.handle(),
-                        annotationdata.set().handle(),
-                        &self.store,
-                        py,
-                    ),
-                    PyAnnotation::new_py(annotation.handle(), &self.store, py),
-                ))
-                .ok();
+            match data_request_parser(kwargs, annotation.store(), None, None) {
+                Ok((sethandle, keyhandle, op)) => {
+                    for (annotationdata, annotation) in annotation
+                        .find_data_about(sethandle, keyhandle, &op)
+                        .into_iter()
+                        .flatten()
+                    {
+                        list.append((
+                            PyAnnotationData::new_py(
+                                annotationdata.handle(),
+                                annotationdata.set().handle(),
+                                &self.store,
+                                py,
+                            ),
+                            PyAnnotation::new_py(annotation.handle(), &self.store, py),
+                        ))
+                        .ok();
+                    }
+                    Ok(list.into())
+                }
+                Err(StamError::IdNotFoundError(..)) => {
+                    //we don't raise this error but just return an empty list
+                    Ok(list)
+                }
+                Err(e) => Err(e),
             }
-            Ok(list.into())
         })
     }
 
     #[pyo3(signature = (**kwargs))]
     fn test_data_about<'py>(&self, kwargs: Option<&'py PyDict>) -> PyResult<bool> {
-        self.map(|annotation| {
-            let (sethandle, keyhandle, op) =
-                data_request_parser(kwargs, annotation.store(), None, None)?;
-            Ok(annotation.test_data_about(sethandle, keyhandle, &op))
-        })
+        self.map(
+            |annotation| match data_request_parser(kwargs, annotation.store(), None, None) {
+                Ok((sethandle, keyhandle, op)) => {
+                    Ok(annotation.test_data_about(sethandle, keyhandle, &op))
+                }
+                Err(StamError::IdNotFoundError(..)) => Ok(false),
+                Err(e) => Err(e),
+            },
+        )
     }
 
     /// Applies a `TextSelectionOperator` to find all other text selections
@@ -438,16 +461,28 @@ impl PyAnnotation {
     ) -> PyResult<&'py PyList> {
         self.map(|annotation| {
             let list: &PyList = PyList::empty(py);
-            let (sethandle, keyhandle, op) =
-                data_request_parser(kwargs, annotation.rootstore(), None, None)?;
-            for annotation in annotation
-                .annotations_by_related_text_and_data(operator.operator, sethandle, keyhandle, &op)
-                .into_iter()
-            {
-                list.append(PyAnnotation::new_py(annotation.handle(), &self.store, py))
-                    .ok();
+            match data_request_parser(kwargs, annotation.rootstore(), None, None) {
+                Ok((sethandle, keyhandle, op)) => {
+                    for annotation in annotation
+                        .annotations_by_related_text_and_data(
+                            operator.operator,
+                            sethandle,
+                            keyhandle,
+                            &op,
+                        )
+                        .into_iter()
+                    {
+                        list.append(PyAnnotation::new_py(annotation.handle(), &self.store, py))
+                            .ok();
+                    }
+                    Ok(list.into())
+                }
+                Err(StamError::IdNotFoundError(..)) => {
+                    //we don't raise this error but just return an empty list
+                    Ok(list)
+                }
+                Err(e) => Err(e),
             }
-            Ok(list.into())
         })
     }
 
@@ -460,34 +495,41 @@ impl PyAnnotation {
     ) -> PyResult<&'py PyList> {
         self.map(|annotation| {
             let list: &PyList = PyList::empty(py);
-            let (sethandle, keyhandle, op) =
-                data_request_parser(kwargs, annotation.rootstore(), None, None)?;
-            for (textselection, data_and_annotations) in annotation
-                .related_text_with_data(operator.operator, sethandle, keyhandle, &op)
-                .into_iter()
-                .flatten()
-            {
-                let innerlist: &PyList = PyList::empty(py);
-                for (annotationdata, annotation) in data_and_annotations {
-                    innerlist
-                        .append((
-                            PyAnnotationData::new_py(
-                                annotationdata.handle(),
-                                annotationdata.set().handle(),
-                                &self.store,
-                                py,
-                            ),
-                            PyAnnotation::new_py(annotation.handle(), &self.store, py),
+            match data_request_parser(kwargs, annotation.rootstore(), None, None) {
+                Ok((sethandle, keyhandle, op)) => {
+                    for (textselection, data_and_annotations) in annotation
+                        .related_text_with_data(operator.operator, sethandle, keyhandle, &op)
+                        .into_iter()
+                        .flatten()
+                    {
+                        let innerlist: &PyList = PyList::empty(py);
+                        for (annotationdata, annotation) in data_and_annotations {
+                            innerlist
+                                .append((
+                                    PyAnnotationData::new_py(
+                                        annotationdata.handle(),
+                                        annotationdata.set().handle(),
+                                        &self.store,
+                                        py,
+                                    ),
+                                    PyAnnotation::new_py(annotation.handle(), &self.store, py),
+                                ))
+                                .ok();
+                        }
+                        list.append((
+                            PyTextSelection::from_result_to_py(textselection, &self.store, py),
+                            innerlist,
                         ))
                         .ok();
+                    }
+                    Ok(list.into())
                 }
-                list.append((
-                    PyTextSelection::from_result_to_py(textselection, &self.store, py),
-                    innerlist,
-                ))
-                .ok();
+                Err(StamError::IdNotFoundError(..)) => {
+                    //we don't raise this error but just return an empty list
+                    Ok(list)
+                }
+                Err(e) => Err(e),
             }
-            Ok(list.into())
         })
     }
 
@@ -500,21 +542,28 @@ impl PyAnnotation {
     ) -> PyResult<&'py PyList> {
         self.map(|annotation| {
             let list: &PyList = PyList::empty(py);
-            let (sethandle, keyhandle, op) =
-                data_request_parser(kwargs, annotation.rootstore(), None, None)?;
-            for textselection in annotation
-                .related_text_test_data(operator.operator, sethandle, keyhandle, &op)
-                .into_iter()
-                .flatten()
-            {
-                list.append(PyTextSelection::from_result_to_py(
-                    textselection,
-                    &self.store,
-                    py,
-                ))
-                .ok();
+            match data_request_parser(kwargs, annotation.rootstore(), None, None) {
+                Ok((sethandle, keyhandle, op)) => {
+                    for textselection in annotation
+                        .related_text_test_data(operator.operator, sethandle, keyhandle, &op)
+                        .into_iter()
+                        .flatten()
+                    {
+                        list.append(PyTextSelection::from_result_to_py(
+                            textselection,
+                            &self.store,
+                            py,
+                        ))
+                        .ok();
+                    }
+                    Ok(list.into())
+                }
+                Err(StamError::IdNotFoundError(..)) => {
+                    //we don't raise this error but just return an empty list
+                    Ok(list)
+                }
+                Err(e) => Err(e),
             }
-            Ok(list.into())
         })
     }
 }

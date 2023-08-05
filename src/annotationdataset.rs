@@ -188,18 +188,25 @@ impl PyAnnotationDataSet {
     fn find_data<'py>(&self, kwargs: Option<&PyDict>, py: Python<'py>) -> PyResult<&'py PyList> {
         self.map(|set| {
             let list: &PyList = PyList::empty(py);
-            let (_, keyhandle, op) =
-                data_request_parser(kwargs, set.store(), Some(self.handle), None)?;
-            for annotationdata in set.find_data(keyhandle, &op).into_iter().flatten() {
-                list.append(PyAnnotationData::new_py(
-                    annotationdata.handle(),
-                    self.handle,
-                    &self.store,
-                    py,
-                ))
-                .ok();
+            match data_request_parser(kwargs, set.store(), Some(self.handle), None) {
+                Ok((_, keyhandle, op)) => {
+                    for annotationdata in set.find_data(keyhandle, &op).into_iter().flatten() {
+                        list.append(PyAnnotationData::new_py(
+                            annotationdata.handle(),
+                            self.handle,
+                            &self.store,
+                            py,
+                        ))
+                        .ok();
+                    }
+                    Ok(list.into())
+                }
+                Err(StamError::IdNotFoundError(..)) => {
+                    //we don't raise this error but just return an empty list
+                    Ok(list)
+                }
+                Err(e) => Err(e),
             }
-            Ok(list.into())
         })
     }
 
@@ -220,35 +227,46 @@ impl PyAnnotationDataSet {
     ) -> PyResult<&'py PyList> {
         self.map(|dataset| {
             let list: &PyList = PyList::empty(py);
-            let (sethandle, keyhandle, op) =
-                data_request_parser(kwargs, dataset.store(), None, None)?;
-            for (annotationdata, annotation) in dataset
-                .find_data_about(sethandle, keyhandle, &op)
-                .into_iter()
-                .flatten()
-            {
-                list.append((
-                    PyAnnotationData::new_py(
-                        annotationdata.handle(),
-                        annotationdata.set().handle(),
-                        &self.store,
-                        py,
-                    ),
-                    PyAnnotation::new_py(annotation.handle(), &self.store, py),
-                ))
-                .ok();
+            match data_request_parser(kwargs, dataset.store(), None, None) {
+                Ok((sethandle, keyhandle, op)) => {
+                    for (annotationdata, annotation) in dataset
+                        .find_data_about(sethandle, keyhandle, &op)
+                        .into_iter()
+                        .flatten()
+                    {
+                        list.append((
+                            PyAnnotationData::new_py(
+                                annotationdata.handle(),
+                                annotationdata.set().handle(),
+                                &self.store,
+                                py,
+                            ),
+                            PyAnnotation::new_py(annotation.handle(), &self.store, py),
+                        ))
+                        .ok();
+                    }
+                    Ok(list.into())
+                }
+                Err(StamError::IdNotFoundError(..)) => {
+                    //we don't raise this error but just return an empty list
+                    Ok(list)
+                }
+                Err(e) => Err(e),
             }
-            Ok(list.into())
         })
     }
 
     #[pyo3(signature = (**kwargs))]
     fn test_data_about<'py>(&self, kwargs: Option<&'py PyDict>) -> PyResult<bool> {
-        self.map(|dataset| {
-            let (sethandle, keyhandle, op) =
-                data_request_parser(kwargs, dataset.store(), None, None)?;
-            Ok(dataset.test_data_about(sethandle, keyhandle, &op))
-        })
+        self.map(
+            |dataset| match data_request_parser(kwargs, dataset.store(), None, None) {
+                Ok((sethandle, keyhandle, op)) => {
+                    Ok(dataset.test_data_about(sethandle, keyhandle, &op))
+                }
+                Err(StamError::IdNotFoundError(..)) => Ok(false),
+                Err(e) => Err(e),
+            },
+        )
     }
 }
 

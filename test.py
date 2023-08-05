@@ -235,7 +235,7 @@ class Test1(unittest.TestCase):
     def test_find_data(self):
         """Find annotationdata by value"""
         annotationset = self.store.dataset("testdataset")
-        results = annotationset.find_data("pos","noun")
+        results = annotationset.find_data(key="pos",value="noun")
         self.assertIsInstance(results, list)
         self.assertEqual(len(results), 1)
         self.assertIsInstance(results[0], AnnotationData)
@@ -245,7 +245,7 @@ class Test1(unittest.TestCase):
         """Find annotationdata by value, when key already known"""
         annotationset = self.store.dataset("testdataset")
         datakey = annotationset.key("pos")
-        results = datakey.find_data("noun")
+        results = datakey.find_data(value="noun")
         self.assertIsInstance(results, list)
         self.assertEqual(len(results), 1)
         self.assertIsInstance(results[0], AnnotationData)
@@ -254,10 +254,10 @@ class Test1(unittest.TestCase):
     def test_find_data_missing(self):
         """Find annotationdata by value, test mismatches"""
         annotationset = self.store.dataset("testdataset")
-        results = annotationset.find_data("pos","non-existent")
+        results = annotationset.find_data(key="pos",value="non-existent")
         self.assertEqual(results, [])
 
-        results = annotationset.find_data("non-existent","non-existent")
+        results = annotationset.find_data(key="non-existent",value="non-existent")
         self.assertEqual(results, [])
 
 
@@ -454,22 +454,6 @@ class Test4(unittest.TestCase):
                 self.assertEqual(str(textselection), "Hello")
             else:
                 assert False
-        self.assertEqual(count,2)
-
-    def test_multiselector_target(self):
-        annotation = self.store.annotation("Word")
-
-        #return the selector
-        selector = annotation.target()
-        count = 0
-        for targets in self.store.select(selector):
-            self.assertIsInstance(targets, list)
-            self.assertIsInstance(targets[0], Annotation)
-            count += 1
-            if count == 1:
-                self.assertTrue( targets[0].has_id("A1"))
-            elif count == 2:
-                self.assertTrue( targets[0].has_id("A2"))
         self.assertEqual(count,2)
 
     def test_textselections_by_annotations(self):

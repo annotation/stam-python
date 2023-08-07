@@ -262,10 +262,6 @@ class Test1(unittest.TestCase):
 
 
 
-            
-
-
-
 class Test2(unittest.TestCase):
     def setUp(self):
         """Create some data from scratch"""
@@ -431,7 +427,7 @@ class Test4(unittest.TestCase):
 
         #extract annotations we point to
         count = 0
-        for targetannotation in annotation.annotations():
+        for targetannotation in annotation.annotations_in_targets():
             count += 1
             self.assertIsInstance( targetannotation, Annotation)
             if count == 1:
@@ -531,17 +527,17 @@ class Test6(unittest.TestCase):
         self.assertEqual(str(phrase2), "human beings are born")
         self.assertEqual(str(phrase3), "dignity and rights")
 
-    def test_find_annotation_precedes(self):
+    def test_find_annotation_before(self):
         self.setup_example_6b()
         phrase2 = self.store.annotation("Phrase2")
-        annotations = phrase2.annotations_by_related_text(TextSelectionOperator.precedes())
+        annotations = phrase2.annotations_by_related_text(TextSelectionOperator.before())
         self.assertEqual(len(annotations),1)
         self.assertEqual(annotations[0].id(), "Phrase3")
 
-    def test_find_annotation_succeeds(self):
+    def test_find_annotation_after(self):
         self.setup_example_6b()
         phrase3 = self.store.annotation("Phrase3")
-        annotations = phrase3.annotations_by_related_text(TextSelectionOperator.succeeds())
+        annotations = phrase3.annotations_by_related_text(TextSelectionOperator.after())
         self.assertEqual(len(annotations),2)
         self.assertTrue(any(annotation.id() == "Phrase2" for annotation in annotations))
         self.assertTrue(any(annotation.id() == "Phrase1" for annotation in annotations))

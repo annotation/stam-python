@@ -167,7 +167,7 @@ class Annotation:
         as an annotation may reference multiple text selections.
         """
 
-    def annotations(self, recursive= False, limit: Optional[int] = None) -> List[Annotation]:
+    def annotations_in_targets(self, recursive= False, limit: Optional[int] = None) -> List[Annotation]:
         """Returns a list of annotations (:class:`Annotation`) this annotation refers to (i.e. using an *AnnotationSelector*)
 
         Parameters
@@ -179,7 +179,7 @@ class Annotation:
             The maximum number of results to return (default: unlimited)
         """
 
-    def annotations_reverse(self,  limit: Optional[int] = None) -> List[Annotation]:
+    def annotations(self,  limit: Optional[int] = None) -> List[Annotation]:
         """Returns a list of annotations (:class:`Annotation`) that are referring to this annotation (i.e. others using an AnnotationSelector)
 
         Parameters

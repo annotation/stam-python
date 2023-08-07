@@ -19,9 +19,12 @@ use crate::resources::{PyCursor, PyOffset, PyTextResource};
 use crate::selector::{PySelector, PySelectorKind};
 use crate::textselection::{PyTextSelection, PyTextSelectionOperator};
 
+const VERSION: &'static str = env!("CARGO_PKG_VERSION");
+
 #[pymodule]
 fn stam(py: Python<'_>, m: &PyModule) -> PyResult<()> {
     m.add("StamError", py.get_type::<PyStamError>())?;
+    m.add("VERSION", VERSION)?;
     m.add_class::<PyAnnotationStore>()?;
     m.add_class::<PyAnnotationDataSet>()?;
     m.add_class::<PyAnnotationData>()?;

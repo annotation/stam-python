@@ -113,6 +113,8 @@ class AnnotationStore:
     def resources_len(self) -> int:
         """Returns the number of text resources in the store (not substracting deletions)"""
 
+    def shrink_to_fit(self):
+        """Reallocates internal data structures to tight fits to conserve memory space (if necessary). You can use this after having added lots of annotations to possibly reduce the memory consumption."""
 
 class Annotation:
     """

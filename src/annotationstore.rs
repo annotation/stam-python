@@ -277,6 +277,10 @@ impl PyAnnotationStore {
         self.map(|store| Ok(store.datasets_len()))
     }
 
+    fn shrink_to_fit(&mut self) -> PyResult<()> {
+        self.map_mut(|store| Ok(store.shrink_to_fit(true)))
+    }
+
     /*   (too low, level, removing)
     /// Applies a selector to the annotation store and returns the target(s)
     /// May return a multitude of types depending on the selector, returns

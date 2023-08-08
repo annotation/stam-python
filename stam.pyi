@@ -116,6 +116,38 @@ class AnnotationStore:
     def shrink_to_fit(self):
         """Reallocates internal data structures to tight fits to conserve memory space (if necessary). You can use this after having added lots of annotations to possibly reduce the memory consumption."""
 
+    def find_data(self, **kwargs) -> List[AnnotationData]:
+        """
+        Find annotation data by set, key and value.
+        Returns a list of :class:`AnnotationData` instances
+
+        Keyword arguments
+        -------------------
+
+        set: Optional[Union[str,AnnotationDataSet]]
+            The set to search for; it will search all sets if not specified
+        key: Optional[Union[str,DataKey]]
+            The key to search for; it will search all keys if not specified. If you specify a key, you must also specify a set.
+        value: Optional[Union[str,int,float,bool]]
+            The exact value to search for, if this or any of its variants mentioned below is omitted, it will search all values.
+        value_not: Optional[Union[str,int,float,bool]]
+            Value
+        value_greater: Optional[Union[int,float]]
+            Value must be greater than specified (int or float)
+        value_less: Optional[Union[int,float]]
+            Value must be less than specified (int or float)
+        value_greatereq: Optional[Union[int,float]]
+            Value must be greater than specified or equal (int or float)
+        value_lesseq: Optional[Union[int,float]]
+            Value must be less than specified or equal (int or float)
+        value_in: Optional[Tuple[Union[str,int,float,bool]]]
+            Value must match any in the tuple (this is a logical OR statement)
+        value_not_in: Optional[Tuple[Union[str,int,float,bool]]]
+            Value must not match any in the tuple
+        value_in_range: Optional[Tuple[Union[int,float]]]
+            Must be a numeric 2-tuple with min and max (inclusive) values
+        """
+
 class Annotation:
     """
     `Annotation` represents a particular *instance of annotation* and is the central

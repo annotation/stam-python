@@ -431,7 +431,7 @@ impl PyAnnotationData {
     }
 
     /// Returns the AnnotationDataSet this data is part of
-    fn dataset(&self) -> PyResult<PyAnnotationDataSet> {
+    fn annotationset(&self) -> PyResult<PyAnnotationDataSet> {
         Ok(PyAnnotationDataSet::new(self.set, &self.store))
     }
 

@@ -5,7 +5,7 @@ use std::ops::FnOnce;
 use std::sync::{Arc, RwLock};
 
 use crate::annotation::PyAnnotation;
-use crate::annotationdata::annotationdata_builder;
+use crate::annotationdata::{annotationdata_builder, data_request_parser, PyAnnotationData};
 use crate::annotationdataset::PyAnnotationDataSet;
 use crate::config::get_config;
 use crate::error::PyStamError;
@@ -279,6 +279,38 @@ impl PyAnnotationStore {
 
     fn shrink_to_fit(&mut self) -> PyResult<()> {
         self.map_mut(|store| Ok(store.shrink_to_fit(true)))
+    }
+
+    /// Find annotation data for the specified set, key and value
+    /// Returns a list of found AnnotationData instances
+    #[pyo3(signature = (**kwargs))]
+    fn find_data<'py>(&self, kwargs: Option<&PyDict>, py: Python<'py>) -> PyResult<&'py PyList> {
+        self.map(|store| {
+            let list: &PyList = PyList::empty(py);
+            match data_request_parser(kwargs, store, None, None) {
+                Ok((sethandle, keyhandle, op)) => {
+                    for annotationdata in store
+                        .find_data(sethandle, keyhandle, &op)
+                        .into_iter()
+                        .flatten()
+                    {
+                        list.append(PyAnnotationData::new_py(
+                            annotationdata.handle(),
+                            annotationdata.set().handle(),
+                            &self.store,
+                            py,
+                        ))
+                        .ok();
+                    }
+                    Ok(list.into())
+                }
+                Err(StamError::IdNotFoundError(..)) => {
+                    //we don't raise this error but just return an empty list
+                    Ok(list)
+                }
+                Err(e) => Err(e),
+            }
+        })
     }
 
     /*   (too low, level, removing)

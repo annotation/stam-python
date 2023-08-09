@@ -130,6 +130,8 @@ class AnnotationStore:
             The key to search for; it will search all keys if not specified. If you specify a key, you must also specify a set.
         value: Optional[Union[str,int,float,bool]]
             The exact value to search for, if this or any of its variants mentioned below is omitted, it will search all values.
+        data: Optional[AnnotationData]
+            If you pass an existing AnnotationData instance, set, key and value (equals) are all set at once
         value_not: Optional[Union[str,int,float,bool]]
             Value
         value_greater: Optional[Union[int,float]]
@@ -341,10 +343,14 @@ class Annotation:
         Keyword arguments
         -------------------
 
+        set: Optional[Union[str,AnnotationDataSet]]
+            The set to search for; it will search all sets if not specified
         key: Optional[Union[str,DataKey]]
             The key to search for; it will search all keys if not specified
         value: Optional[Union[str,int,float,bool]]
             The exact value to search for, if this or any of its variants mentioned below is omitted, it will search all values.
+        data: Optional[AnnotationData]
+            If you pass an existing AnnotationData instance, set, key and value (equals) are set at once
         value_not: Optional[Union[str,int,float,bool]]
             Value
         value_greater: Optional[Union[int,float]]
@@ -521,6 +527,8 @@ class AnnotationDataSet:
             The key to search for; it will search all keys if not specified
         value: Optional[Union[str,int,float,bool]]
             The exact value to search for, if this or any of its variants mentioned below is omitted, it will search all values.
+        data: Optional[AnnotationData]
+            If you pass an existing AnnotationData instance, key and value (equals) are set at once
         value_not: Optional[Union[str,int,float,bool]]
             Value
         value_greater: Optional[Union[int,float]]
@@ -595,6 +603,8 @@ class DataKey:
             The key to search for; it will search all keys if not specified
         value: Optional[Union[str,int,float,bool]]
             The exact value to search for, if this or any of its variants mentioned below is omitted, it will search all values.
+        data: Optional[AnnotationData]
+            If you pass an existing AnnotationData instance, key and value (equals) are set at once
         value_not: Optional[Union[str,int,float,bool]]
             Value
         value_greater: Optional[Union[int,float]]
@@ -1085,10 +1095,14 @@ class TextResource:
         Keyword arguments
         -------------------
 
+        set: Optional[Union[str,AnnotationDataSet]]
+            The set to search for; it will search all sets if not specified
         key: Optional[Union[str,DataKey]]
             The key to search for; it will search all keys if not specified
         value: Optional[Union[str,int,float,bool]]
             The exact value to search for, if this or any of its variants mentioned below is omitted, it will search all values.
+        data: Optional[AnnotationData]
+            If you pass an existing AnnotationData instance, key and value (equals) are set at once
         value_not: Optional[Union[str,int,float,bool]]
             Value
         value_greater: Optional[Union[int,float]]
@@ -1367,10 +1381,14 @@ class TextSelection:
         Keyword arguments
         -------------------
 
+        set: Optional[Union[str,AnnotationDataSet]]
+            The set to search for; it will search all sets if not specified
         key: Optional[Union[str,DataKey]]
             The key to search for; it will search all keys if not specified
         value: Optional[Union[str,int,float,bool]]
             The exact value to search for, if this or any of its variants mentioned below is omitted, it will search all values.
+        data: Optional[AnnotationData]
+            If you pass an existing AnnotationData instance, set, key and value (equals) are set at once
         value_not: Optional[Union[str,int,float,bool]]
             Value
         value_greater: Optional[Union[int,float]]

@@ -633,6 +633,17 @@ where
 {
     let mut op = DataOperator::Any;
     if let Some(kwargs) = kwargs {
+        if let Some(data) = kwargs.get_item("data") {
+            if data.is_instance_of::<PyAnnotationData>() {
+                let data: PyRef<'py, PyAnnotationData> =
+                    data.extract().expect("extract should succeed");
+                set_handle = Some(data.set);
+                let set: &'store AnnotationDataSet = store.get(data.set).expect("set should exist");
+                let data: &'store AnnotationData = set.get(data.handle).expect("data should exist");
+                key_handle = Some(data.key());
+                op = data.value().into();
+            }
+        }
         if let Some(set) = kwargs.get_item("set") {
             if set.is_instance_of::<PyAnnotationDataSet>() {
                 let set: PyRef<'py, PyAnnotationDataSet> =

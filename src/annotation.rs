@@ -394,6 +394,72 @@ impl PyAnnotation {
         )
     }
 
+    #[pyo3(signature = (**kwargs))]
+    fn find_data_in_targets<'py>(
+        &self,
+        kwargs: Option<&PyDict>,
+        py: Python<'py>,
+    ) -> PyResult<&'py PyList> {
+        self.map(|annotation| {
+            let list: &PyList = PyList::empty(py);
+            let mut recursive: bool = false;
+            if let Some(kwargs) = kwargs {
+                if let Some(v) = kwargs.get_item("recursive") {
+                    if let Ok(v) = v.extract::<bool>() {
+                        recursive = v;
+                    }
+                }
+            };
+            match data_request_parser(kwargs, annotation.store(), None, None) {
+                Ok((sethandle, keyhandle, op)) => {
+                    for (annotationdata, annotation) in annotation
+                        .find_data_in_targets(sethandle, keyhandle, &op, recursive)
+                        .into_iter()
+                        .flatten()
+                    {
+                        list.append((
+                            PyAnnotationData::new_py(
+                                annotationdata.handle(),
+                                annotationdata.set().handle(),
+                                &self.store,
+                                py,
+                            ),
+                            PyAnnotation::new_py(annotation.handle(), &self.store, py),
+                        ))
+                        .ok();
+                    }
+                    Ok(list.into())
+                }
+                Err(StamError::IdNotFoundError(..)) => {
+                    //we don't raise this error but just return an empty list
+                    Ok(list)
+                }
+                Err(e) => Err(e),
+            }
+        })
+    }
+
+    #[pyo3(signature = (**kwargs))]
+    fn test_data_in_targets<'py>(&self, kwargs: Option<&'py PyDict>) -> PyResult<bool> {
+        self.map(|annotation| {
+            let mut recursive: bool = false;
+            if let Some(kwargs) = kwargs {
+                if let Some(v) = kwargs.get_item("recursive") {
+                    if let Ok(v) = v.extract::<bool>() {
+                        recursive = v;
+                    }
+                }
+            };
+            match data_request_parser(kwargs, annotation.store(), None, None) {
+                Ok((sethandle, keyhandle, op)) => {
+                    Ok(annotation.test_data_in_targets(sethandle, keyhandle, &op, recursive))
+                }
+                Err(StamError::IdNotFoundError(..)) => Ok(false),
+                Err(e) => Err(e),
+            }
+        })
+    }
+
     /// Applies a `TextSelectionOperator` to find all other text selections
     /// are in a specific relation with the ones from the current annotations. Returns all matching TextSelections in a list.
     ///

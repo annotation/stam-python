@@ -379,6 +379,7 @@ class Annotation:
         See :meth:`find_data` for possible keyword arguments.
         """
 
+
     def test_data_about(self, **kwargs) -> bool:
         """
         Test for the presence of data *about* this annotation, i.e. data on other annotation that refer to this one.
@@ -386,6 +387,35 @@ class Annotation:
  
         See :meth:`find_data` for possible keyword arguments.
         """
+
+    def find_data_in_targets(self, **kwargs) -> List[tuple[AnnotationData,Annotation]]:
+        """
+        Search for data in annotations that are targeted by this annotation, i.e. via an AnnotationSelector.
+        Do not confuse this with the data this annotation holds, which can be searched with :meth:`find_data`,
+        or the data in annotation that target this annotation, which can be searched via :meth:`find_data_about`.
+ 
+        Both the matching data (:class:`AnnotationData`) as well as the matching annotation (:class:`Annotation`) will be returned in a list of two-tuples
+
+        See :meth:`find_data` for possible keyword arguments. There is one extra keyword argument:
+
+        recursive: Optional[bool]
+            Apply recursively, yielding data and annotations at any depth. If not set, only the immediate targets are searched.
+        """
+
+    def test_data_in_targets(self, **kwargs) -> bool:
+        """
+        Test for the presence of data in annotations that are targeted by this annotation, i.e. via an AnnotationSelector.
+        Do not confuse this with the data this annotation holds, which can be tested with :meth:`test_data`,
+        or the data in annotation that target this annotation, which can be tested via :meth:`test_data_about`.
+ 
+        Both the matching data (:class:`AnnotationData`) as well as the matching annotation (:class:`Annotation`) will be returned in a list of two-tuples
+
+        See :meth:`find_data` for possible keyword arguments. There is one extra keyword argument:
+
+        recursive: Optional[bool]
+            Apply recursively, yielding data and annotations at any depth. If not set, only the immediate targets are searched.
+        """
+
 
     def related_text_with_data(self, operator: TextSelectionOperator, **kwargs) -> List[tuple[TextSelection,List[tuple[AnnotationData,Annotation]]]]:
         """

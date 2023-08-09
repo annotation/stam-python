@@ -148,6 +148,29 @@ class AnnotationStore:
             Must be a numeric 2-tuple with min and max (inclusive) values
         """
 
+    def annotations_by_data(self, **kwargs) -> List[tuple[Annotation,AnnotationData]]:
+        """
+        Searches for annotations by data.
+        Returns a list with both the annotation, as well the matching data item (in a tuple).
+        
+        This may return the same annotation multiple times if different matching data references it!
+
+        See :meth:`find_data` for keyword arguments.
+        """
+
+    def text_by_data(self, **kwargs) -> List[tuple[List[TextSelection],Annotation,AnnotationData]]:
+        """
+        Searches for text selections by data.
+        Returns a list with a 3-tuple consisting of:
+            * A list of textselections (often just one by not necessarily so, hence a list)
+            * the Annotation instance
+            * the AnnotationData instance
+        
+        This may return the same text or annotation multiple times if different matching data references it!
+
+        See :meth:`find_data` for keyword arguments.
+        """
+
 class Annotation:
     """
     `Annotation` represents a particular *instance of annotation* and is the central

@@ -313,6 +313,84 @@ impl PyAnnotationStore {
         })
     }
 
+    #[pyo3(signature = (**kwargs))]
+    fn annotations_by_data<'py>(
+        &self,
+        kwargs: Option<&PyDict>,
+        py: Python<'py>,
+    ) -> PyResult<&'py PyList> {
+        self.map(|store| {
+            let list: &PyList = PyList::empty(py);
+            match data_request_parser(kwargs, store, None, None) {
+                Ok((sethandle, keyhandle, op)) => {
+                    for (annotation, annotationdata) in
+                        store.annotations_by_data(sethandle, keyhandle, &op)
+                    {
+                        list.append((
+                            PyAnnotation::new_py(annotation.handle(), &self.store, py),
+                            PyAnnotationData::new_py(
+                                annotationdata.handle(),
+                                annotationdata.set().handle(),
+                                &self.store,
+                                py,
+                            ),
+                        ))
+                        .ok();
+                    }
+                    Ok(list.into())
+                }
+                Err(StamError::IdNotFoundError(..)) => {
+                    //we don't raise this error but just return an empty list
+                    Ok(list)
+                }
+                Err(e) => Err(e),
+            }
+        })
+    }
+
+    #[pyo3(signature = (**kwargs))]
+    fn text_by_data<'py>(&self, kwargs: Option<&PyDict>, py: Python<'py>) -> PyResult<&'py PyList> {
+        self.map(|store| {
+            let list: &PyList = PyList::empty(py);
+            match data_request_parser(kwargs, store, None, None) {
+                Ok((sethandle, keyhandle, op)) => {
+                    for (tset, annotation, annotationdata) in
+                        store.text_by_data(sethandle, keyhandle, &op)
+                    {
+                        let pytset: &PyList = PyList::empty(py);
+                        for textselection in tset.as_ref().iter() {
+                            pytset
+                                .append(PyTextSelection::new_py(
+                                    textselection.clone(),
+                                    tset.resource().handle(),
+                                    &self.store,
+                                    py,
+                                ))
+                                .ok();
+                        }
+                        list.append::<(&PyList, &PyAny, &PyAny)>((
+                            pytset.into(),
+                            PyAnnotation::new_py(annotation.handle(), &self.store, py),
+                            PyAnnotationData::new_py(
+                                annotationdata.handle(),
+                                annotationdata.set().handle(),
+                                &self.store,
+                                py,
+                            ),
+                        ))
+                        .ok();
+                    }
+                    Ok(list.into())
+                }
+                Err(StamError::IdNotFoundError(..)) => {
+                    //we don't raise this error but just return an empty list
+                    Ok(list)
+                }
+                Err(e) => Err(e),
+            }
+        })
+    }
+
     /*   (too low, level, removing)
     /// Applies a selector to the annotation store and returns the target(s)
     /// May return a multitude of types depending on the selector, returns

@@ -2,6 +2,7 @@ use pyo3::exceptions::{PyRuntimeError, PyValueError};
 use pyo3::prelude::*;
 use pyo3::pyclass::CompareOp;
 use pyo3::types::*;
+use std::hash::{Hash, Hasher};
 use std::ops::FnOnce;
 use std::sync::{Arc, RwLock};
 
@@ -66,10 +67,17 @@ impl PyDataKey {
     fn __richcmp__(&self, other: PyRef<Self>, op: CompareOp) -> Py<PyAny> {
         let py = other.py();
         match op {
-            CompareOp::Eq => (self.handle == other.handle).into_py(py),
-            CompareOp::Ne => (self.handle != other.handle).into_py(py),
+            CompareOp::Eq => (self.set == other.set && self.handle == other.handle).into_py(py),
+            CompareOp::Ne => (self.set != other.set || self.handle != other.handle).into_py(py),
             _ => py.NotImplemented(),
         }
+    }
+
+    fn __hash__(&self) -> u64 {
+        let mut hasher = std::collections::hash_map::DefaultHasher::new();
+        let h = (self.set.as_usize(), self.handle.as_usize());
+        h.hash(&mut hasher);
+        hasher.finish()
     }
 
     /// Returns the AnnotationDataSet this key is part of
@@ -424,10 +432,17 @@ impl PyAnnotationData {
     fn __richcmp__(&self, other: PyRef<Self>, op: CompareOp) -> Py<PyAny> {
         let py = other.py();
         match op {
-            CompareOp::Eq => (self.handle == other.handle).into_py(py),
-            CompareOp::Ne => (self.handle != other.handle).into_py(py),
+            CompareOp::Eq => (self.set == other.set && self.handle == other.handle).into_py(py),
+            CompareOp::Ne => (self.set != other.set || self.handle != other.handle).into_py(py),
             _ => py.NotImplemented(),
         }
+    }
+
+    fn __hash__(&self) -> u64 {
+        let mut hasher = std::collections::hash_map::DefaultHasher::new();
+        let h = (self.set.as_usize(), self.handle.as_usize());
+        h.hash(&mut hasher);
+        hasher.finish()
     }
 
     /// Returns the AnnotationDataSet this data is part of

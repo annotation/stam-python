@@ -63,13 +63,19 @@ impl PyAnnotation {
         self.map(|annotation| Ok(annotation.id() == Some(other)))
     }
 
-    fn __richcmp__(&self, other: PyRef<Self>, op: CompareOp) -> Py<PyAny> {
-        let py = other.py();
+    fn __richcmp__(&self, other: PyRef<Self>, op: CompareOp) -> bool {
         match op {
-            CompareOp::Eq => (self.handle == other.handle).into_py(py),
-            CompareOp::Ne => (self.handle != other.handle).into_py(py),
-            _ => py.NotImplemented(),
+            CompareOp::Eq => self.handle == other.handle,
+            CompareOp::Ne => self.handle != other.handle,
+            CompareOp::Lt => self.handle < other.handle,
+            CompareOp::Gt => self.handle > other.handle,
+            CompareOp::Le => self.handle <= other.handle,
+            CompareOp::Ge => self.handle >= other.handle,
         }
+    }
+
+    fn __hash__(&self) -> usize {
+        self.handle.as_usize()
     }
 
     /// Returns a generator over all data in this annotation

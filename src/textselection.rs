@@ -2,6 +2,7 @@ use pyo3::exceptions::PyRuntimeError;
 use pyo3::prelude::*;
 use pyo3::pyclass::CompareOp;
 use pyo3::types::*;
+use std::hash::{Hash, Hasher};
 use std::ops::FnOnce;
 use std::sync::{Arc, RwLock};
 
@@ -106,6 +107,13 @@ impl PyTextSelection {
             CompareOp::Gt => (self.textselection > other.textselection).into_py(py),
             CompareOp::Ge => (self.textselection >= other.textselection).into_py(py),
         }
+    }
+
+    fn __hash__(&self) -> u64 {
+        let mut hasher = std::collections::hash_map::DefaultHasher::new();
+        let h = (self.resource_handle.as_usize(), self.textselection);
+        h.hash(&mut hasher);
+        hasher.finish()
     }
 
     /// Returns the resource this textselections points at

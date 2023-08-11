@@ -409,6 +409,32 @@ impl PyAnnotation {
         )
     }
 
+    fn annotations_by_data_about<'py>(
+        &self,
+        data: &PyAnnotationData,
+        limit: Option<usize>,
+        py: Python<'py>,
+    ) -> PyResult<&'py PyList> {
+        self.map(|annotation| {
+            let list: &PyList = PyList::empty(py);
+            let dataset = annotation
+                .store()
+                .dataset(data.set)
+                .expect("set must exist");
+            let data = dataset
+                .annotationdata(data.handle)
+                .expect("data must exist");
+            for annotation in annotation.annotations_by_data_about(data) {
+                list.append(PyAnnotation::new_py(annotation.handle(), &self.store, py))
+                    .ok();
+                if limit.is_some() && list.len() >= limit.unwrap() {
+                    break;
+                }
+            }
+            Ok(list.into())
+        })
+    }
+
     #[pyo3(signature = (**kwargs))]
     fn find_data_in_targets<'py>(
         &self,

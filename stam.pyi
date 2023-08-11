@@ -396,6 +396,13 @@ class Annotation:
         See :meth:`find_data` for possible keyword arguments.
         """
 
+    def annotations_by_data_about(self, data: AnnotationData, limit: Optional[int]) -> List[Annotation]:
+        """
+        Search for annotations *about* this annotation, satisfying certain exact data that is already known.
+        For a higher-level variant, see :meth:`find_data_about`, but that method is less efficient than this one.
+        """
+
+
     def find_data_in_targets(self, **kwargs) -> List[tuple[AnnotationData,Annotation]]:
         """
         Search for data in annotations that are targeted by this annotation, i.e. via an AnnotationSelector.

@@ -10,6 +10,11 @@ mod resources;
 mod selector;
 mod textselection;
 
+use pyo3::exceptions::{PyRuntimeError, PyValueError};
+use pyo3::prelude::*;
+use pyo3::pyclass::CompareOp;
+use pyo3::types::*;
+
 use crate::annotation::PyAnnotation;
 use crate::annotationdata::{PyAnnotationData, PyDataKey, PyDataValue};
 use crate::annotationdataset::PyAnnotationDataSet;
@@ -39,4 +44,15 @@ fn stam(py: Python<'_>, m: &PyModule) -> PyResult<()> {
     m.add_class::<PyTextSelection>()?;
     m.add_class::<PyTextSelectionOperator>()?;
     Ok(())
+}
+
+pub(crate) fn get_limit(kwargs: Option<&PyDict>) -> Option<usize> {
+    if let Some(kwargs) = kwargs {
+        if let Some(limit) = kwargs.get_item("limit") {
+            if let Ok(limit) = limit.extract::<usize>() {
+                return Some(limit);
+            }
+        }
+    }
+    None
 }

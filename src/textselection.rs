@@ -9,6 +9,7 @@ use std::sync::{Arc, RwLock};
 use crate::annotation::PyAnnotation;
 use crate::annotationdata::{data_request_parser, PyAnnotationData};
 use crate::error::PyStamError;
+use crate::get_limit;
 use crate::resources::{PyOffset, PyTextResource};
 use stam::*;
 
@@ -498,6 +499,7 @@ impl PyTextSelection {
     ) -> PyResult<&'py PyList> {
         self.map(|textselection| {
             let list: &PyList = PyList::empty(py);
+            let limit = get_limit(kwargs);
             match data_request_parser(kwargs, textselection.rootstore(), None, None) {
                 Ok((sethandle, keyhandle, op)) => {
                     for (annotationdata, annotation) in textselection
@@ -515,6 +517,9 @@ impl PyTextSelection {
                             PyAnnotation::new_py(annotation.handle(), &self.store, py),
                         ))
                         .ok();
+                        if limit.is_some() && list.len() >= limit.unwrap() {
+                            break;
+                        }
                     }
                     Ok(list.into())
                 }
@@ -549,6 +554,7 @@ impl PyTextSelection {
     ) -> PyResult<&'py PyList> {
         self.map(|textselection| {
             let list: &PyList = PyList::empty(py);
+            let limit = get_limit(kwargs);
             match data_request_parser(kwargs, textselection.rootstore(), None, None) {
                 Ok((sethandle, keyhandle, op)) => {
                     for (textselection, data_and_annotations) in textselection
@@ -575,6 +581,9 @@ impl PyTextSelection {
                             innerlist,
                         ))
                         .ok();
+                        if limit.is_some() && list.len() >= limit.unwrap() {
+                            break;
+                        }
                     }
                     Ok(list.into())
                 }
@@ -596,6 +605,7 @@ impl PyTextSelection {
     ) -> PyResult<&'py PyList> {
         self.map(|textselection| {
             let list: &PyList = PyList::empty(py);
+            let limit = get_limit(kwargs);
             match data_request_parser(kwargs, textselection.rootstore(), None, None) {
                 Ok((sethandle, keyhandle, op)) => {
                     for textselection in textselection
@@ -609,6 +619,9 @@ impl PyTextSelection {
                             py,
                         ))
                         .ok();
+                        if limit.is_some() && list.len() >= limit.unwrap() {
+                            break;
+                        }
                     }
                     Ok(list.into())
                 }

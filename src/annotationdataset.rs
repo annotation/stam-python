@@ -8,6 +8,7 @@ use std::sync::{Arc, RwLock};
 use crate::annotation::PyAnnotation;
 use crate::annotationdata::{data_request_parser, datavalue_from_py, PyAnnotationData, PyDataKey};
 use crate::error::PyStamError;
+use crate::get_limit;
 use crate::selector::{PySelector, PySelectorKind};
 use stam::*;
 
@@ -194,6 +195,7 @@ impl PyAnnotationDataSet {
     fn find_data<'py>(&self, kwargs: Option<&PyDict>, py: Python<'py>) -> PyResult<&'py PyList> {
         self.map(|set| {
             let list: &PyList = PyList::empty(py);
+            let limit = get_limit(kwargs);
             match data_request_parser(kwargs, set.store(), Some(self.handle), None) {
                 Ok((_, keyhandle, op)) => {
                     for annotationdata in set.find_data(keyhandle, &op).into_iter().flatten() {
@@ -204,6 +206,9 @@ impl PyAnnotationDataSet {
                             py,
                         ))
                         .ok();
+                        if limit.is_some() && list.len() >= limit.unwrap() {
+                            break;
+                        }
                     }
                     Ok(list.into())
                 }
@@ -233,6 +238,7 @@ impl PyAnnotationDataSet {
     ) -> PyResult<&'py PyList> {
         self.map(|dataset| {
             let list: &PyList = PyList::empty(py);
+            let limit = get_limit(kwargs);
             match data_request_parser(kwargs, dataset.store(), None, None) {
                 Ok((sethandle, keyhandle, op)) => {
                     for (annotationdata, annotation) in dataset
@@ -250,6 +256,9 @@ impl PyAnnotationDataSet {
                             PyAnnotation::new_py(annotation.handle(), &self.store, py),
                         ))
                         .ok();
+                        if limit.is_some() && list.len() >= limit.unwrap() {
+                            break;
+                        }
                     }
                     Ok(list.into())
                 }

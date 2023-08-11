@@ -367,6 +367,8 @@ class Annotation:
             Value must not match any in the tuple
         value_in_range: Optional[Tuple[Union[int,float]]]
             Must be a numeric 2-tuple with min and max (inclusive) values
+        limit: Optional[int] = None
+            The maximum number of results to return (default: unlimited)
         """
 
     def test_data(self, **kwargs) -> bool:
@@ -545,6 +547,8 @@ class AnnotationDataSet:
             Value must not match any in the tuple
         value_in_range: Optional[Tuple[Union[int,float]]]
             Must be a numeric 2-tuple with min and max (inclusive) values
+        limit: Optional[int] = None
+            The maximum number of results to return (default: unlimited)
         """
 
     def test_data(self, **kwargs) -> bool:
@@ -621,6 +625,8 @@ class DataKey:
             Value must not match any in the tuple
         value_in_range: Optional[Tuple[Union[int,float]]]
             Must be a numeric 2-tuple with min and max (inclusive) values
+        limit: Optional[int] = None
+            The maximum number of results to return (default: unlimited)
         """
 
     def test_data(self, **kwargs) -> bool:
@@ -1119,6 +1125,8 @@ class TextResource:
             Value must not match any in the tuple
         value_in_range: Optional[Tuple[Union[int,float]]]
             Must be a numeric 2-tuple with min and max (inclusive) values
+        limit: Optional[int] = None
+            The maximum number of results to return (default: unlimited)
         """
 
     def test_data_about(self, **kwargs) -> bool:
@@ -1405,6 +1413,8 @@ class TextSelection:
             Value must not match any in the tuple
         value_in_range: Optional[Tuple[Union[int,float]]]
             Must be a numeric 2-tuple with min and max (inclusive) values
+        limit: Optional[int] = None
+            The maximum number of results to return (default: unlimited)
         """
 
     def test_data_about(self, **kwargs) -> bool:

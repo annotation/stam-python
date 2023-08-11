@@ -9,6 +9,7 @@ use crate::annotationdata::{data_request_parser, PyAnnotationData};
 use crate::annotationdataset::PyAnnotationDataSet;
 use crate::annotationstore::MapStore;
 use crate::error::PyStamError;
+use crate::get_limit;
 use crate::resources::{PyOffset, PyTextResource};
 use crate::selector::{PySelector, PySelectorKind};
 use crate::textselection::{PyTextSelection, PyTextSelectionOperator};
@@ -311,6 +312,7 @@ impl PyAnnotation {
     fn find_data<'py>(&self, kwargs: Option<&PyDict>, py: Python<'py>) -> PyResult<&'py PyList> {
         self.map(|annotation| {
             let list: &PyList = PyList::empty(py);
+            let limit = get_limit(kwargs);
             match data_request_parser(kwargs, annotation.store(), None, None) {
                 Ok((sethandle, keyhandle, op)) => {
                     for annotationdata in annotation
@@ -325,6 +327,9 @@ impl PyAnnotation {
                             py,
                         ))
                         .ok();
+                        if limit.is_some() && list.len() >= limit.unwrap() {
+                            break;
+                        }
                     }
                     Ok(list.into())
                 }
@@ -358,6 +363,7 @@ impl PyAnnotation {
     ) -> PyResult<&'py PyList> {
         self.map(|annotation| {
             let list: &PyList = PyList::empty(py);
+            let limit = get_limit(kwargs);
             match data_request_parser(kwargs, annotation.store(), None, None) {
                 Ok((sethandle, keyhandle, op)) => {
                     for (annotationdata, annotation) in annotation
@@ -375,6 +381,9 @@ impl PyAnnotation {
                             PyAnnotation::new_py(annotation.handle(), &self.store, py),
                         ))
                         .ok();
+                        if limit.is_some() && list.len() >= limit.unwrap() {
+                            break;
+                        }
                     }
                     Ok(list.into())
                 }
@@ -416,6 +425,7 @@ impl PyAnnotation {
                     }
                 }
             };
+            let limit = get_limit(kwargs);
             match data_request_parser(kwargs, annotation.store(), None, None) {
                 Ok((sethandle, keyhandle, op)) => {
                     for (annotationdata, annotation) in annotation
@@ -433,6 +443,9 @@ impl PyAnnotation {
                             PyAnnotation::new_py(annotation.handle(), &self.store, py),
                         ))
                         .ok();
+                        if limit.is_some() && list.len() >= limit.unwrap() {
+                            break;
+                        }
                     }
                     Ok(list.into())
                 }
@@ -533,6 +546,7 @@ impl PyAnnotation {
     ) -> PyResult<&'py PyList> {
         self.map(|annotation| {
             let list: &PyList = PyList::empty(py);
+            let limit = get_limit(kwargs);
             match data_request_parser(kwargs, annotation.rootstore(), None, None) {
                 Ok((sethandle, keyhandle, op)) => {
                     for annotation in annotation
@@ -546,6 +560,9 @@ impl PyAnnotation {
                     {
                         list.append(PyAnnotation::new_py(annotation.handle(), &self.store, py))
                             .ok();
+                        if limit.is_some() && list.len() >= limit.unwrap() {
+                            break;
+                        }
                     }
                     Ok(list.into())
                 }
@@ -567,6 +584,7 @@ impl PyAnnotation {
     ) -> PyResult<&'py PyList> {
         self.map(|annotation| {
             let list: &PyList = PyList::empty(py);
+            let limit = get_limit(kwargs);
             match data_request_parser(kwargs, annotation.rootstore(), None, None) {
                 Ok((sethandle, keyhandle, op)) => {
                     for (textselection, data_and_annotations) in annotation
@@ -593,6 +611,9 @@ impl PyAnnotation {
                             innerlist,
                         ))
                         .ok();
+                        if limit.is_some() && list.len() >= limit.unwrap() {
+                            break;
+                        }
                     }
                     Ok(list.into())
                 }
@@ -614,6 +635,7 @@ impl PyAnnotation {
     ) -> PyResult<&'py PyList> {
         self.map(|annotation| {
             let list: &PyList = PyList::empty(py);
+            let limit = get_limit(kwargs);
             match data_request_parser(kwargs, annotation.rootstore(), None, None) {
                 Ok((sethandle, keyhandle, op)) => {
                     for textselection in annotation
@@ -627,6 +649,9 @@ impl PyAnnotation {
                             py,
                         ))
                         .ok();
+                        if limit.is_some() && list.len() >= limit.unwrap() {
+                            break;
+                        }
                     }
                     Ok(list.into())
                 }

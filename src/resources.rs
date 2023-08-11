@@ -8,6 +8,7 @@ use std::sync::{Arc, RwLock};
 use crate::annotation::PyAnnotation;
 use crate::annotationdata::{data_request_parser, PyAnnotationData};
 use crate::error::PyStamError;
+use crate::get_limit;
 use crate::selector::{PySelector, PySelectorKind};
 use crate::textselection::{PyTextSelection, PyTextSelectionIter, PyTextSelectionOperator};
 use stam::*;
@@ -469,6 +470,7 @@ impl PyTextResource {
     ) -> PyResult<&'py PyList> {
         self.map(|resource| {
             let list: &PyList = PyList::empty(py);
+            let limit = get_limit(kwargs);
             match data_request_parser(kwargs, resource.store(), None, None) {
                 Ok((sethandle, keyhandle, op)) => {
                     for (annotationdata, annotation) in resource
@@ -486,6 +488,9 @@ impl PyTextResource {
                             PyAnnotation::new_py(annotation.handle(), &self.store, py),
                         ))
                         .ok();
+                        if limit.is_some() && list.len() >= limit.unwrap() {
+                            break;
+                        }
                     }
                     Ok(list.into())
                 }
@@ -519,6 +524,7 @@ impl PyTextResource {
     ) -> PyResult<&'py PyList> {
         self.map(|resource| {
             let list: &PyList = PyList::empty(py);
+            let limit = get_limit(kwargs);
             match data_request_parser(kwargs, resource.store(), None, None) {
                 Ok((sethandle, keyhandle, op)) => {
                     for (annotationdata, annotation) in resource
@@ -536,6 +542,9 @@ impl PyTextResource {
                             PyAnnotation::new_py(annotation.handle(), &self.store, py),
                         ))
                         .ok();
+                        if limit.is_some() && list.len() >= limit.unwrap() {
+                            break;
+                        }
                     }
                     Ok(list.into())
                 }
@@ -569,6 +578,7 @@ impl PyTextResource {
     ) -> PyResult<&'py PyList> {
         self.map(|resource| {
             let list: &PyList = PyList::empty(py);
+            let limit = get_limit(kwargs);
             match data_request_parser(kwargs, resource.store(), None, None) {
                 Ok((sethandle, keyhandle, op)) => {
                     for (annotationdata, annotation) in resource
@@ -586,6 +596,9 @@ impl PyTextResource {
                             PyAnnotation::new_py(annotation.handle(), &self.store, py),
                         ))
                         .ok();
+                        if limit.is_some() && list.len() >= limit.unwrap() {
+                            break;
+                        }
                     }
                     Ok(list.into())
                 }

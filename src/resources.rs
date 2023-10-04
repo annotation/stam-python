@@ -5,12 +5,15 @@ use pyo3::types::*;
 use std::ops::FnOnce;
 use std::sync::{Arc, RwLock};
 
-use crate::annotation::PyAnnotation;
-use crate::annotationdata::{data_request_parser, PyAnnotationData};
+use crate::annotation::{PyAnnotation, PyAnnotations};
+use crate::annotationdata::{data_request_parser, PyAnnotationData, PyData};
 use crate::error::PyStamError;
 use crate::get_limit;
+use crate::iterparams::IterParams;
 use crate::selector::{PySelector, PySelectorKind};
-use crate::textselection::{PyTextSelection, PyTextSelectionIter, PyTextSelectionOperator};
+use crate::textselection::{
+    PyTextSelection, PyTextSelectionIter, PyTextSelectionOperator, PyTextSelections,
+};
 use stam::*;
 
 #[pyclass(dict, module = "stam", name = "TextResource")]
@@ -307,9 +310,15 @@ impl PyTextResource {
         })
     }
 
-    // Iterates over all known textselections in this resource, shortcut for __iter__()
-    fn textselections(&self) -> PyTextSelectionIter {
-        self.__iter__()
+    fn textselections(&self) -> PyResult<PyTextSelections> {
+        self.map(|resource| {
+            let iter = resource.textselections();
+            Ok(PyTextSelections {
+                textselections: iter.to_handles(),
+                store: self.store.clone(),
+                cursor: 0,
+            })
+        })
     }
 
     // Iterates over all known textselections in this resource, in sorted order
@@ -372,57 +381,33 @@ impl PyTextResource {
         self.map(|res| res.beginaligned_cursor(&Cursor::EndAligned(endalignedcursor)))
     }
 
-    /// Returns a list of all annotations (:obj:`Annotation`) that reference this resource via a TextSelector (if any).
-    /// Does *NOT* include those that use a ResourceSelector, use `annotations_metadata()` instead for those.
-    #[pyo3(signature = (limit=None))]
-    fn annotations(&self, limit: Option<usize>, py: Python) -> Py<PyList> {
-        let list: &PyList = PyList::empty(py);
+    /// Returns all annotations (:obj:`Annotation`) that reference this resource via either a TextSelector or a ResourceSelector (if any).
+    fn annotations(&self, kwargs: Option<&PyDict>, py: Python) -> PyResult<PyAnnotations> {
+        let iterparams = IterParams::new(kwargs)?;
         self.map(|resource| {
-            for (i, annotation) in resource.annotations().enumerate() {
-                list.append(PyAnnotation::new_py(annotation.handle(), &self.store, py))
-                    .ok();
-                if Some(i + 1) == limit {
-                    break;
-                }
-            }
-            Ok(())
+            let mut iter = resource.annotations();
+            iterparams.evaluate_to_pyannotations(iter, resource.store(), &self.store)
         })
-        .ok();
-        list.into()
     }
 
-    #[pyo3(signature = (limit=None))]
-    fn annotations_as_metadata(&self, limit: Option<usize>, py: Python) -> Py<PyList> {
-        let list: &PyList = PyList::empty(py);
+    fn annotations_as_metadata(
+        &self,
+        kwargs: Option<&PyDict>,
+        py: Python,
+    ) -> PyResult<PyAnnotations> {
+        let iterparams = IterParams::new(kwargs)?;
         self.map(|resource| {
-            for (i, annotation) in resource.annotations_as_metadata().enumerate() {
-                list.append(PyAnnotation::new_py(annotation.handle(), &self.store, py))
-                    .ok();
-                if Some(i + 1) == limit {
-                    break;
-                }
-            }
-            Ok(())
+            let mut iter = resource.annotations_as_metadata();
+            iterparams.evaluate_to_pyannotations(iter, resource.store(), &self.store)
         })
-        .ok();
-        list.into()
     }
 
-    #[pyo3(signature = (limit=None))]
-    fn annotations_on_text(&self, limit: Option<usize>, py: Python) -> Py<PyList> {
-        let list: &PyList = PyList::empty(py);
+    fn annotations_on_text(&self, kwargs: Option<&PyDict>, py: Python) -> PyResult<PyAnnotations> {
+        let iterparams = IterParams::new(kwargs)?;
         self.map(|resource| {
-            for (i, annotation) in resource.annotations_on_text().enumerate() {
-                list.append(PyAnnotation::new_py(annotation.handle(), &self.store, py))
-                    .ok();
-                if Some(i + 1) == limit {
-                    break;
-                }
-            }
-            Ok(())
+            let mut iter = resource.annotations_on_text();
+            iterparams.evaluate_to_pyannotations(iter, resource.store(), &self.store)
         })
-        .ok();
-        list.into()
     }
 
     /// Applies a `TextSelectionOperator` to find all other text selections that are in a specific
@@ -430,198 +415,22 @@ impl PyTextResource {
     /// all matching TextSelections in a list
     ///
     /// If you are interested in the annotations associated with the found text selections, then use `find_annotations()` instead.
-    #[pyo3(signature = (operator,referenceselections,limit=None))]
     fn related_text(
         &self,
         operator: PyTextSelectionOperator,
         referenceselections: Vec<PyTextSelection>,
-        limit: Option<usize>,
         py: Python,
-    ) -> Py<PyList> {
-        let list: &PyList = PyList::empty(py);
+    ) -> PyResult<PyTextSelections> {
         self.map(|textselection| {
             let mut refset = TextSelectionSet::new(self.handle);
             refset.extend(referenceselections.into_iter().map(|x| x.textselection));
-            for (i, foundtextselection) in textselection
-                .related_text(operator.operator, refset)
-                .enumerate()
-            {
-                list.append(PyTextSelection::from_result_to_py(
-                    foundtextselection,
-                    &self.store,
-                    py,
-                ))
-                .ok();
-                if Some(i + 1) == limit {
-                    break;
-                }
-            }
-            Ok(())
+            let iter = textselection.related_text(operator.operator, refset);
+            Ok(PyTextSelections {
+                textselections: iter.to_handles(),
+                store: self.store.clone(),
+                cursor: 0,
+            })
         })
-        .ok();
-        list.into()
-    }
-
-    #[pyo3(signature = (**kwargs))]
-    fn find_data_about<'py>(
-        &self,
-        kwargs: Option<&PyDict>,
-        py: Python<'py>,
-    ) -> PyResult<&'py PyList> {
-        self.map(|resource| {
-            let list: &PyList = PyList::empty(py);
-            let limit = get_limit(kwargs);
-            match data_request_parser(kwargs, resource.store(), None, None) {
-                Ok((sethandle, keyhandle, op)) => {
-                    for (annotationdata, annotation) in resource
-                        .find_data_about(sethandle, keyhandle, &op)
-                        .into_iter()
-                        .flatten()
-                    {
-                        list.append((
-                            PyAnnotationData::new_py(
-                                annotationdata.handle(),
-                                annotationdata.set().handle(),
-                                &self.store,
-                                py,
-                            ),
-                            PyAnnotation::new_py(annotation.handle(), &self.store, py),
-                        ))
-                        .ok();
-                        if limit.is_some() && list.len() >= limit.unwrap() {
-                            break;
-                        }
-                    }
-                    Ok(list.into())
-                }
-                Err(StamError::IdNotFoundError(..)) => {
-                    //we don't raise this error but just return an empty list
-                    Ok(list)
-                }
-                Err(e) => Err(e),
-            }
-        })
-    }
-
-    #[pyo3(signature = (**kwargs))]
-    fn test_data_about<'py>(&self, kwargs: Option<&'py PyDict>) -> PyResult<bool> {
-        self.map(
-            |resource| match data_request_parser(kwargs, resource.store(), None, None) {
-                Ok((sethandle, keyhandle, op)) => {
-                    Ok(resource.test_data_about(sethandle, keyhandle, &op))
-                }
-                Err(StamError::IdNotFoundError(..)) => Ok(false),
-                Err(e) => Err(e),
-            },
-        )
-    }
-
-    #[pyo3(signature = (**kwargs))]
-    fn find_metadata_about<'py>(
-        &self,
-        kwargs: Option<&PyDict>,
-        py: Python<'py>,
-    ) -> PyResult<&'py PyList> {
-        self.map(|resource| {
-            let list: &PyList = PyList::empty(py);
-            let limit = get_limit(kwargs);
-            match data_request_parser(kwargs, resource.store(), None, None) {
-                Ok((sethandle, keyhandle, op)) => {
-                    for (annotationdata, annotation) in resource
-                        .find_data_about(sethandle, keyhandle, &op)
-                        .into_iter()
-                        .flatten()
-                    {
-                        list.append((
-                            PyAnnotationData::new_py(
-                                annotationdata.handle(),
-                                annotationdata.set().handle(),
-                                &self.store,
-                                py,
-                            ),
-                            PyAnnotation::new_py(annotation.handle(), &self.store, py),
-                        ))
-                        .ok();
-                        if limit.is_some() && list.len() >= limit.unwrap() {
-                            break;
-                        }
-                    }
-                    Ok(list.into())
-                }
-                Err(StamError::IdNotFoundError(..)) => {
-                    //we don't raise this error but just return an empty list
-                    Ok(list)
-                }
-                Err(e) => Err(e),
-            }
-        })
-    }
-
-    #[pyo3(signature = (**kwargs))]
-    fn test_metadata_about<'py>(&self, kwargs: Option<&'py PyDict>) -> PyResult<bool> {
-        self.map(
-            |resource| match data_request_parser(kwargs, resource.store(), None, None) {
-                Ok((sethandle, keyhandle, op)) => {
-                    Ok(resource.test_metadata_about(sethandle, keyhandle, &op))
-                }
-                Err(StamError::IdNotFoundError(..)) => Ok(false),
-                Err(e) => Err(e),
-            },
-        )
-    }
-
-    #[pyo3(signature = (**kwargs))]
-    fn find_data_about_text<'py>(
-        &self,
-        kwargs: Option<&PyDict>,
-        py: Python<'py>,
-    ) -> PyResult<&'py PyList> {
-        self.map(|resource| {
-            let list: &PyList = PyList::empty(py);
-            let limit = get_limit(kwargs);
-            match data_request_parser(kwargs, resource.store(), None, None) {
-                Ok((sethandle, keyhandle, op)) => {
-                    for (annotationdata, annotation) in resource
-                        .find_data_about_text(sethandle, keyhandle, &op)
-                        .into_iter()
-                        .flatten()
-                    {
-                        list.append((
-                            PyAnnotationData::new_py(
-                                annotationdata.handle(),
-                                annotationdata.set().handle(),
-                                &self.store,
-                                py,
-                            ),
-                            PyAnnotation::new_py(annotation.handle(), &self.store, py),
-                        ))
-                        .ok();
-                        if limit.is_some() && list.len() >= limit.unwrap() {
-                            break;
-                        }
-                    }
-                    Ok(list.into())
-                }
-                Err(StamError::IdNotFoundError(..)) => {
-                    //we don't raise this error but just return an empty list
-                    Ok(list)
-                }
-                Err(e) => Err(e),
-            }
-        })
-    }
-
-    #[pyo3(signature = (**kwargs))]
-    fn test_data_about_text<'py>(&self, kwargs: Option<&'py PyDict>) -> PyResult<bool> {
-        self.map(
-            |resource| match data_request_parser(kwargs, resource.store(), None, None) {
-                Ok((sethandle, keyhandle, op)) => {
-                    Ok(resource.test_data_about_text(sethandle, keyhandle, &op))
-                }
-                Err(StamError::IdNotFoundError(..)) => Ok(false),
-                Err(e) => Err(e),
-            },
-        )
     }
 }
 

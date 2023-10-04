@@ -2,14 +2,16 @@ use pyo3::exceptions::{PyRuntimeError, PyValueError};
 use pyo3::prelude::*;
 use pyo3::pyclass::CompareOp;
 use pyo3::types::*;
+use std::borrow::Cow;
 use std::hash::{Hash, Hasher};
 use std::ops::FnOnce;
 use std::sync::{Arc, RwLock};
 
-use crate::annotation::PyAnnotation;
+use crate::annotation::{PyAnnotation, PyAnnotations};
 use crate::annotationdataset::PyAnnotationDataSet;
 use crate::annotationstore::MapStore;
 use crate::error::PyStamError;
+use crate::iterparams::IterParams;
 use stam::*;
 
 #[pyclass(dict, module = "stam", name = "DataKey")]
@@ -88,79 +90,24 @@ impl PyDataKey {
         })
     }
 
-    /// Returns a list of AnnotationData instances that use this key.
-    /// This is a lookup in the reverse index.
-    fn annotationdata<'py>(&self, limit: Option<usize>, py: Python<'py>) -> Py<PyList> {
-        let list: &PyList = PyList::empty(py);
-        self.map(|annotationset| {
-            for (i, data) in annotationset.data().enumerate() {
-                list.append(PyAnnotationData::new_py(
-                    data.handle(),
-                    self.set,
-                    &self.store,
-                    py,
-                ))
-                .ok();
-                if Some(i + 1) == limit {
-                    break;
-                }
-            }
-            Ok(())
+    fn data<'py>(&self, kwargs: Option<&PyDict>, py: Python<'py>) -> PyResult<PyData> {
+        let iterparams = IterParams::new(kwargs)?;
+        self.map(|key| {
+            let mut iter = key.data();
+            iterparams.evaluate_to_pydata(iter, key.rootstore(), &self.store)
         })
-        .ok();
-        list.into()
     }
 
-    /// Find annotation data for the current key and specified value
-    /// Returns an AnnotationData instance if found, None otherwise
-    /// Use AnnotationDataSet.find_data() instead if you don't have a DataKey instance yet.
-    #[pyo3(signature = (**kwargs))]
-    fn find_data<'py>(
+    fn annotations<'py>(
         &self,
-        kwargs: Option<&'py PyDict>,
+        kwargs: Option<&PyDict>,
         py: Python<'py>,
-    ) -> PyResult<&'py PyList> {
+    ) -> PyResult<PyAnnotations> {
+        let iterparams = IterParams::new(kwargs)?;
         self.map(|key| {
-            let list: &PyList = PyList::empty(py);
-            let (_, _, op) =
-                data_request_parser(kwargs, key.rootstore(), Some(self.set), Some(self.handle))?;
-            for annotationdata in key.find_data(&op) {
-                list.append(PyAnnotationData::new_py(
-                    annotationdata.handle(),
-                    self.set,
-                    &self.store,
-                    py,
-                ))
-                .ok();
-            }
-            Ok(list.into())
+            let mut iter = key.annotations();
+            iterparams.evaluate_to_pyannotations(iter, key.rootstore(), &self.store)
         })
-    }
-
-    #[pyo3(signature = (**kwargs))]
-    fn test_data<'py>(&self, kwargs: Option<&'py PyDict>) -> PyResult<bool> {
-        self.map(|key| {
-            let (_, _, op) =
-                data_request_parser(kwargs, key.rootstore(), Some(self.set), Some(self.handle))?;
-            Ok(key.test_data(&op))
-        })
-    }
-
-    /// Returns a list of  Annotation instances that use this key
-    fn annotations<'py>(&self, limit: Option<usize>, py: Python<'py>) -> Py<PyList> {
-        let list: &PyList = PyList::empty(py);
-        self.map(|key| {
-            for (i, annotation) in key.annotations().enumerate() {
-                list.append(PyAnnotation::new_py(annotation.handle(), &self.store, py))
-                    .ok();
-                if Some(i + 1) == limit {
-                    break;
-                }
-            }
-            Ok(())
-        })
-        .ok();
-        list.into()
     }
 
     fn annotations_count(&self) -> usize {
@@ -446,26 +393,20 @@ impl PyAnnotationData {
     }
 
     /// Returns the AnnotationDataSet this data is part of
-    fn annotationset(&self) -> PyResult<PyAnnotationDataSet> {
+    fn dataset(&self) -> PyResult<PyAnnotationDataSet> {
         Ok(PyAnnotationDataSet::new(self.set, &self.store))
     }
 
-    /// Returns a list of  Annotation instances that use this data
-    /// This is a lookup in the reverse index.
-    fn annotations<'py>(&self, limit: Option<usize>, py: Python<'py>) -> Py<PyList> {
-        let list: &PyList = PyList::empty(py);
+    fn annotations<'py>(
+        &self,
+        kwargs: Option<&PyDict>,
+        py: Python<'py>,
+    ) -> PyResult<PyAnnotations> {
+        let iterparams = IterParams::new(kwargs)?;
         self.map(|data| {
-            for (i, annotation) in data.annotations().enumerate() {
-                list.append(PyAnnotation::new_py(annotation.handle(), &self.store, py))
-                    .ok();
-                if Some(i + 1) == limit {
-                    break;
-                }
-            }
-            Ok(())
+            let mut iter = data.annotations();
+            iterparams.evaluate_to_pyannotations(iter, data.rootstore(), &self.store)
         })
-        .ok();
-        list.into()
     }
 
     fn annotations_len(&self) -> usize {
@@ -560,6 +501,103 @@ pub(crate) fn annotationdata_builder<'a>(data: &'a PyAny) -> PyResult<Annotation
     }
 }
 
+pub(crate) fn dataoperator_from_kwargs<'a, 'py>(
+    kwargs: &'py PyDict,
+) -> Result<Option<DataOperator<'a>>, StamError>
+where
+    'py: 'a,
+{
+    if let Some(value) = kwargs.get_item("value") {
+        Ok(Some(dataoperator_from_py(value)?))
+    } else if let Some(value) = kwargs.get_item("value_not") {
+        Ok(Some(DataOperator::Not(Box::new(dataoperator_from_py(
+            value,
+        )?))))
+    } else if let Some(value) = kwargs.get_item("value_greater") {
+        Ok(Some(dataoperator_greater_from_py(value)?))
+    } else if let Some(value) = kwargs.get_item("value_not_greater") {
+        Ok(Some(DataOperator::Not(Box::new(
+            dataoperator_greater_from_py(value)?,
+        ))))
+    } else if let Some(value) = kwargs.get_item("value_less") {
+        Ok(Some(dataoperator_less_from_py(value)?))
+    } else if let Some(value) = kwargs.get_item("value_not_less") {
+        Ok(Some(DataOperator::Not(Box::new(
+            dataoperator_less_from_py(value)?,
+        ))))
+    } else if let Some(value) = kwargs.get_item("value_greatereq") {
+        Ok(Some(dataoperator_greatereq_from_py(value)?))
+    } else if let Some(value) = kwargs.get_item("value_not_greatereq") {
+        Ok(Some(DataOperator::Not(Box::new(
+            dataoperator_greatereq_from_py(value)?,
+        ))))
+    } else if let Some(value) = kwargs.get_item("value_lesseq") {
+        Ok(Some(dataoperator_lesseq_from_py(value)?))
+    } else if let Some(value) = kwargs.get_item("value_not_lesseq") {
+        Ok(Some(DataOperator::Not(Box::new(
+            dataoperator_lesseq_from_py(value)?,
+        ))))
+    } else if let Some(values) = kwargs.get_item("value_in") {
+        if values.is_instance_of::<PyTuple>() {
+            let values: &PyTuple = values.downcast().unwrap();
+            let mut suboperators = Vec::with_capacity(values.len());
+            for value in values {
+                suboperators.push(dataoperator_from_py(value)?)
+            }
+            Ok(Some(DataOperator::Or(suboperators)))
+        } else {
+            Err(StamError::OtherError("`value_in` must be a tuple"))
+        }
+    } else if let Some(values) = kwargs.get_item("value_not_in") {
+        if values.is_instance_of::<PyTuple>() {
+            let values: &PyTuple = values.downcast().unwrap();
+            let mut suboperators = Vec::with_capacity(values.len());
+            for value in values {
+                suboperators.push(dataoperator_from_py(value)?)
+            }
+            Ok(Some(DataOperator::Not(Box::new(DataOperator::Or(
+                suboperators,
+            )))))
+        } else {
+            Err(StamError::OtherError("`value_in` must be a tuple"))
+        }
+    } else if let Some(values) = kwargs.get_item("value_in_range") {
+        if let Ok((min, max)) = values.extract::<(isize, isize)>() {
+            Ok(Some(DataOperator::And(vec![
+                DataOperator::GreaterThanOrEqual(min),
+                DataOperator::LessThanOrEqual(max),
+            ])))
+        } else if let Ok((min, max)) = values.extract::<(f64, f64)>() {
+            Ok(Some(DataOperator::And(vec![
+                DataOperator::GreaterThanOrEqualFloat(min),
+                DataOperator::LessThanOrEqualFloat(max),
+            ])))
+        } else {
+            Err(StamError::OtherError(
+                "`value_in_range` must be a 2-tuple min,max (exclusive) with numbers (both int or both float)",
+            ))
+        }
+    } else if let Some(values) = kwargs.get_item("value_not_in_range") {
+        if let Ok((min, max)) = values.extract::<(isize, isize)>() {
+            Ok(Some(DataOperator::And(vec![
+                DataOperator::LessThan(min),
+                DataOperator::GreaterThan(max),
+            ])))
+        } else if let Ok((min, max)) = values.extract::<(f64, f64)>() {
+            Ok(Some(DataOperator::And(vec![
+                DataOperator::LessThanFloat(min),
+                DataOperator::GreaterThanFloat(max),
+            ])))
+        } else {
+            Err(StamError::OtherError(
+                "`value_not_in_range` must be a 2-tuple min,max (exclusive) with numbers (both int or both float)",
+            ))
+        }
+    } else {
+        Ok(None)
+    }
+}
+
 pub(crate) fn dataoperator_from_py(value: &PyAny) -> Result<DataOperator, StamError> {
     if value.is_none() {
         Ok(DataOperator::Null)
@@ -646,19 +684,7 @@ pub(crate) fn data_request_parser<'py, 'store>(
 where
     'py: 'store,
 {
-    let mut op = DataOperator::Any;
     if let Some(kwargs) = kwargs {
-        if let Some(data) = kwargs.get_item("data") {
-            if data.is_instance_of::<PyAnnotationData>() {
-                let data: PyRef<'py, PyAnnotationData> =
-                    data.extract().expect("extract should succeed");
-                set_handle = Some(data.set);
-                let set: &'store AnnotationDataSet = store.get(data.set).expect("set should exist");
-                let data: &'store AnnotationData = set.get(data.handle).expect("data should exist");
-                key_handle = Some(data.key());
-                op = data.value().into();
-            }
-        }
         if let Some(set) = kwargs.get_item("set") {
             if set.is_instance_of::<PyAnnotationDataSet>() {
                 let set: PyRef<'py, PyAnnotationDataSet> =
@@ -695,85 +721,106 @@ where
                 }
             }
         }
-        if let Some(value) = kwargs.get_item("value") {
-            op = dataoperator_from_py(value)?;
-        } else if let Some(value) = kwargs.get_item("value_not") {
-            op = DataOperator::Not(Box::new(dataoperator_from_py(value)?));
-        } else if let Some(value) = kwargs.get_item("value_greater") {
-            op = dataoperator_greater_from_py(value)?;
-        } else if let Some(value) = kwargs.get_item("value_not_greater") {
-            op = DataOperator::Not(Box::new(dataoperator_greater_from_py(value)?));
-        } else if let Some(value) = kwargs.get_item("value_less") {
-            op = dataoperator_less_from_py(value)?;
-        } else if let Some(value) = kwargs.get_item("value_not_less") {
-            op = DataOperator::Not(Box::new(dataoperator_less_from_py(value)?));
-        } else if let Some(value) = kwargs.get_item("value_greatereq") {
-            op = dataoperator_greatereq_from_py(value)?;
-        } else if let Some(value) = kwargs.get_item("value_not_greatereq") {
-            op = DataOperator::Not(Box::new(dataoperator_greatereq_from_py(value)?));
-        } else if let Some(value) = kwargs.get_item("value_lesseq") {
-            op = dataoperator_lesseq_from_py(value)?;
-        } else if let Some(value) = kwargs.get_item("value_not_lesseq") {
-            op = DataOperator::Not(Box::new(dataoperator_lesseq_from_py(value)?));
-        } else if let Some(values) = kwargs.get_item("value_in") {
-            if values.is_instance_of::<PyTuple>() {
-                let values: &PyTuple = values.downcast().unwrap();
-                let mut suboperators = Vec::with_capacity(values.len());
-                for value in values {
-                    suboperators.push(dataoperator_from_py(value)?)
-                }
-                op = DataOperator::Or(suboperators);
-            } else {
-                return Err(StamError::OtherError("`value_in` must be a tuple"));
-            }
-        } else if let Some(values) = kwargs.get_item("value_not_in") {
-            if values.is_instance_of::<PyTuple>() {
-                let values: &PyTuple = values.downcast().unwrap();
-                let mut suboperators = Vec::with_capacity(values.len());
-                for value in values {
-                    suboperators.push(dataoperator_from_py(value)?)
-                }
-                op = DataOperator::Not(Box::new(DataOperator::Or(suboperators)));
-            } else {
-                return Err(StamError::OtherError("`value_in` must be a tuple"));
-            }
-        } else if let Some(values) = kwargs.get_item("value_in_range") {
-            if let Ok((min, max)) = values.extract::<(isize, isize)>() {
-                op = DataOperator::And(vec![
-                    DataOperator::GreaterThanOrEqual(min),
-                    DataOperator::LessThanOrEqual(max),
-                ]);
-            } else if let Ok((min, max)) = values.extract::<(f64, f64)>() {
-                op = DataOperator::And(vec![
-                    DataOperator::GreaterThanOrEqualFloat(min),
-                    DataOperator::LessThanOrEqualFloat(max),
-                ]);
-            } else {
-                return Err(StamError::OtherError(
-                    "`value_in_range` must be a 2-tuple min,max (exclusive) with numbers (both int or both float)",
-                ));
-            }
-        } else if let Some(values) = kwargs.get_item("value_not_in_range") {
-            if let Ok((min, max)) = values.extract::<(isize, isize)>() {
-                op = DataOperator::And(vec![
-                    DataOperator::LessThan(min),
-                    DataOperator::GreaterThan(max),
-                ]);
-            } else if let Ok((min, max)) = values.extract::<(f64, f64)>() {
-                op = DataOperator::And(vec![
-                    DataOperator::LessThanFloat(min),
-                    DataOperator::GreaterThanFloat(max),
-                ]);
-            } else {
-                return Err(StamError::OtherError(
-                    "`value_not_in_range` must be a 2-tuple min,max (exclusive) with numbers (both int or both float)",
-                ));
-            }
+        if let Some(op) = dataoperator_from_kwargs(kwargs)? {
+            Ok((set_handle, key_handle, op))
+        } else {
+            Ok((set_handle, key_handle, DataOperator::Any))
         }
-        Ok((set_handle, key_handle, op))
     } else {
         Err(StamError::OtherError(
             "No keyword arguments specified for search: provide a combination of `set`,`key`, and `value`",
         ))
+    }
+}
+
+#[pyclass(name = "Data")]
+pub struct PyData {
+    pub(crate) data: Vec<(AnnotationDataSetHandle, AnnotationDataHandle)>,
+    pub(crate) store: Arc<RwLock<AnnotationStore>>,
+    pub(crate) cursor: usize,
+    /// Indicates whether the annotations are sorted chronologically (by handle)
+    pub(crate) sorted: bool,
+}
+
+#[pymethods]
+impl PyData {
+    fn __iter__(pyself: PyRef<'_, Self>) -> PyRef<'_, Self> {
+        pyself
+    }
+
+    fn __next__(mut pyself: PyRefMut<'_, Self>) -> Option<PyAnnotationData> {
+        pyself.cursor += 1; //increment first (prevent exclusive mutability issues)
+        if let Some((set_handle, handle)) = pyself.data.get(pyself.cursor - 1) {
+            //index is one ahead, prevents exclusive lock issues
+            Some(PyAnnotationData::new(*handle, *set_handle, &pyself.store))
+        } else {
+            None
+        }
+    }
+
+    fn __len__(pyself: PyRef<'_, Self>) -> usize {
+        pyself.data.len()
+    }
+
+    fn annotations<'py>(
+        &self,
+        kwargs: Option<&PyDict>,
+        py: Python<'py>,
+    ) -> PyResult<PyAnnotations> {
+        let iterparams = IterParams::new(kwargs)?;
+        self.map(|data, store| {
+            let mut iter = Data::from_handles(Cow::Borrowed(data), self.sorted, store)
+                .iter()
+                .annotations();
+            iterparams.evaluate_to_pyannotations(iter, store, &self.store)
+        })
+    }
+}
+
+impl PyData {
+    fn map<T, F>(&self, f: F) -> Result<T, PyErr>
+    where
+        F: FnOnce(
+            &Vec<(AnnotationDataSetHandle, AnnotationDataHandle)>,
+            &AnnotationStore,
+        ) -> Result<T, StamError>,
+    {
+        if let Ok(store) = self.store.read() {
+            f(&self.data, &store).map_err(|err| PyStamError::new_err(format!("{}", err)))
+        } else {
+            Err(PyRuntimeError::new_err(
+                "Unable to obtain store (should never happen)",
+            ))
+        }
+    }
+}
+
+impl<'py> IterParams<'py> {
+    pub(crate) fn evaluate_to_pydata<'store>(
+        self,
+        iter: DataIter<'store>,
+        store: &'store AnnotationStore,
+        wrappedstore: &Arc<RwLock<AnnotationStore>>,
+    ) -> Result<PyData, StamError>
+    where
+        'py: 'store,
+    {
+        let limit = self.limit();
+        match self.evaluate_data(iter, store) {
+            Ok(iter) => {
+                let sorted = iter.returns_sorted();
+                Ok(PyData {
+                    data: if let Some(limit) = limit {
+                        iter.to_cache_limit(limit).take()
+                    } else {
+                        iter.to_cache().take()
+                    },
+                    store: wrappedstore.clone(),
+                    cursor: 0,
+                    sorted,
+                })
+            }
+            Err(e) => Err(e.into()),
+        }
     }
 }

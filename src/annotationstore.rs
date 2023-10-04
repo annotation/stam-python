@@ -4,11 +4,15 @@ use pyo3::types::*;
 use std::ops::FnOnce;
 use std::sync::{Arc, RwLock};
 
-use crate::annotation::PyAnnotation;
-use crate::annotationdata::{annotationdata_builder, data_request_parser, PyAnnotationData};
+use crate::annotation::{PyAnnotation, PyAnnotations};
+use crate::annotationdata::{
+    annotationdata_builder, data_request_parser, PyAnnotationData, PyData,
+};
 use crate::annotationdataset::PyAnnotationDataSet;
 use crate::config::get_config;
 use crate::error::PyStamError;
+use crate::get_limit;
+use crate::iterparams::IterParams;
 use crate::resources::PyTextResource;
 use crate::selector::PySelector;
 use crate::textselection::PyTextSelection;
@@ -239,10 +243,22 @@ impl PyAnnotationStore {
     }
 
     /// Returns a generator over all annotations in this store
-    fn annotations(&self) -> PyResult<PyAnnotationIter> {
+    fn __iter__(&self) -> PyResult<PyAnnotationIter> {
         Ok(PyAnnotationIter {
             store: self.store.clone(),
             index: 0,
+        })
+    }
+
+    fn annotations<'py>(
+        &self,
+        kwargs: Option<&PyDict>,
+        py: Python<'py>,
+    ) -> PyResult<PyAnnotations> {
+        let iterparams = IterParams::new(kwargs)?;
+        self.map(|store| {
+            let mut iter = store.annotations();
+            iterparams.evaluate_to_pyannotations(iter, store, &self.store)
         })
     }
 
@@ -282,309 +298,30 @@ impl PyAnnotationStore {
     }
 
     /// Find annotation data for the specified set, key and value
-    /// Returns a list of found AnnotationData instances
+    /// Returns all found AnnotationData instances
     #[pyo3(signature = (**kwargs))]
-    fn find_data<'py>(&self, kwargs: Option<&PyDict>, py: Python<'py>) -> PyResult<&'py PyList> {
-        self.map(|store| {
-            let list: &PyList = PyList::empty(py);
-            match data_request_parser(kwargs, store, None, None) {
+    fn find_data(&self, kwargs: Option<&PyDict>) -> PyResult<PyData> {
+        let limit = get_limit(kwargs);
+        self.map(
+            |store| match data_request_parser(kwargs, store, None, None) {
                 Ok((sethandle, keyhandle, op)) => {
-                    for annotationdata in store
-                        .find_data(sethandle, keyhandle, &op)
-                        .into_iter()
-                        .flatten()
-                    {
-                        list.append(PyAnnotationData::new_py(
-                            annotationdata.handle(),
-                            annotationdata.set().handle(),
-                            &self.store,
-                            py,
-                        ))
-                        .ok();
-                    }
-                    Ok(list.into())
-                }
-                Err(StamError::IdNotFoundError(..)) => {
-                    //we don't raise this error but just return an empty list
-                    Ok(list)
-                }
-                Err(e) => Err(e),
-            }
-        })
-    }
-
-    #[pyo3(signature = (**kwargs))]
-    fn annotations_by_data<'py>(
-        &self,
-        kwargs: Option<&PyDict>,
-        py: Python<'py>,
-    ) -> PyResult<&'py PyList> {
-        self.map(|store| {
-            let list: &PyList = PyList::empty(py);
-            match data_request_parser(kwargs, store, None, None) {
-                Ok((sethandle, keyhandle, op)) => {
-                    for (annotation, annotationdata) in
-                        store.annotations_by_data(sethandle, keyhandle, &op)
-                    {
-                        list.append((
-                            PyAnnotation::new_py(annotation.handle(), &self.store, py),
-                            PyAnnotationData::new_py(
-                                annotationdata.handle(),
-                                annotationdata.set().handle(),
-                                &self.store,
-                                py,
-                            ),
-                        ))
-                        .ok();
-                    }
-                    Ok(list.into())
-                }
-                Err(StamError::IdNotFoundError(..)) => {
-                    //we don't raise this error but just return an empty list
-                    Ok(list)
-                }
-                Err(e) => Err(e),
-            }
-        })
-    }
-
-    #[pyo3(signature = (**kwargs))]
-    fn text_by_data<'py>(&self, kwargs: Option<&PyDict>, py: Python<'py>) -> PyResult<&'py PyList> {
-        self.map(|store| {
-            let list: &PyList = PyList::empty(py);
-            match data_request_parser(kwargs, store, None, None) {
-                Ok((sethandle, keyhandle, op)) => {
-                    for (tset, annotation, annotationdata) in
-                        store.text_by_data(sethandle, keyhandle, &op)
-                    {
-                        let pytset: &PyList = PyList::empty(py);
-                        for textselection in tset.as_ref().iter() {
-                            pytset
-                                .append(PyTextSelection::new_py(
-                                    textselection.clone(),
-                                    tset.resource().handle(),
-                                    &self.store,
-                                    py,
-                                ))
-                                .ok();
-                        }
-                        list.append::<(&PyList, &PyAny, &PyAny)>((
-                            pytset.into(),
-                            PyAnnotation::new_py(annotation.handle(), &self.store, py),
-                            PyAnnotationData::new_py(
-                                annotationdata.handle(),
-                                annotationdata.set().handle(),
-                                &self.store,
-                                py,
-                            ),
-                        ))
-                        .ok();
-                    }
-                    Ok(list.into())
-                }
-                Err(StamError::IdNotFoundError(..)) => {
-                    //we don't raise this error but just return an empty list
-                    Ok(list)
-                }
-                Err(e) => Err(e),
-            }
-        })
-    }
-
-    /*   (too low, level, removing)
-    /// Applies a selector to the annotation store and returns the target(s)
-    /// May return a multitude of types depending on the selector, returns
-    /// a list if multiple targets were found (internally consumes an iterator).
-    fn select<'py>(&self, selector: &PySelector, py: Python<'py>) -> PyResult<&'py PyAny> {
-        match &selector.selector {
-            Selector::ResourceSelector(handle) => {
-                Ok(PyTextResource::new_py(*handle, &self.store, py))
-            }
-            Selector::DataSetSelector(handle) => {
-                Ok(PyAnnotationDataSet::new_py(*handle, &self.store, py))
-            }
-            Selector::TextSelector(handle, offset) => self.map(|store| {
-                let resource = store.resource(*handle).expect("handle must be valid");
-                let textselection = resource.textselection(offset)?;
-                let pytextselection: &'py PyAny =
-                    PyTextSelection::from_result_to_py(textselection, &self.store, py);
-                Ok(pytextselection)
-            }),
-            Selector::InternalTextSelector {
-                resource: handle,
-                textselection: textselection_handle,
-            } => self.map(|store| {
-                let resource = store.resource(*handle).expect("must exist");
-                let textselection: &TextSelection = resource.as_ref().get(*textselection_handle)?;
-                let pytextselection: &'py PyAny = PyTextSelection::new_py(
-                    textselection.clone(),
-                    resource.handle(),
-                    &self.store,
-                    py,
-                );
-                Ok(pytextselection)
-            }),
-            Selector::AnnotationSelector(handle, None) => {
-                Ok(PyAnnotation::new_py(*handle, &self.store, py))
-            }
-            Selector::AnnotationSelector(handle, _offset) => {
-                self.map(|store| {
-                    let annotation = store
-                        .annotation(*handle)
-                        .ok_or_else(|| StamError::HandleError("handle not found"))?;
-                    let result = PyList::empty(py); //TODO: I want a tuple rather than a list but didn't succeed
-                    let textselections = PyList::empty(py);
-                    for textselection in annotation.textselections() {
-                        textselections
-                            .append(PyTextSelection::from_result_to_py(
-                                textselection,
-                                &self.store,
-                                py,
-                            ))
-                            .expect("adding textselection");
-                    }
-                    let pyannotation: &PyAny = PyAnnotation::new_py(*handle, &self.store, py);
-                    let textselections: &PyAny = textselections.into();
-                    result.append(pyannotation).expect("adding to result"); //TODO: should go into tuple rather than list
-                    result.append(textselections).expect("adding to result");
-                    let result: &PyAny = result.into();
-                    Ok(result)
-                })
-            }
-            Selector::InternalAnnotationTextSelector {
-                annotation: handle,
-                resource: resource_handle,
-                textselection: textselection_handle,
-            } => {
-                self.map(|store| {
-                    let result = PyList::empty(py); //TODO: I want a tuple rather than a list but didn't succeed
-                    let pyannotation: &PyAny = PyAnnotation::new_py(*handle, &self.store, py);
-                    let resource: &TextResource = store.get(*resource_handle)?;
-                    let textselection: &TextSelection = resource.get(*textselection_handle)?;
-                    let pytextselection: &PyAny = Py::new(
-                        py,
-                        PyTextSelection {
-                            resource_handle: *resource_handle,
-                            textselection: *textselection, //copy
-                            store: self.store.clone(),
+                    let iter = store.find_data(sethandle, keyhandle, op);
+                    let sorted = iter.returns_sorted();
+                    Ok(PyData {
+                        data: if let Some(limit) = limit {
+                            iter.to_cache_limit(limit).take()
+                        } else {
+                            iter.to_cache().take()
                         },
-                    )
-                    .unwrap()
-                    .into_ref(py);
-                    result.append(pyannotation).expect("adding to result"); //TODO: should go into tuple rather than list
-                    result.append(pytextselection).expect("adding to result");
-                    let result: &PyAny = result.into();
-                    Ok(result)
-                })
-            }
-            Selector::MultiSelector(v)
-            | Selector::CompositeSelector(v)
-            | Selector::DirectionalSelector(v) => {
-                let result = PyList::empty(py);
-                for subselector in v.iter() {
-                    let subresult: &PyAny = self.select(
-                        &PySelector {
-                            selector: subselector.clone(),
-                        },
-                        py,
-                    )?;
-                    result.append(subresult)?;
+                        store: self.store.clone(),
+                        cursor: 0,
+                        sorted,
+                    })
                 }
-                let result: &PyAny = result.into();
-                Ok(result)
-            }
-            Selector::InternalRangedResourceSelector { .. } => {
-                let result = self.map(|store| {
-                    let results = PyList::empty(py);
-                    let iter: TargetIter<TextResource> =
-                        TargetIter::new(store, selector.selector.iter(store, false, false));
-                    for resource in iter {
-                        let handle = resource.handle();
-                        let pyresource: &PyAny = PyTextResource::new_py(handle, &self.store, py);
-                        results
-                            .append(pyresource)
-                            .map_err(|_| StamError::OtherError("append failed"))?;
-                    }
-                    Ok(results)
-                })?;
-
-                let result: &PyAny = result.into();
-                Ok(result)
-            }
-            Selector::InternalRangedAnnotationSelector { .. } => {
-                let result = self.map(|store| {
-                    let results = PyList::empty(py);
-                    let iter: TargetIter<Annotation> =
-                        TargetIter::new(store, selector.selector.iter(store, false, false));
-                    for annotation in iter {
-                        let handle = annotation.handle();
-                        let pyannotation: &PyAny = PyAnnotation::new_py(handle, &self.store, py);
-                        results
-                            .append(pyannotation)
-                            .map_err(|_| StamError::OtherError("append failed"))?;
-                    }
-                    Ok(results)
-                })?;
-
-                let result: &PyAny = result.into();
-                Ok(result)
-            }
-            Selector::InternalRangedDataSetSelector { .. } => {
-                let result = self.map(|store| {
-                    let results = PyList::empty(py);
-                    let iter: TargetIter<AnnotationDataSet> =
-                        TargetIter::new(store, selector.selector.iter(store, false, false));
-                    for dataset in iter {
-                        let handle = dataset.handle();
-                        let pydataset: &PyAny =
-                            PyAnnotationDataSet::new_py(handle, &self.store, py);
-                        results
-                            .append(pydataset)
-                            .map_err(|_| StamError::OtherError("append failed"))?;
-                    }
-                    Ok(results)
-                })?;
-
-                let result: &PyAny = result.into();
-                Ok(result)
-            }
-            Selector::InternalRangedTextSelector {
-                resource: resource_handle,
-                ..
-            } => {
-                let result = self.map(|store| {
-                    let results = PyList::empty(py);
-                    let iter: TargetIter<TextSelection> = TargetIter::new(
-                        store
-                            .resource(*resource_handle)
-                            .expect("resource must exist")
-                            .as_ref(),
-                        selector.selector.iter(store, false, false),
-                    );
-                    for textselection in iter {
-                        let pyresource: &PyAny = Py::new(
-                            py,
-                            PyTextSelection {
-                                resource_handle: *resource_handle,
-                                textselection: textselection.as_ref().clone(), //copy
-                                store: self.store.clone(),
-                            },
-                        )
-                        .unwrap()
-                        .into_ref(py);
-                        results
-                            .append(pyresource)
-                            .map_err(|_| StamError::OtherError("append failed"))?;
-                    }
-                    Ok(results)
-                })?;
-
-                let result: &PyAny = result.into();
-                Ok(result)
-            }
-        }
+                Err(e) => Err(e),
+            },
+        )
     }
-    */
 }
 
 pub(crate) trait MapStore {

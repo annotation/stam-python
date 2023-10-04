@@ -2,17 +2,19 @@ use pyo3::exceptions::PyRuntimeError;
 use pyo3::prelude::*;
 use pyo3::pyclass::CompareOp;
 use pyo3::types::*;
+use std::borrow::Cow;
 use std::ops::FnOnce;
 use std::sync::{Arc, RwLock};
 
-use crate::annotationdata::{data_request_parser, PyAnnotationData};
+use crate::annotationdata::{data_request_parser, PyAnnotationData, PyData};
 use crate::annotationdataset::PyAnnotationDataSet;
 use crate::annotationstore::MapStore;
 use crate::error::PyStamError;
 use crate::get_limit;
+use crate::iterparams::IterParams;
 use crate::resources::{PyOffset, PyTextResource};
 use crate::selector::{PySelector, PySelectorKind};
-use crate::textselection::{PyTextSelection, PyTextSelectionOperator};
+use crate::textselection::{PyTextSelection, PyTextSelectionOperator, PyTextSelections};
 use stam::*;
 
 #[pyclass(dict, module = "stam", name = "Annotation")]
@@ -26,7 +28,7 @@ use stam::*;
 /// space, and searching and indexing is facilitated.  
 ///
 /// This structure is not instantiated directly, only returned.
-pub(crate) struct PyAnnotation {
+pub struct PyAnnotation {
     pub(crate) handle: AnnotationHandle,
     pub(crate) store: Arc<RwLock<AnnotationStore>>,
 }
@@ -79,7 +81,7 @@ impl PyAnnotation {
         self.handle.as_usize()
     }
 
-    /// Returns a generator over all data in this annotation
+    /// Returns a generator over all data in this annotation, this is quick and performant but less suitable if you want to do further filtering, use :meth:`data` instead for that
     fn __iter__(&self) -> PyResult<PyDataIter> {
         Ok(PyDataIter {
             handle: self.handle,
@@ -149,66 +151,49 @@ impl PyAnnotation {
     /// Returns a list of all textselections of the annotation.
     /// Note that this will always return a list (even it if only contains a single element),
     /// as an annotation may reference multiple text selections.
-    fn textselections<'py>(&self, py: Python<'py>) -> Py<PyList> {
-        let list: &PyList = PyList::empty(py);
+    fn textselections<'py>(&self, py: Python<'py>) -> PyResult<PyTextSelections> {
         self.map(|annotation| {
-            for textselection in annotation.textselections() {
-                let resource_handle = textselection.resource().handle();
-                list.append(PyTextSelection::from_result_to_py(
-                    textselection,
-                    &self.store,
-                    py,
-                ))
-                .ok();
-            }
-            Ok(())
+            let iter = annotation.textselections();
+            Ok(PyTextSelections {
+                textselections: iter.to_handles(),
+                store: self.store.clone(),
+                cursor: 0,
+            })
         })
-        .ok();
-        list.into()
     }
 
-    /// Returns a list of annotations this annotation refers to (i.e. using an AnnotationSelector)
-    #[pyo3(signature = (recursive=false,limit=None))]
+    /// Returns annotations this annotation refers to (i.e. using an AnnotationSelector)
     fn annotations_in_targets<'py>(
         &self,
-        recursive: bool,
-        limit: Option<usize>,
+        kwargs: Option<&PyDict>,
         py: Python<'py>,
-    ) -> Py<PyList> {
-        let list: &PyList = PyList::empty(py);
-        self.map(|annotation| {
-            for (i, annotation) in annotation
-                .annotations_in_targets(recursive, false)
-                .enumerate()
-            {
-                list.append(PyAnnotation::new_py(annotation.handle(), &self.store, py))
-                    .ok();
-                if Some(i + 1) == limit {
-                    break;
+    ) -> PyResult<PyAnnotations> {
+        let iterparams = IterParams::new(kwargs)?;
+        let mut recursive: bool = false;
+        if let Some(kwargs) = kwargs {
+            if let Some(v) = kwargs.get_item("recursive") {
+                if let Ok(v) = v.extract() {
+                    recursive = v;
                 }
             }
-            Ok(())
+        }
+        self.map(|annotation| {
+            let mut iter = annotation.annotations_in_targets(recursive);
+            iterparams.evaluate_to_pyannotations(iter, annotation.store(), &self.store)
         })
-        .ok();
-        list.into()
     }
 
-    /// Returns a list of annotations that are referring to this annotation (i.e. others using an AnnotationSelector)
-    #[pyo3(signature = (limit=None))]
-    fn annotations<'py>(&self, limit: Option<usize>, py: Python<'py>) -> Py<PyList> {
-        let list: &PyList = PyList::empty(py);
+    /// Returns annotations that are referring to this annotation (i.e. others using an AnnotationSelector)
+    fn annotations<'py>(
+        &self,
+        kwargs: Option<&PyDict>,
+        py: Python<'py>,
+    ) -> PyResult<PyAnnotations> {
+        let iterparams = IterParams::new(kwargs)?;
         self.map(|annotation| {
-            for (i, annotation) in annotation.annotations().enumerate() {
-                list.append(PyAnnotation::new_py(annotation.handle(), &self.store, py))
-                    .ok();
-                if Some(i + 1) == limit {
-                    break;
-                }
-            }
-            Ok(())
+            let mut iter = annotation.annotations();
+            iterparams.evaluate_to_pyannotations(iter, annotation.store(), &self.store)
         })
-        .ok();
-        list.into()
     }
 
     /// Returns a list of resources this annotation refers to
@@ -277,27 +262,13 @@ impl PyAnnotation {
         todo!() //TODO: implement
     }
 
-    /// Returns a list of annotation data instances this annotation refers to.
-    #[pyo3(signature = (limit=None))]
-    fn data<'py>(&self, limit: Option<usize>, py: Python<'py>) -> Py<PyList> {
-        let list: &PyList = PyList::empty(py);
+    /// Returns annotation data instances that pertain to this annotation.
+    fn data<'py>(&self, kwargs: Option<&PyDict>, py: Python<'py>) -> PyResult<PyData> {
+        let iterparams = IterParams::new(kwargs)?;
         self.map(|annotation| {
-            for (i, data) in annotation.data().enumerate() {
-                list.append(PyAnnotationData::new_py(
-                    data.handle(),
-                    data.set().handle(),
-                    &self.store,
-                    py,
-                ))
-                .ok();
-                if Some(i + 1) == limit {
-                    break;
-                }
-            }
-            Ok(())
+            let mut iter = annotation.data();
+            iterparams.evaluate_to_pydata(iter, annotation.store(), &self.store)
         })
-        .ok();
-        list.into()
     }
 
     /// Returns the number of data items under this annotation
@@ -306,393 +277,124 @@ impl PyAnnotation {
             .unwrap()
     }
 
-    /// Find annotation data for the specified key and specified value
-    /// Returns a list of found AnnotationData instances
-    #[pyo3(signature = (**kwargs))]
-    fn find_data<'py>(&self, kwargs: Option<&PyDict>, py: Python<'py>) -> PyResult<&'py PyList> {
-        self.map(|annotation| {
-            let list: &PyList = PyList::empty(py);
-            let limit = get_limit(kwargs);
-            match data_request_parser(kwargs, annotation.store(), None, None) {
-                Ok((sethandle, keyhandle, op)) => {
-                    for annotationdata in annotation
-                        .find_data(sethandle, keyhandle, &op)
-                        .into_iter()
-                        .flatten()
-                    {
-                        list.append(PyAnnotationData::new_py(
-                            annotationdata.handle(),
-                            annotationdata.set().handle(),
-                            &self.store,
-                            py,
-                        ))
-                        .ok();
-                        if limit.is_some() && list.len() >= limit.unwrap() {
-                            break;
-                        }
-                    }
-                    Ok(list.into())
-                }
-                Err(StamError::IdNotFoundError(..)) => {
-                    //we don't raise this error but just return an empty list
-                    Ok(list)
-                }
-                Err(e) => Err(e),
-            }
-        })
-    }
-
-    #[pyo3(signature = (**kwargs))]
-    fn test_data<'py>(&self, kwargs: Option<&'py PyDict>) -> PyResult<bool> {
-        self.map(
-            |annotation| match data_request_parser(kwargs, annotation.store(), None, None) {
-                Ok((sethandle, keyhandle, op)) => {
-                    Ok(annotation.test_data(sethandle, keyhandle, &op))
-                }
-                Err(StamError::IdNotFoundError(..)) => Ok(false),
-                Err(e) => Err(e),
-            },
-        )
-    }
-
-    #[pyo3(signature = (**kwargs))]
-    fn find_data_about<'py>(
-        &self,
-        kwargs: Option<&PyDict>,
-        py: Python<'py>,
-    ) -> PyResult<&'py PyList> {
-        self.map(|annotation| {
-            let list: &PyList = PyList::empty(py);
-            let limit = get_limit(kwargs);
-            match data_request_parser(kwargs, annotation.store(), None, None) {
-                Ok((sethandle, keyhandle, op)) => {
-                    for (annotationdata, annotation) in annotation
-                        .find_data_about(sethandle, keyhandle, &op)
-                        .into_iter()
-                        .flatten()
-                    {
-                        list.append((
-                            PyAnnotationData::new_py(
-                                annotationdata.handle(),
-                                annotationdata.set().handle(),
-                                &self.store,
-                                py,
-                            ),
-                            PyAnnotation::new_py(annotation.handle(), &self.store, py),
-                        ))
-                        .ok();
-                        if limit.is_some() && list.len() >= limit.unwrap() {
-                            break;
-                        }
-                    }
-                    Ok(list.into())
-                }
-                Err(StamError::IdNotFoundError(..)) => {
-                    //we don't raise this error but just return an empty list
-                    Ok(list)
-                }
-                Err(e) => Err(e),
-            }
-        })
-    }
-
-    #[pyo3(signature = (**kwargs))]
-    fn test_data_about<'py>(&self, kwargs: Option<&'py PyDict>) -> PyResult<bool> {
-        self.map(
-            |annotation| match data_request_parser(kwargs, annotation.store(), None, None) {
-                Ok((sethandle, keyhandle, op)) => {
-                    Ok(annotation.test_data_about(sethandle, keyhandle, &op))
-                }
-                Err(StamError::IdNotFoundError(..)) => Ok(false),
-                Err(e) => Err(e),
-            },
-        )
-    }
-
-    fn annotations_by_data_about<'py>(
-        &self,
-        data: &PyAnnotationData,
-        limit: Option<usize>,
-        py: Python<'py>,
-    ) -> PyResult<&'py PyList> {
-        self.map(|annotation| {
-            let list: &PyList = PyList::empty(py);
-            let dataset = annotation
-                .store()
-                .dataset(data.set)
-                .expect("set must exist");
-            let data = dataset
-                .annotationdata(data.handle)
-                .expect("data must exist");
-            for annotation in annotation.annotations_by_data_about(data) {
-                list.append(PyAnnotation::new_py(annotation.handle(), &self.store, py))
-                    .ok();
-                if limit.is_some() && list.len() >= limit.unwrap() {
-                    break;
-                }
-            }
-            Ok(list.into())
-        })
-    }
-
-    #[pyo3(signature = (**kwargs))]
-    fn find_data_in_targets<'py>(
-        &self,
-        kwargs: Option<&PyDict>,
-        py: Python<'py>,
-    ) -> PyResult<&'py PyList> {
-        self.map(|annotation| {
-            let list: &PyList = PyList::empty(py);
-            let mut recursive: bool = false;
-            if let Some(kwargs) = kwargs {
-                if let Some(v) = kwargs.get_item("recursive") {
-                    if let Ok(v) = v.extract::<bool>() {
-                        recursive = v;
-                    }
-                }
-            };
-            let limit = get_limit(kwargs);
-            match data_request_parser(kwargs, annotation.store(), None, None) {
-                Ok((sethandle, keyhandle, op)) => {
-                    for (annotationdata, annotation) in annotation
-                        .find_data_in_targets(sethandle, keyhandle, &op, recursive)
-                        .into_iter()
-                        .flatten()
-                    {
-                        list.append((
-                            PyAnnotationData::new_py(
-                                annotationdata.handle(),
-                                annotationdata.set().handle(),
-                                &self.store,
-                                py,
-                            ),
-                            PyAnnotation::new_py(annotation.handle(), &self.store, py),
-                        ))
-                        .ok();
-                        if limit.is_some() && list.len() >= limit.unwrap() {
-                            break;
-                        }
-                    }
-                    Ok(list.into())
-                }
-                Err(StamError::IdNotFoundError(..)) => {
-                    //we don't raise this error but just return an empty list
-                    Ok(list)
-                }
-                Err(e) => Err(e),
-            }
-        })
-    }
-
-    #[pyo3(signature = (**kwargs))]
-    fn test_data_in_targets<'py>(&self, kwargs: Option<&'py PyDict>) -> PyResult<bool> {
-        self.map(|annotation| {
-            let mut recursive: bool = false;
-            if let Some(kwargs) = kwargs {
-                if let Some(v) = kwargs.get_item("recursive") {
-                    if let Ok(v) = v.extract::<bool>() {
-                        recursive = v;
-                    }
-                }
-            };
-            match data_request_parser(kwargs, annotation.store(), None, None) {
-                Ok((sethandle, keyhandle, op)) => {
-                    Ok(annotation.test_data_in_targets(sethandle, keyhandle, &op, recursive))
-                }
-                Err(StamError::IdNotFoundError(..)) => Ok(false),
-                Err(e) => Err(e),
-            }
-        })
-    }
-
-    /// Applies a `TextSelectionOperator` to find all other text selections
-    /// are in a specific relation with the ones from the current annotations. Returns all matching TextSelections in a list.
-    ///
-    /// If you are interested in the annotations associated with the found text selections, then
-    /// use `find_annotations()` instead.
-    #[pyo3(signature = (operator,limit=None))]
     fn related_text(
         &self,
         operator: PyTextSelectionOperator,
-        limit: Option<usize>,
         py: Python,
-    ) -> Py<PyList> {
-        let list: &PyList = PyList::empty(py);
+    ) -> PyResult<PyTextSelections> {
         self.map(|annotation| {
-            for (i, foundtextselection) in annotation.related_text(operator.operator).enumerate() {
-                list.append(PyTextSelection::from_result_to_py(
-                    foundtextselection,
-                    &self.store,
-                    py,
-                ))
-                .ok();
-                if Some(i + 1) == limit {
-                    break;
-                }
-            }
-            Ok(())
+            let iter = annotation.related_text(operator.operator);
+            Ok(PyTextSelections {
+                textselections: iter.to_handles(),
+                store: self.store.clone(),
+                cursor: 0,
+            })
         })
-        .ok();
-        list.into()
+    }
+}
+
+#[pyclass(name = "Annotations")]
+pub struct PyAnnotations {
+    pub(crate) annotations: Vec<AnnotationHandle>,
+    pub(crate) store: Arc<RwLock<AnnotationStore>>,
+    pub(crate) cursor: usize,
+    /// Indicates whether the annotations are sorted chronologically (by handle)
+    pub(crate) sorted: bool,
+}
+
+#[pymethods]
+impl PyAnnotations {
+    fn __iter__(pyself: PyRef<'_, Self>) -> PyRef<'_, Self> {
+        pyself
     }
 
-    /// Applies a `TextSelectionOperator` to find all other annotations whose text selections
-    /// are in a specific relation with the text selections of the current one. Returns all matching Annotations in a list
-    #[pyo3(signature = (operator,limit=None))]
-    fn annotations_by_related_text(
-        &self,
-        operator: PyTextSelectionOperator,
-        limit: Option<usize>,
-        py: Python,
-    ) -> Py<PyList> {
-        let list: &PyList = PyList::empty(py);
-        self.map(|annotation| {
-            for (i, annotation) in annotation
-                .annotations_by_related_text(operator.operator)
-                .enumerate()
-            {
-                list.append(PyAnnotation::new_py(annotation.handle(), &self.store, py))
-                    .ok();
-                if Some(i + 1) == limit {
-                    break;
-                }
-            }
-            Ok(())
-        })
-        .ok();
-        list.into()
+    fn __next__(mut pyself: PyRefMut<'_, Self>) -> Option<PyAnnotation> {
+        pyself.cursor += 1; //increment first (prevent exclusive mutability issues)
+        if let Some(handle) = pyself.annotations.get(pyself.cursor - 1) {
+            //index is one ahead, prevents exclusive lock issues
+            Some(PyAnnotation::new(*handle, &pyself.store))
+        } else {
+            None
+        }
     }
 
-    #[pyo3(signature = (operator, **kwargs))]
-    fn annotations_by_related_text_and_data<'py>(
+    fn __len__(pyself: PyRef<'_, Self>) -> usize {
+        pyself.annotations.len()
+    }
+
+    fn is_sorted(pyself: PyRef<'_, Self>) -> bool {
+        pyself.sorted
+    }
+
+    /// Returns annotation data instances used by the annotations in this collection.
+    fn data<'py>(&self, kwargs: Option<&PyDict>, py: Python<'py>) -> PyResult<PyData> {
+        let iterparams = IterParams::new(kwargs)?;
+        self.map(|annotations, store| {
+            let mut iter =
+                Annotations::from_handles(Cow::Borrowed(annotations), self.sorted, store)
+                    .iter()
+                    .data();
+            iterparams.evaluate_to_pydata(iter, store, &self.store)
+        })
+    }
+
+    fn annotations<'py>(
         &self,
-        operator: PyTextSelectionOperator,
-        kwargs: Option<&'py PyDict>,
+        kwargs: Option<&PyDict>,
         py: Python<'py>,
-    ) -> PyResult<&'py PyList> {
-        self.map(|annotation| {
-            let list: &PyList = PyList::empty(py);
-            let limit = get_limit(kwargs);
-            match data_request_parser(kwargs, annotation.rootstore(), None, None) {
-                Ok((sethandle, keyhandle, op)) => {
-                    for annotation in annotation
-                        .annotations_by_related_text_and_data(
-                            operator.operator,
-                            sethandle,
-                            keyhandle,
-                            &op,
-                        )
-                        .into_iter()
-                    {
-                        list.append(PyAnnotation::new_py(annotation.handle(), &self.store, py))
-                            .ok();
-                        if limit.is_some() && list.len() >= limit.unwrap() {
-                            break;
-                        }
-                    }
-                    Ok(list.into())
-                }
-                Err(StamError::IdNotFoundError(..)) => {
-                    //we don't raise this error but just return an empty list
-                    Ok(list)
-                }
-                Err(e) => Err(e),
-            }
+    ) -> PyResult<PyAnnotations> {
+        let iterparams = IterParams::new(kwargs)?;
+        self.map(|annotations, store| {
+            let mut iter =
+                Annotations::from_handles(Cow::Borrowed(annotations), self.sorted, store)
+                    .iter()
+                    .annotations();
+            iterparams.evaluate_to_pyannotations(iter, store, &self.store)
         })
     }
 
-    #[pyo3(signature = (operator,**kwargs))]
-    fn related_text_with_data<'py>(
+    fn annotations_in_targets<'py>(
         &self,
-        operator: PyTextSelectionOperator,
-        kwargs: Option<&'py PyDict>,
+        kwargs: Option<&PyDict>,
         py: Python<'py>,
-    ) -> PyResult<&'py PyList> {
-        self.map(|annotation| {
-            let list: &PyList = PyList::empty(py);
-            let limit = get_limit(kwargs);
-            match data_request_parser(kwargs, annotation.rootstore(), None, None) {
-                Ok((sethandle, keyhandle, op)) => {
-                    for (textselection, data_and_annotations) in annotation
-                        .related_text_with_data(operator.operator, sethandle, keyhandle, &op)
-                        .into_iter()
-                        .flatten()
-                    {
-                        let innerlist: &PyList = PyList::empty(py);
-                        for (annotationdata, annotation) in data_and_annotations {
-                            innerlist
-                                .append((
-                                    PyAnnotationData::new_py(
-                                        annotationdata.handle(),
-                                        annotationdata.set().handle(),
-                                        &self.store,
-                                        py,
-                                    ),
-                                    PyAnnotation::new_py(annotation.handle(), &self.store, py),
-                                ))
-                                .ok();
-                        }
-                        list.append((
-                            PyTextSelection::from_result_to_py(textselection, &self.store, py),
-                            innerlist,
-                        ))
-                        .ok();
-                        if limit.is_some() && list.len() >= limit.unwrap() {
-                            break;
-                        }
-                    }
-                    Ok(list.into())
+    ) -> PyResult<PyAnnotations> {
+        let iterparams = IterParams::new(kwargs)?;
+        let mut recursive: bool = false;
+        if let Some(kwargs) = kwargs {
+            if let Some(v) = kwargs.get_item("recursive") {
+                if let Ok(v) = v.extract() {
+                    recursive = v;
                 }
-                Err(StamError::IdNotFoundError(..)) => {
-                    //we don't raise this error but just return an empty list
-                    Ok(list)
-                }
-                Err(e) => Err(e),
             }
+        }
+        self.map(|annotations, store| {
+            let mut iter =
+                Annotations::from_handles(Cow::Borrowed(annotations), self.sorted, store)
+                    .iter()
+                    .annotations_in_targets(recursive);
+            iterparams.evaluate_to_pyannotations(iter, store, &self.store)
         })
     }
+}
 
-    #[pyo3(signature = (operator,**kwargs))]
-    fn related_text_test_data<'py>(
-        &self,
-        operator: PyTextSelectionOperator,
-        kwargs: Option<&'py PyDict>,
-        py: Python<'py>,
-    ) -> PyResult<&'py PyList> {
-        self.map(|annotation| {
-            let list: &PyList = PyList::empty(py);
-            let limit = get_limit(kwargs);
-            match data_request_parser(kwargs, annotation.rootstore(), None, None) {
-                Ok((sethandle, keyhandle, op)) => {
-                    for textselection in annotation
-                        .related_text_test_data(operator.operator, sethandle, keyhandle, &op)
-                        .into_iter()
-                        .flatten()
-                    {
-                        list.append(PyTextSelection::from_result_to_py(
-                            textselection,
-                            &self.store,
-                            py,
-                        ))
-                        .ok();
-                        if limit.is_some() && list.len() >= limit.unwrap() {
-                            break;
-                        }
-                    }
-                    Ok(list.into())
-                }
-                Err(StamError::IdNotFoundError(..)) => {
-                    //we don't raise this error but just return an empty list
-                    Ok(list)
-                }
-                Err(e) => Err(e),
-            }
-        })
+impl PyAnnotations {
+    fn map<T, F>(&self, f: F) -> Result<T, PyErr>
+    where
+        F: FnOnce(&Vec<AnnotationHandle>, &AnnotationStore) -> Result<T, StamError>,
+    {
+        if let Ok(store) = self.store.read() {
+            f(&self.annotations, &store).map_err(|err| PyStamError::new_err(format!("{}", err)))
+        } else {
+            Err(PyRuntimeError::new_err(
+                "Unable to obtain store (should never happen)",
+            ))
+        }
     }
 }
 
 #[pyclass(name = "DataIter")]
 struct PyDataIter {
+    //This is NOT the counterpart of DataIter in Rust
     pub(crate) handle: AnnotationHandle,
     pub(crate) store: Arc<RwLock<AnnotationStore>>,
     pub(crate) index: usize,
@@ -762,6 +464,36 @@ impl PyAnnotation {
             Err(PyRuntimeError::new_err(
                 "Unable to obtain store (should never happen)",
             ))
+        }
+    }
+}
+
+impl<'py> IterParams<'py> {
+    pub(crate) fn evaluate_to_pyannotations<'store>(
+        self,
+        mut iter: AnnotationsIter<'store>,
+        store: &'store AnnotationStore,
+        wrappedstore: &Arc<RwLock<AnnotationStore>>,
+    ) -> Result<PyAnnotations, StamError>
+    where
+        'py: 'store,
+    {
+        let limit = self.limit();
+        match self.evaluate_annotations(iter, store) {
+            Ok(iter) => {
+                let sorted = iter.returns_sorted();
+                Ok(PyAnnotations {
+                    annotations: if let Some(limit) = limit {
+                        iter.to_cache_limit(limit).take()
+                    } else {
+                        iter.to_cache().take()
+                    },
+                    store: wrappedstore.clone(),
+                    cursor: 0,
+                    sorted,
+                })
+            }
+            Err(e) => Err(e.into()),
         }
     }
 }

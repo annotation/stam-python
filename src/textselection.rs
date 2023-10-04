@@ -6,11 +6,13 @@ use std::hash::{Hash, Hasher};
 use std::ops::FnOnce;
 use std::sync::{Arc, RwLock};
 
-use crate::annotation::PyAnnotation;
-use crate::annotationdata::{data_request_parser, PyAnnotationData};
+use crate::annotation::{PyAnnotation, PyAnnotations};
+use crate::annotationdata::{data_request_parser, PyAnnotationData, PyData};
 use crate::error::PyStamError;
 use crate::get_limit;
+use crate::iterparams::IterParams;
 use crate::resources::{PyOffset, PyTextResource};
+use crate::textselection::TextSelectionHandle;
 use stam::*;
 
 #[pyclass(name = "TextSelection")]
@@ -305,125 +307,36 @@ impl PyTextSelection {
         })
     }
 
-    /// Returns a list of all annotations (:obj:`Annotation`) that reference this TextSelection, if any.
-    #[pyo3(signature = (limit=None))]
-    fn annotations(&self, limit: Option<usize>, py: Python) -> Py<PyList> {
-        let list: &PyList = PyList::empty(py);
+    fn annotations<'py>(
+        &self,
+        kwargs: Option<&PyDict>,
+        py: Python<'py>,
+    ) -> PyResult<PyAnnotations> {
+        let iterparams = IterParams::new(kwargs)?;
         self.map(|textselection| {
-            for (i, annotation) in textselection
-                .annotations()
-                .into_iter()
-                .flatten()
-                .enumerate()
-            {
-                list.append(PyAnnotation::new_py(annotation.handle(), &self.store, py))
-                    .ok();
-                if Some(i + 1) == limit {
-                    break;
-                }
-            }
-            Ok(())
+            let mut iter = textselection.annotations();
+            iterparams.evaluate_to_pyannotations(iter, textselection.rootstore(), &self.store)
         })
-        .ok();
-        list.into()
     }
 
-    /// Applies a `TextSelectionOperator` to find all other text selections that
-    /// are in a specific relation with the current one. Returns all matching TextSelections in a list
-    ///
-    /// If you are interested in the annotations associated with the found text selections, then use `find_annotations()` instead.
-    #[pyo3(signature = (operator,limit=None))]
     fn related_text(
         &self,
         operator: PyTextSelectionOperator,
-        limit: Option<usize>,
         py: Python,
-    ) -> Py<PyList> {
-        let list: &PyList = PyList::empty(py);
+    ) -> PyResult<PyTextSelections> {
         self.map(|textselection| {
-            for (i, foundtextselection) in textselection.related_text(operator.operator).enumerate()
-            {
-                list.append(PyTextSelection::from_result_to_py(
-                    foundtextselection,
-                    &self.store,
-                    py,
-                ))
-                .ok();
-                if Some(i + 1) == limit {
-                    break;
-                }
-            }
-            Ok(())
+            let iter = textselection.related_text(operator.operator);
+            Ok(PyTextSelections {
+                textselections: iter.to_handles(),
+                store: self.store.clone(),
+                cursor: 0,
+            })
         })
-        .ok();
-        list.into()
     }
 
     fn annotations_len(&self) -> usize {
         self.map(|textselection| Ok(textselection.annotations_len()))
             .unwrap()
-    }
-
-    /// Applies a `TextSelectionOperator` to find all other annotations whose text selections
-    /// are in a specific relation with the current one. Returns all matching Annotations in a list
-    #[pyo3(signature = (operator,limit=None))]
-    fn annotations_by_related_text(
-        &self,
-        operator: PyTextSelectionOperator,
-        limit: Option<usize>,
-        py: Python,
-    ) -> Py<PyList> {
-        let list: &PyList = PyList::empty(py);
-        self.map(|textselection| {
-            for (i, annotation) in textselection
-                .annotations_by_related_text(operator.operator)
-                .into_iter()
-                .enumerate()
-            {
-                list.append(PyAnnotation::new_py(annotation.handle(), &self.store, py))
-                    .ok();
-                if Some(i + 1) == limit {
-                    break;
-                }
-            }
-            Ok(())
-        })
-        .ok();
-        list.into()
-    }
-
-    #[pyo3(signature = (operator, **kwargs))]
-    fn annotations_by_related_text_and_data<'py>(
-        &self,
-        operator: PyTextSelectionOperator,
-        kwargs: Option<&'py PyDict>,
-        py: Python<'py>,
-    ) -> PyResult<&'py PyList> {
-        self.map(|textselection| {
-            let list: &PyList = PyList::empty(py);
-            match data_request_parser(kwargs, textselection.rootstore(), None, None) {
-                Ok((sethandle, keyhandle, op)) => {
-                    for annotation in textselection
-                        .annotations_by_related_text_and_data(
-                            operator.operator,
-                            sethandle,
-                            keyhandle,
-                            &op,
-                        )
-                        .into_iter()
-                    {
-                        list.append(PyAnnotation::new_py(annotation.handle(), &self.store, py))
-                            .ok();
-                    }
-                    Ok(list.into())
-                }
-                Err(StamError::IdNotFoundError(..)) => {
-                    //we don't raise this error but just return an empty list
-                    Ok(list)
-                }
-                Err(e) => Err(e),
-            }
-        })
     }
 
     /// Returns the offset of this text selection relative to another in which it is *embedded*.
@@ -490,149 +403,6 @@ impl PyTextSelection {
                 .test(&operator.operator, &other.textselection))
         })
     }
-
-    #[pyo3(signature = (**kwargs))]
-    fn find_data_about<'py>(
-        &self,
-        kwargs: Option<&PyDict>,
-        py: Python<'py>,
-    ) -> PyResult<&'py PyList> {
-        self.map(|textselection| {
-            let list: &PyList = PyList::empty(py);
-            let limit = get_limit(kwargs);
-            match data_request_parser(kwargs, textselection.rootstore(), None, None) {
-                Ok((sethandle, keyhandle, op)) => {
-                    for (annotationdata, annotation) in textselection
-                        .find_data_about(sethandle, keyhandle, &op)
-                        .into_iter()
-                        .flatten()
-                    {
-                        list.append((
-                            PyAnnotationData::new_py(
-                                annotationdata.handle(),
-                                annotationdata.set().handle(),
-                                &self.store,
-                                py,
-                            ),
-                            PyAnnotation::new_py(annotation.handle(), &self.store, py),
-                        ))
-                        .ok();
-                        if limit.is_some() && list.len() >= limit.unwrap() {
-                            break;
-                        }
-                    }
-                    Ok(list.into())
-                }
-                Err(StamError::IdNotFoundError(..)) => {
-                    //we don't raise this error but just return an empty list
-                    Ok(list)
-                }
-                Err(e) => Err(e),
-            }
-        })
-    }
-
-    #[pyo3(signature = (**kwargs))]
-    fn test_data_about<'py>(&self, kwargs: Option<&'py PyDict>) -> PyResult<bool> {
-        self.map(|textselection| {
-            match data_request_parser(kwargs, textselection.rootstore(), None, None) {
-                Ok((sethandle, keyhandle, op)) => {
-                    Ok(textselection.test_data_about(sethandle, keyhandle, &op))
-                }
-                Err(StamError::IdNotFoundError(..)) => Ok(false),
-                Err(e) => Err(e),
-            }
-        })
-    }
-
-    #[pyo3(signature = (operator,**kwargs))]
-    fn related_text_with_data<'py>(
-        &self,
-        operator: PyTextSelectionOperator,
-        kwargs: Option<&'py PyDict>,
-        py: Python<'py>,
-    ) -> PyResult<&'py PyList> {
-        self.map(|textselection| {
-            let list: &PyList = PyList::empty(py);
-            let limit = get_limit(kwargs);
-            match data_request_parser(kwargs, textselection.rootstore(), None, None) {
-                Ok((sethandle, keyhandle, op)) => {
-                    for (textselection, data_and_annotations) in textselection
-                        .related_text_with_data(operator.operator, sethandle, keyhandle, &op)
-                        .into_iter()
-                        .flatten()
-                    {
-                        let innerlist: &PyList = PyList::empty(py);
-                        for (annotationdata, annotation) in data_and_annotations {
-                            innerlist
-                                .append((
-                                    PyAnnotationData::new_py(
-                                        annotationdata.handle(),
-                                        annotationdata.set().handle(),
-                                        &self.store,
-                                        py,
-                                    ),
-                                    PyAnnotation::new_py(annotation.handle(), &self.store, py),
-                                ))
-                                .ok();
-                        }
-                        list.append((
-                            PyTextSelection::from_result_to_py(textselection, &self.store, py),
-                            innerlist,
-                        ))
-                        .ok();
-                        if limit.is_some() && list.len() >= limit.unwrap() {
-                            break;
-                        }
-                    }
-                    Ok(list.into())
-                }
-                Err(StamError::IdNotFoundError(..)) => {
-                    //we don't raise this error but just return an empty list
-                    Ok(list)
-                }
-                Err(e) => Err(e),
-            }
-        })
-    }
-
-    #[pyo3(signature = (operator,**kwargs))]
-    fn related_text_test_data<'py>(
-        &self,
-        operator: PyTextSelectionOperator,
-        kwargs: Option<&'py PyDict>,
-        py: Python<'py>,
-    ) -> PyResult<&'py PyList> {
-        self.map(|textselection| {
-            let list: &PyList = PyList::empty(py);
-            let limit = get_limit(kwargs);
-            match data_request_parser(kwargs, textselection.rootstore(), None, None) {
-                Ok((sethandle, keyhandle, op)) => {
-                    for textselection in textselection
-                        .related_text_test_data(operator.operator, sethandle, keyhandle, &op)
-                        .into_iter()
-                        .flatten()
-                    {
-                        list.append(PyTextSelection::from_result_to_py(
-                            textselection,
-                            &self.store,
-                            py,
-                        ))
-                        .ok();
-                        if limit.is_some() && list.len() >= limit.unwrap() {
-                            break;
-                        }
-                    }
-                    Ok(list.into())
-                }
-                Err(StamError::IdNotFoundError(..)) => {
-                    //we don't raise this error but just return an empty list
-                    Ok(list)
-                }
-                Err(e) => Err(e),
-            }
-        })
-    }
 }
 
 impl PyTextSelection {
@@ -659,6 +429,98 @@ impl PyTextSelection {
 impl From<PyTextSelection> for TextSelection {
     fn from(other: PyTextSelection) -> Self {
         other.textselection
+    }
+}
+
+#[pyclass(name = "TextSelections")]
+pub struct PyTextSelections {
+    pub(crate) textselections: Vec<(TextResourceHandle, TextSelectionHandle)>,
+    pub(crate) store: Arc<RwLock<AnnotationStore>>,
+    pub(crate) cursor: usize,
+}
+
+#[pymethods]
+impl PyTextSelections {
+    fn __iter__(pyself: PyRef<'_, Self>) -> PyRef<'_, Self> {
+        pyself
+    }
+
+    fn __next__(mut pyself: PyRefMut<'_, Self>) -> Option<PyTextSelection> {
+        pyself.cursor += 1; //increment first (prevent exclusive mutability issues)
+        pyself
+            .map(
+                |textselections: &Vec<(TextResourceHandle, TextSelectionHandle)>, store| {
+                    //index is one ahead, prevents exclusive lock issues
+                    if let Some((res_handle, handle)) = textselections.get(pyself.cursor - 1) {
+                        let resource = store.get(*res_handle)?;
+                        let textselection = resource.get(*handle)?;
+                        return Ok(PyTextSelection::new(
+                            textselection.clone(),
+                            *res_handle,
+                            &pyself.store,
+                        ));
+                    }
+                    Err(StamError::HandleError("a handle did not resolve"))
+                },
+            )
+            .ok()
+    }
+
+    fn __len__(pyself: PyRef<'_, Self>) -> usize {
+        pyself.textselections.len()
+    }
+
+    fn annotations<'py>(
+        &self,
+        kwargs: Option<&PyDict>,
+        py: Python<'py>,
+    ) -> PyResult<PyAnnotations> {
+        let iterparams = IterParams::new(kwargs)?;
+        self.map(|textselections, store| {
+            let mut iter = stam::TextSelectionsIter::from_handles(
+                textselections.iter().copied().collect(), //MAYBE TODO: work away the extra copy
+                store,
+            )
+            .annotations();
+            iterparams.evaluate_to_pyannotations(iter, store, &self.store)
+        })
+    }
+
+    fn related_text(
+        &self,
+        operator: PyTextSelectionOperator,
+        py: Python,
+    ) -> PyResult<PyTextSelections> {
+        self.map(|textselections, store| {
+            let mut iter = stam::TextSelectionsIter::from_handles(
+                textselections.iter().copied().collect(), //MAYBE TODO: work away the extra copy
+                store,
+            )
+            .related_text(operator.operator);
+            Ok(PyTextSelections {
+                textselections: iter.to_handles(),
+                store: self.store.clone(),
+                cursor: 0,
+            })
+        })
+    }
+}
+
+impl PyTextSelections {
+    fn map<T, F>(&self, f: F) -> Result<T, PyErr>
+    where
+        F: FnOnce(
+            &Vec<(TextResourceHandle, TextSelectionHandle)>,
+            &AnnotationStore,
+        ) -> Result<T, StamError>,
+    {
+        if let Ok(store) = self.store.read() {
+            f(&self.textselections, &store).map_err(|err| PyStamError::new_err(format!("{}", err)))
+        } else {
+            Err(PyRuntimeError::new_err(
+                "Unable to obtain store (should never happen)",
+            ))
+        }
     }
 }
 

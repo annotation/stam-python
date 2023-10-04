@@ -6,9 +6,12 @@ use std::ops::FnOnce;
 use std::sync::{Arc, RwLock};
 
 use crate::annotation::PyAnnotation;
-use crate::annotationdata::{data_request_parser, datavalue_from_py, PyAnnotationData, PyDataKey};
+use crate::annotationdata::{
+    data_request_parser, datavalue_from_py, PyAnnotationData, PyData, PyDataKey,
+};
 use crate::error::PyStamError;
 use crate::get_limit;
+use crate::iterparams::IterParams;
 use crate::selector::{PySelector, PySelectorKind};
 use stam::*;
 
@@ -173,6 +176,14 @@ impl PyAnnotationDataSet {
         })
     }
 
+    fn data(&self, kwargs: Option<&PyDict>) -> PyResult<PyData> {
+        let iterparams = IterParams::new(kwargs)?;
+        self.map(|dataset| {
+            let iter = dataset.data();
+            iterparams.evaluate_to_pydata(iter, dataset.store(), &self.store)
+        })
+    }
+
     /// Returns a Selector (DataSetSelector) pointing to this AnnotationDataSet
     fn select(&self) -> PyResult<PySelector> {
         self.map(|dataset| {
@@ -187,101 +198,6 @@ impl PyAnnotationDataSet {
                 subselectors: Vec::new(),
             })
         })
-    }
-
-    /// Find annotation data for the specified key and specified value
-    /// Returns a list of found AnnotationData instances
-    #[pyo3(signature = (**kwargs))]
-    fn find_data<'py>(&self, kwargs: Option<&PyDict>, py: Python<'py>) -> PyResult<&'py PyList> {
-        self.map(|set| {
-            let list: &PyList = PyList::empty(py);
-            let limit = get_limit(kwargs);
-            match data_request_parser(kwargs, set.store(), Some(self.handle), None) {
-                Ok((_, keyhandle, op)) => {
-                    for annotationdata in set.find_data(keyhandle, &op).into_iter().flatten() {
-                        list.append(PyAnnotationData::new_py(
-                            annotationdata.handle(),
-                            self.handle,
-                            &self.store,
-                            py,
-                        ))
-                        .ok();
-                        if limit.is_some() && list.len() >= limit.unwrap() {
-                            break;
-                        }
-                    }
-                    Ok(list.into())
-                }
-                Err(StamError::IdNotFoundError(..)) => {
-                    //we don't raise this error but just return an empty list
-                    Ok(list)
-                }
-                Err(e) => Err(e),
-            }
-        })
-    }
-
-    #[pyo3(signature = (**kwargs))]
-    fn test_data<'py>(&self, kwargs: Option<&'py PyDict>) -> PyResult<bool> {
-        self.map(|set| {
-            let (_, keyhandle, op) =
-                data_request_parser(kwargs, set.store(), Some(self.handle), None)?;
-            Ok(set.test_data(keyhandle, &op))
-        })
-    }
-
-    #[pyo3(signature = (**kwargs))]
-    fn find_data_about<'py>(
-        &self,
-        kwargs: Option<&PyDict>,
-        py: Python<'py>,
-    ) -> PyResult<&'py PyList> {
-        self.map(|dataset| {
-            let list: &PyList = PyList::empty(py);
-            let limit = get_limit(kwargs);
-            match data_request_parser(kwargs, dataset.store(), None, None) {
-                Ok((sethandle, keyhandle, op)) => {
-                    for (annotationdata, annotation) in dataset
-                        .find_data_about(sethandle, keyhandle, &op)
-                        .into_iter()
-                        .flatten()
-                    {
-                        list.append((
-                            PyAnnotationData::new_py(
-                                annotationdata.handle(),
-                                annotationdata.set().handle(),
-                                &self.store,
-                                py,
-                            ),
-                            PyAnnotation::new_py(annotation.handle(), &self.store, py),
-                        ))
-                        .ok();
-                        if limit.is_some() && list.len() >= limit.unwrap() {
-                            break;
-                        }
-                    }
-                    Ok(list.into())
-                }
-                Err(StamError::IdNotFoundError(..)) => {
-                    //we don't raise this error but just return an empty list
-                    Ok(list)
-                }
-                Err(e) => Err(e),
-            }
-        })
-    }
-
-    #[pyo3(signature = (**kwargs))]
-    fn test_data_about<'py>(&self, kwargs: Option<&'py PyDict>) -> PyResult<bool> {
-        self.map(
-            |dataset| match data_request_parser(kwargs, dataset.store(), None, None) {
-                Ok((sethandle, keyhandle, op)) => {
-                    Ok(dataset.test_data_about(sethandle, keyhandle, &op))
-                }
-                Err(StamError::IdNotFoundError(..)) => Ok(false),
-                Err(e) => Err(e),
-            },
-        )
     }
 }
 

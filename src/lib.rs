@@ -6,6 +6,8 @@ mod annotationdataset;
 mod annotationstore;
 mod config;
 mod error;
+//mod query;
+mod iterparams;
 mod resources;
 mod selector;
 mod textselection;
@@ -15,14 +17,14 @@ use pyo3::prelude::*;
 use pyo3::pyclass::CompareOp;
 use pyo3::types::*;
 
-use crate::annotation::PyAnnotation;
-use crate::annotationdata::{PyAnnotationData, PyDataKey, PyDataValue};
+use crate::annotation::{PyAnnotation, PyAnnotations};
+use crate::annotationdata::{PyAnnotationData, PyData, PyDataKey, PyDataValue};
 use crate::annotationdataset::PyAnnotationDataSet;
 use crate::annotationstore::PyAnnotationStore;
 use crate::error::PyStamError;
 use crate::resources::{PyCursor, PyOffset, PyTextResource};
 use crate::selector::{PySelector, PySelectorKind};
-use crate::textselection::{PyTextSelection, PyTextSelectionOperator};
+use crate::textselection::{PyTextSelection, PyTextSelectionOperator, PyTextSelections};
 
 const VERSION: &'static str = env!("CARGO_PKG_VERSION");
 
@@ -43,6 +45,9 @@ fn stam(py: Python<'_>, m: &PyModule) -> PyResult<()> {
     m.add_class::<PyCursor>()?;
     m.add_class::<PyTextSelection>()?;
     m.add_class::<PyTextSelectionOperator>()?;
+    m.add_class::<PyAnnotations>()?;
+    m.add_class::<PyData>()?;
+    m.add_class::<PyTextSelections>()?;
     Ok(())
 }
 

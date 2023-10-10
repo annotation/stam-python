@@ -98,11 +98,29 @@ impl PyDataKey {
         })
     }
 
+    fn test_data(&self, kwargs: Option<&PyDict>) -> PyResult<bool> {
+        let iterparams = IterParams::new(kwargs)?;
+        self.map(|key| {
+            let iter = key.data();
+            Ok(iterparams.evaluate_data(iter, key.rootstore())?.test())
+        })
+    }
+
     fn annotations(&self, kwargs: Option<&PyDict>) -> PyResult<PyAnnotations> {
         let iterparams = IterParams::new(kwargs)?;
         self.map(|key| {
             let iter = key.annotations();
             iterparams.evaluate_to_pyannotations(iter, key.rootstore(), &self.store)
+        })
+    }
+
+    fn test_annotations(&self, kwargs: Option<&PyDict>) -> PyResult<bool> {
+        let iterparams = IterParams::new(kwargs)?;
+        self.map(|key| {
+            let iter = key.annotations();
+            Ok(iterparams
+                .evaluate_annotations(iter, key.rootstore())?
+                .test())
         })
     }
 
@@ -398,6 +416,16 @@ impl PyAnnotationData {
         self.map(|data| {
             let iter = data.annotations();
             iterparams.evaluate_to_pyannotations(iter, data.rootstore(), &self.store)
+        })
+    }
+
+    fn test_annotations(&self, kwargs: Option<&PyDict>) -> PyResult<bool> {
+        let iterparams = IterParams::new(kwargs)?;
+        self.map(|data| {
+            let iter = data.annotations();
+            Ok(iterparams
+                .evaluate_annotations(iter, data.rootstore())?
+                .test())
         })
     }
 
@@ -754,17 +782,23 @@ impl PyData {
         pyself.data.len()
     }
 
-    fn annotations<'py>(
-        &self,
-        kwargs: Option<&PyDict>,
-        py: Python<'py>,
-    ) -> PyResult<PyAnnotations> {
+    fn annotations(&self, kwargs: Option<&PyDict>) -> PyResult<PyAnnotations> {
         let iterparams = IterParams::new(kwargs)?;
         self.map(|data, store| {
-            let mut iter = Data::from_handles(Cow::Borrowed(data), self.sorted, store)
+            let iter = Data::from_handles(Cow::Borrowed(data), self.sorted, store)
                 .iter()
                 .annotations();
             iterparams.evaluate_to_pyannotations(iter, store, &self.store)
+        })
+    }
+
+    fn test_annotations(&self, kwargs: Option<&PyDict>) -> PyResult<bool> {
+        let iterparams = IterParams::new(kwargs)?;
+        self.map(|data, store| {
+            let iter = Data::from_handles(Cow::Borrowed(data), self.sorted, store)
+                .iter()
+                .annotations();
+            Ok(iterparams.evaluate_annotations(iter, store)?.test())
         })
     }
 }

@@ -151,11 +151,15 @@ impl PyAnnotation {
     /// Returns a list of all textselections of the annotation.
     /// Note that this will always return a list (even it if only contains a single element),
     /// as an annotation may reference multiple text selections.
-    fn textselections(&self) -> PyResult<PyTextSelections> {
+    fn textselections(&self, limit: Option<usize>) -> PyResult<PyTextSelections> {
         self.map(|annotation| {
             let iter = annotation.textselections();
             Ok(PyTextSelections {
-                textselections: iter.to_handles(),
+                textselections: if let Some(limit) = limit {
+                    iter.to_handles_limit(limit)
+                } else {
+                    iter.to_handles()
+                },
                 store: self.store.clone(),
                 cursor: 0,
             })
@@ -263,17 +267,33 @@ impl PyAnnotation {
         })
     }
 
+    fn test_data(&self, kwargs: Option<&PyDict>) -> PyResult<bool> {
+        let iterparams = IterParams::new(kwargs)?;
+        self.map(|annotation| {
+            let iter = annotation.data();
+            Ok(iterparams.evaluate_data(iter, annotation.store())?.test())
+        })
+    }
+
     /// Returns the number of data items under this annotation
     fn __len__(&self) -> usize {
         self.map(|annotation| Ok(annotation.as_ref().len()))
             .unwrap()
     }
 
-    fn related_text(&self, operator: PyTextSelectionOperator) -> PyResult<PyTextSelections> {
+    fn related_text(
+        &self,
+        operator: PyTextSelectionOperator,
+        limit: Option<usize>,
+    ) -> PyResult<PyTextSelections> {
         self.map(|annotation| {
             let iter = annotation.related_text(operator.operator);
             Ok(PyTextSelections {
-                textselections: iter.to_handles(),
+                textselections: if let Some(limit) = limit {
+                    iter.to_handles_limit(limit)
+                } else {
+                    iter.to_handles()
+                },
                 store: self.store.clone(),
                 cursor: 0,
             })
@@ -325,6 +345,16 @@ impl PyAnnotations {
         })
     }
 
+    fn test_data(&self, kwargs: Option<&PyDict>) -> PyResult<bool> {
+        let iterparams = IterParams::new(kwargs)?;
+        self.map(|annotations, store| {
+            let iter = Annotations::from_handles(Cow::Borrowed(annotations), self.sorted, store)
+                .iter()
+                .data();
+            Ok(iterparams.evaluate_data(iter, store)?.test())
+        })
+    }
+
     fn annotations(&self, kwargs: Option<&PyDict>) -> PyResult<PyAnnotations> {
         let iterparams = IterParams::new(kwargs)?;
         self.map(|annotations, store| {
@@ -350,6 +380,44 @@ impl PyAnnotations {
                 .iter()
                 .annotations_in_targets(recursive);
             iterparams.evaluate_to_pyannotations(iter, store, &self.store)
+        })
+    }
+
+    fn textselections(&self, limit: Option<usize>) -> PyResult<PyTextSelections> {
+        self.map(|annotations, store| {
+            let iter = Annotations::from_handles(Cow::Borrowed(annotations), self.sorted, store)
+                .iter()
+                .textselections();
+            Ok(PyTextSelections {
+                textselections: if let Some(limit) = limit {
+                    iter.to_handles_limit(limit)
+                } else {
+                    iter.to_handles()
+                },
+                store: self.store.clone(),
+                cursor: 0,
+            })
+        })
+    }
+
+    fn related_text(
+        &self,
+        operator: PyTextSelectionOperator,
+        limit: Option<usize>,
+    ) -> PyResult<PyTextSelections> {
+        self.map(|annotations, store| {
+            let iter = Annotations::from_handles(Cow::Borrowed(annotations), self.sorted, store)
+                .iter()
+                .related_text(operator.operator);
+            Ok(PyTextSelections {
+                textselections: if let Some(limit) = limit {
+                    iter.to_handles_limit(limit)
+                } else {
+                    iter.to_handles()
+                },
+                store: self.store.clone(),
+                cursor: 0,
+            })
         })
     }
 }

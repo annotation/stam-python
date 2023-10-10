@@ -203,7 +203,7 @@ class Annotation:
     def __iter__(self) -> Iterator[AnnotationData]:
         """Returns a iterator over all data (:class:`AnnotationData`) in this annotation; this has little overhead but is less suitable if you want to do further filtering, use :meth:`data` instead for that."""
 
-    def __len__(self) -> Iterator[AnnotationData]:
+    def __len__(self) -> int:
         """Returns the number of data items (:class:`AnnotationData`) in this annotation"""
 
     def select(self) -> Selector:
@@ -225,7 +225,7 @@ class Annotation:
         Use `text()` instead to retrieve a list of texts
         """
 
-    def textselections(self) -> TextSelections:
+    def textselections(self, limit: Optional[int] = None) -> TextSelections:
         """
         Returns a collection of all textselections (:class:`TextSelection`) referenced by the annotation (i.e. via a *TextSelector*).
         Note that this will always return a collection (even it if only contains a single element),
@@ -297,7 +297,7 @@ class Annotation:
     def selector_kind(self) -> SelectorKind:
         """Returns the type of the selector of this annotation"""
 
-    def data(self, limit: Optional[int] = None) -> Data:
+    def data(self, **kwargs) -> Data:
         """
         Returns annotation data (:class:`Data` containing :class:`AnnotationData`) used by this annotation.
 
@@ -340,7 +340,14 @@ class Annotation:
             Must be a numeric 2-tuple with min and max (inclusive) values
         """
 
-    def related_text(self, operator: TextSelectionOperator) -> TextSelections:
+    def test_data(self, **kwargs) -> bool:
+        """
+        Tests whether certain annotation data is used by this annotation.
+        The data can be filtered using keyword arguments. See :meth:`data`.
+        Unlike :meth:`data`, this method merely tests without returning the data, and as such is more performant.
+        """
+
+    def related_text(self, operator: TextSelectionOperator, limit: Optional[int] = None) -> TextSelections:
         """
         Applies a :class:`TextSelectionOperator` to find all other
         text selections who are in a specific relation with the ones from the current annotation. 
@@ -371,6 +378,13 @@ class Annotations:
         If no filters are set (default), all data from all annotations are returned (without duplicates).
         """
 
+    def test_data(self, **kwargs) -> bool:
+        """
+        Tests whether certain annotation data is used by any annotation in this collection.
+        The data can be filtered using keyword arguments. See :meth:`data`.
+        Unlike :meth:`data`, this method merely tests without returning the data, and as such is more performant.
+        """
+
     def annotations(self, **kwargs) -> Annotations:
         """
         Returns annotations (:class:`Annotations` containing :class:`Annotation`) that reference annotations in the current collection (e.g. annotations that target of the current any annotations using an AnnotationSelector).
@@ -392,6 +406,18 @@ class Annotations:
 
         recursive: bool
             Follow AnnotationSelectors recursively (default False)
+        """
+
+    def textselections(self, limit: Optional[int] = None) -> TextSelections:
+        """
+        Returns a collection of all textselections associated with the annotations in this collection.
+        """
+
+    def related_text(self, operator: TextSelectionOperator, limit: Optional[int] = None) -> TextSelections:
+        """
+        Applies a :class:`TextSelectionOperator` to find all other
+        text selections who are in a specific relation with any from the current collection of annotations. 
+        Returns a collection of all matching :class:`TextSelection` instances.
         """
 
 class AnnotationDataSet:
@@ -437,12 +463,19 @@ class AnnotationDataSet:
     def __iter__(self) -> Iterator[AnnotationData]:
         """Returns an iterator over all :class:`AnnotationData` in the dataset. If you want to do any filtering, use :meth:`data ` instead."""
 
-    def data(self) -> Data:
+    def data(self, **kwargs) -> Data:
         """
         Returns annotation data (:class:`Data` containing :class:`AnnotationData`) used by this key.
 
         The data can be filtered using keyword arguments. See :meth:`Annotation.data`. 
         If you don't intend to do any filtering at all, then just using :meth:`__iter__` may be faster.
+        """
+
+    def test_data(self, **kwargs) -> bool:
+        """
+        Tests whether certain annotation data exists in this set.
+        The data can be filtered using keyword arguments. See :meth:`Annotation.data`.
+        This method is like :meth:`data`, but merely tests without returning the data, and as such is more performant.
         """
 
     def select(self) -> Selector:
@@ -466,19 +499,35 @@ class DataKey:
     def dataset(self) -> AnnotationDataSet:
         """Returns the :class:`AnnotationDataSet` this key is part of"""
 
-    def data(self) -> Data:
+    def data(self, **kwargs) -> Data:
         """
         Returns annotation data (:class:`Data` containing :class:`AnnotationData`) used by this key.
 
-        The data can be filtered using keyword arguments. See :meth:`Annotation.data`.
+        The data can be filtered using keyword arguments. See :meth:`Annotation.data`. Note that only a subset makes sense in this context, set and key are already fixed.
+        """
+
+    def test_data(self, **kwargs) -> bool:
+        """
+        Tests whether certain annotation data exists for this key
+        The data can be filtered using keyword arguments. See :meth:`Annotation.data`. Note that only a subset makes sense in this context, set and key are already fixed.
+
+        This method is like :meth:`data`, but merely tests without returning the data, and as such is more performant.
         """
 
     def annotations(self, **kwargs) -> Annotations:
         """
-        Returns annotations (:class:`Annotations` containing :class:`Annotation`) that make using of this key.
+        Returns annotations (:class:`Annotations` containing :class:`Annotation`) that make use of this key.
 
         The annotations can be filtered using keyword arguments. See :meth:`Annotation.annotations'
         """
+
+    def test_annotations(self, **kwargs) -> bool:
+        """
+        Tests whether there are any annotations that make use of this key.
+        This method is like :meth:`annotations`, but only tests and does not return the annotations, as such it is more performant.
+
+        The annotations can be filtered using keyword arguments. See :meth:`Annotation.annotations`.
+       """
 
     def annotations_count(self, limit: Optional[int] = None) -> int:
         """Returns the number of annotations (:class:`Annotation`) that use this data.
@@ -544,7 +593,7 @@ class AnnotationData:
 
     def annotations(self, **kwargs) -> Annotations:
         """
-        Returns annotations (:class:`Annotations` containing :class:`Annotation`) that make using of this data.
+        Returns annotations (:class:`Annotations` containing :class:`Annotation`) that make use of this data.
 
         The annotations can be filtered using keyword arguments.
 
@@ -566,6 +615,14 @@ class AnnotationData:
             Constrain the search to annotations with data of a certain value. This can only be used with `filter=DataKey`.
             This holds the exact value to search for, there are other variants of this keyword available, see :meth:`data` for a full list. 
         """
+
+    def test_annotations(self, **kwargs) -> bool:
+        """
+        Tests whether there are any annotations that make use of this data.
+        This method is like :meth:`annotations`, but only tests and does not return the annotations, as such it is more performant.
+
+        The annotations can be filtered using keyword arguments. See :meth:`Annotation.annotations`.
+       """
 
     def annotations_len(self, limit: Optional[int] = None) -> int:
         """Returns the number of annotations (:class:`Annotation`) that use this data.
@@ -589,7 +646,15 @@ class Data:
 
     def annotations(self, **kwargs) -> Annotations:
         """
-        Returns annotations (:class:`Annotations` containing :class:`Annotation`) that are make using of any of the data in this collection
+        Returns annotations (:class:`Annotations` containing :class:`Annotation`) that are make use of any of the data in this collection
+
+        The annotations can be filtered using keyword arguments. See :meth:`Annotation.annotations`.
+       """
+
+    def test_annotations(self, **kwargs) -> bool:
+        """
+        Tests whether there are any annotations that make use of any of the data in this collection
+        This method is like :meth:`annotations`, but does only tests and does not return the annotations, as such it is more performant.
 
         The annotations can be filtered using keyword arguments. See :meth:`Annotation.annotations`.
        """
@@ -605,12 +670,21 @@ class TextSelections:
 
     def annotations(self, **kwargs) -> Annotations:
         """
-        Returns annotations (:class:`Annotations` containing :class:`Annotation`) that are refer to any of the text selections in this collection
+        Returns annotations (:class:`Annotations` containing :class:`Annotation`) that refer to any of the text selections in this collection
 
         The annotations can be filtered using keyword arguments. See :meth:`Annotation.annotations`.
        """
 
-    def related_text(self, operator: TextSelectionOperator) -> TextSelections:
+    def test_annotations(self, **kwargs) -> bool:
+        """
+        Tests whether there are any annotations that refer to any of the text selections in this collection
+
+        This method is like :meth:`annotations`, but only tests and does not return the annotations, as such it is more performant.
+
+        The annotations can be filtered using keyword arguments. See :meth:`Annotation.annotations`.
+       """
+
+    def related_text(self, operator: TextSelectionOperator, limit: Optional[int] = None) -> TextSelections:
         """
         Applies a :class:`TextSelectionOperator` to find all other
         text selections who are in a specific relation with the ones from the current collections. 
@@ -950,7 +1024,34 @@ class TextResource:
         The annotations can be filtered using keyword arguments. See :meth:`Annotation.annotations`.
         """
 
-    def related_text(self, operator: TextSelectionOperator, referenceselections: List[TextSelection]) -> TextSelections:
+    def test_annotations(self, **kwargs) -> bool:
+        """
+        Tests whether there are any annotations that reference this resource (via any selector). 
+
+        This method is like :meth:`annotations`, but only tests and does not return the annotations, as such it is more performant.
+
+        The annotations can be filtered using keyword arguments. See :meth:`Annotation.annotations`.
+       """
+
+    def test_annotations_as_metadata(self, **kwargs) -> bool:
+        """
+        Tests whether there are any annotations that reference this resource as metadata (via a ResourceSelector). 
+
+        This method is like :meth:`annotations_as_metadata`, but only tests and does not return the annotations, as such it is more performant.
+
+        The annotations can be filtered using keyword arguments. See :meth:`Annotation.annotations`.
+       """
+
+    def test_annotations_on_text(self, **kwargs) -> bool:
+        """
+        Tests whether there are any annotations that reference the text of this resource (via a TextSelector). 
+
+        This method is like :meth:`annotations_on_text`, but only tests and does not return the annotations, as such it is more performant.
+
+        The annotations can be filtered using keyword arguments. See :meth:`Annotation.annotations`.
+       """
+
+    def related_text(self, operator: TextSelectionOperator, referenceselections: List[TextSelection], limit: Optional[int] = None) -> TextSelections:
         """
         Applies a :class:`TextSelectionOperator` to find all other
         text selections who are in a specific relation with the ones from `referenceselections`.
@@ -1102,6 +1203,15 @@ class TextSelection:
 
         The annotations can be filtered using keyword arguments. See :meth:`Annotation.annotations'
         """
+
+    def test_annotations(self, **kwargs) -> bool:
+        """
+        Tests whether there are any annotations that reference this text selection via a *TextSelector* (if any).
+
+        This method is like :meth:`annotations`, but only tests and does not return the annotations, as such it is more performant.
+
+        The annotations can be filtered using keyword arguments. See :meth:`Annotation.annotations`.
+       """
 
     def related_text(self, operator: TextSelectionOperator, limit: Optional[int] = None) -> List[TextSelection]:
         """

@@ -184,6 +184,14 @@ impl PyAnnotationDataSet {
         })
     }
 
+    fn test_data(&self, kwargs: Option<&PyDict>) -> PyResult<bool> {
+        let iterparams = IterParams::new(kwargs)?;
+        self.map(|dataset| {
+            let iter = dataset.data();
+            Ok(iterparams.evaluate_data(iter, dataset.store())?.test())
+        })
+    }
+
     /// Returns a Selector (DataSetSelector) pointing to this AnnotationDataSet
     fn select(&self) -> PyResult<PySelector> {
         self.map(|dataset| {

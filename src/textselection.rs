@@ -315,11 +315,29 @@ impl PyTextSelection {
         })
     }
 
-    fn related_text(&self, operator: PyTextSelectionOperator) -> PyResult<PyTextSelections> {
+    fn test_annotations(&self, kwargs: Option<&PyDict>) -> PyResult<bool> {
+        let iterparams = IterParams::new(kwargs)?;
+        self.map(|textselection| {
+            let iter = textselection.annotations();
+            Ok(iterparams
+                .evaluate_annotations(iter, textselection.rootstore())?
+                .test())
+        })
+    }
+
+    fn related_text(
+        &self,
+        operator: PyTextSelectionOperator,
+        limit: Option<usize>,
+    ) -> PyResult<PyTextSelections> {
         self.map(|textselection| {
             let iter = textselection.related_text(operator.operator);
             Ok(PyTextSelections {
-                textselections: iter.to_handles(),
+                textselections: if let Some(limit) = limit {
+                    iter.to_handles_limit(limit)
+                } else {
+                    iter.to_handles()
+                },
                 store: self.store.clone(),
                 cursor: 0,
             })
@@ -462,14 +480,10 @@ impl PyTextSelections {
         pyself.textselections.len()
     }
 
-    fn annotations<'py>(
-        &self,
-        kwargs: Option<&PyDict>,
-        py: Python<'py>,
-    ) -> PyResult<PyAnnotations> {
+    fn annotations(&self, kwargs: Option<&PyDict>) -> PyResult<PyAnnotations> {
         let iterparams = IterParams::new(kwargs)?;
         self.map(|textselections, store| {
-            let mut iter = stam::TextSelectionsIter::from_handles(
+            let iter = stam::TextSelectionsIter::from_handles(
                 textselections.iter().copied().collect(), //MAYBE TODO: work away the extra copy
                 store,
             )
@@ -478,19 +492,35 @@ impl PyTextSelections {
         })
     }
 
+    fn test_annotations(&self, kwargs: Option<&PyDict>) -> PyResult<bool> {
+        let iterparams = IterParams::new(kwargs)?;
+        self.map(|textselections, store| {
+            let iter = stam::TextSelectionsIter::from_handles(
+                textselections.iter().copied().collect(), //MAYBE TODO: work away the extra copy
+                store,
+            )
+            .annotations();
+            Ok(iterparams.evaluate_annotations(iter, store)?.test())
+        })
+    }
+
     fn related_text(
         &self,
         operator: PyTextSelectionOperator,
-        py: Python,
+        limit: Option<usize>,
     ) -> PyResult<PyTextSelections> {
         self.map(|textselections, store| {
-            let mut iter = stam::TextSelectionsIter::from_handles(
+            let iter = stam::TextSelectionsIter::from_handles(
                 textselections.iter().copied().collect(), //MAYBE TODO: work away the extra copy
                 store,
             )
             .related_text(operator.operator);
             Ok(PyTextSelections {
-                textselections: iter.to_handles(),
+                textselections: if let Some(limit) = limit {
+                    iter.to_handles_limit(limit)
+                } else {
+                    iter.to_handles()
+                },
                 store: self.store.clone(),
                 cursor: 0,
             })

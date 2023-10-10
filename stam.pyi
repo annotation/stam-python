@@ -236,7 +236,7 @@ class Annotation:
         """Returns annotations (:class:`Annotations` containing :class:`Annotation`) this annotation refers to (i.e. using an *AnnotationSelector*)
 
         The annotations can be filtered using keyword arguments; see :meth:`annotations`. One extra keyword argument is available for this method:
-        Annotations are returned in chronological order unless recursive is set or a DirectionalSelector is involved.
+        Annotations will returned be in textual order unless recursive is set or a DirectionalSelector is involved.
 
         Keyword Arguments
         -------------------

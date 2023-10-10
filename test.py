@@ -424,30 +424,19 @@ class Test4(unittest.TestCase):
 
         #extract annotations we point to
         count = 0
-        for targetannotation in annotation.annotations_in_targets():
-            count += 1
-            self.assertIsInstance( targetannotation, Annotation)
-            if count == 1:
-                self.assertTrue( targetannotation.has_id("A1"))
-            elif count == 2:
-                self.assertTrue( targetannotation.has_id("A2"))
-            else:
-                assert False
-        self.assertEqual(count,2)
+        targetannotations = annotation.annotations_in_targets()
+        self.assertIsInstance( targetannotations, Annotations)
+        self.assertEqual( len(targetannotations), 2)
+        #results are in textual order (which is deliberately counter to chronological order in this example)
+        self.assertTrue( targetannotations[0].has_id("A2"))
+        self.assertTrue( targetannotations[1].has_id("A1"))
 
 
         #extract textselections we point to
-        count = 0
-        for textselection in annotation.textselections():
-            count += 1 
-            self.assertIsInstance( textselection, TextSelection)
-            if count == 1: #yes,. we defined them in reverse order so this is okay
-                self.assertEqual(str(textselection), "world")
-            elif count == 2:
-                self.assertEqual(str(textselection), "Hello")
-            else:
-                assert False
-        self.assertEqual(count,2)
+        textselections = annotation.textselections()
+        self.assertEqual( len(textselections), 2)
+        self.assertEqual(str(textselections[0]), "Hello")
+        self.assertEqual(str(textselections[1]), "world")
 
     def test_textselections_by_annotations(self):
         annotation = self.store.annotation("A1")

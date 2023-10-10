@@ -364,8 +364,14 @@ class Annotations:
     You can iterate over it to retrieve :class:`Annotation` instances.
     """
 
+    def __iter__(self) -> Iterator[Annotation]:
+        """Iterator over all annotations in this collection"""
+
     def __len__(self) -> int:
         """Returns the number of annotations in the collection"""
+
+    def __getitem__(self, int) -> Annotation:
+        """Returns an annotation in the collection by index"""
 
     def is_sorted(self) -> bool:
         """Returns a boolean indicating whether the annotations in this collection are sorted chronologically (earlier annotations before later once). Note that this is distinct from any textual ordering."""
@@ -641,8 +647,14 @@ class Data:
     You can iterate over it to retrieve :class:`AnnotationData` instances.
     """
 
+    def __iter__(self) -> Iterator[AnnotationData]:
+        """Iterator over all data in this collection"""
+
     def __len__(self) -> int:
         """Returns the number of data items in the collection"""
+
+    def __getitem__(self, int) -> AnnotationData:
+        """Returns data in the collection by index"""
 
     def annotations(self, **kwargs) -> Annotations:
         """
@@ -665,8 +677,14 @@ class TextSelections:
     You can iterate over it to retrieve :class:`TextSelection` instances.
     """
 
+    def __iter__(self) -> Iterator[TextSelection]:
+        """Iterator over all text selections in this collection"""
+
     def __len__(self) -> int:
         """Returns the number of data items in the collection"""
+
+    def __getitem__(self, int) -> TextSelection:
+        """Returns a textselection in the collection by index"""
 
     def annotations(self, **kwargs) -> Annotations:
         """

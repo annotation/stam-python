@@ -1,4 +1,4 @@
-use pyo3::exceptions::PyRuntimeError;
+use pyo3::exceptions::{PyIndexError, PyRuntimeError};
 use pyo3::prelude::*;
 use pyo3::pyclass::CompareOp;
 use pyo3::types::*;
@@ -474,6 +474,25 @@ impl PyTextSelections {
                 },
             )
             .ok()
+    }
+
+    fn __getitem__(pyself: PyRef<'_, Self>, mut index: isize) -> PyResult<PyTextSelection> {
+        if index < 0 {
+            index = pyself.textselections.len() as isize + index;
+        }
+        if let Some((res_handle, handle)) = pyself.textselections.get(index as usize).copied() {
+            pyself.map(|_, store| {
+                let resource = store.get(res_handle)?;
+                let textselection = resource.get(handle)?;
+                Ok(PyTextSelection::new(
+                    textselection.clone(),
+                    res_handle,
+                    &pyself.store,
+                ))
+            })
+        } else {
+            Err(PyIndexError::new_err("data index out of bounds"))
+        }
     }
 
     fn __len__(pyself: PyRef<'_, Self>) -> usize {

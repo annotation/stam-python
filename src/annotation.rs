@@ -1,4 +1,4 @@
-use pyo3::exceptions::PyRuntimeError;
+use pyo3::exceptions::{PyIndexError, PyRuntimeError};
 use pyo3::prelude::*;
 use pyo3::pyclass::CompareOp;
 use pyo3::types::*;
@@ -323,6 +323,17 @@ impl PyAnnotations {
             Some(PyAnnotation::new(*handle, &pyself.store))
         } else {
             None
+        }
+    }
+
+    fn __getitem__(pyself: PyRef<'_, Self>, mut index: isize) -> PyResult<PyAnnotation> {
+        if index < 0 {
+            index = pyself.annotations.len() as isize + index;
+        }
+        if let Some(handle) = pyself.annotations.get(index as usize) {
+            Ok(PyAnnotation::new(*handle, &pyself.store))
+        } else {
+            Err(PyIndexError::new_err("annotation index out of bounds"))
         }
     }
 

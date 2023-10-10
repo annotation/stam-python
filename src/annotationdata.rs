@@ -1,4 +1,4 @@
-use pyo3::exceptions::{PyRuntimeError, PyValueError};
+use pyo3::exceptions::{PyIndexError, PyRuntimeError, PyValueError};
 use pyo3::prelude::*;
 use pyo3::pyclass::CompareOp;
 use pyo3::types::*;
@@ -775,6 +775,17 @@ impl PyData {
             Some(PyAnnotationData::new(*handle, *set_handle, &pyself.store))
         } else {
             None
+        }
+    }
+
+    fn __getitem__(pyself: PyRef<'_, Self>, mut index: isize) -> PyResult<PyAnnotationData> {
+        if index < 0 {
+            index = pyself.data.len() as isize + index;
+        }
+        if let Some((set_handle, handle)) = pyself.data.get(index as usize) {
+            Ok(PyAnnotationData::new(*handle, *set_handle, &pyself.store))
+        } else {
+            Err(PyIndexError::new_err("data index out of bounds"))
         }
     }
 

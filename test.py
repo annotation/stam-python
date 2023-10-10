@@ -5,7 +5,7 @@ from os import environ
 import os.path
 import unittest
 
-from stam import AnnotationStore, Offset, AnnotationData, Selector, TextResource, DataKey, DataValue, AnnotationDataSet, Annotation, StamError, TextSelection, Cursor, TextSelectionOperator
+from stam import AnnotationStore, Offset, AnnotationData, Selector, TextResource, DataKey, DataValue, AnnotationDataSet, Annotation, StamError, TextSelection, Cursor, TextSelectionOperator, Data,Annotations,TextSelections
 
 
 class Test0(unittest.TestCase):
@@ -206,7 +206,7 @@ class Test1(unittest.TestCase):
         dataset = self.store.dataset("testdataset")
         key = dataset.key("pos")
         count = 0
-        for annotationdata in key.annotationdata():
+        for annotationdata in key.data():
             count += 1
             #we can test in loop body because we only have one:
             self.assertIsInstance(annotationdata, AnnotationData)
@@ -234,9 +234,9 @@ class Test1(unittest.TestCase):
 
     def test_find_data(self):
         """Find annotationdata by value"""
-        annotationset = self.store.dataset("testdataset")
-        results = annotationset.find_data(key="pos",value="noun")
-        self.assertIsInstance(results, list)
+        dataset = self.store.dataset("testdataset")
+        results = dataset.data(filter_key=dataset.key("pos"), value="noun")
+        self.assertIsInstance(results, Data)
         self.assertEqual(len(results), 1)
         self.assertIsInstance(results[0], AnnotationData)
         self.assertTrue(results[0].has_id("D1"))
@@ -245,19 +245,16 @@ class Test1(unittest.TestCase):
         """Find annotationdata by value, when key already known"""
         annotationset = self.store.dataset("testdataset")
         datakey = annotationset.key("pos")
-        results = datakey.find_data(value="noun")
-        self.assertIsInstance(results, list)
+        results = datakey.data(value="noun")
+        self.assertIsInstance(results, Data)
         self.assertEqual(len(results), 1)
         self.assertIsInstance(results[0], AnnotationData)
         self.assertTrue(results[0].has_id("D1"))
 
     def test_find_data_missing(self):
         """Find annotationdata by value, test mismatches"""
-        annotationset = self.store.dataset("testdataset")
-        results = annotationset.find_data(key="pos",value="non-existent")
-        self.assertEqual(results, [])
-
-        results = annotationset.find_data(key="non-existent",value="non-existent")
+        dataset = self.store.dataset("testdataset")
+        results = dataset.data(filter=dataset.key("pos"),value="non-existent")
         self.assertEqual(results, [])
 
 

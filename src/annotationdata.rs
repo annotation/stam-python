@@ -90,6 +90,7 @@ impl PyDataKey {
         })
     }
 
+    #[pyo3(signature = (**kwargs))]
     fn data(&self, kwargs: Option<&PyDict>) -> PyResult<PyData> {
         let iterparams = IterParams::new(kwargs)?;
         self.map(|key| {
@@ -98,6 +99,7 @@ impl PyDataKey {
         })
     }
 
+    #[pyo3(signature = (**kwargs))]
     fn test_data(&self, kwargs: Option<&PyDict>) -> PyResult<bool> {
         let iterparams = IterParams::new(kwargs)?;
         self.map(|key| {
@@ -106,6 +108,7 @@ impl PyDataKey {
         })
     }
 
+    #[pyo3(signature = (**kwargs))]
     fn annotations(&self, kwargs: Option<&PyDict>) -> PyResult<PyAnnotations> {
         let iterparams = IterParams::new(kwargs)?;
         self.map(|key| {
@@ -114,6 +117,7 @@ impl PyDataKey {
         })
     }
 
+    #[pyo3(signature = (**kwargs))]
     fn test_annotations(&self, kwargs: Option<&PyDict>) -> PyResult<bool> {
         let iterparams = IterParams::new(kwargs)?;
         self.map(|key| {
@@ -411,6 +415,7 @@ impl PyAnnotationData {
         Ok(PyAnnotationDataSet::new(self.set, &self.store))
     }
 
+    #[pyo3(signature = (**kwargs))]
     fn annotations(&self, kwargs: Option<&PyDict>) -> PyResult<PyAnnotations> {
         let iterparams = IterParams::new(kwargs)?;
         self.map(|data| {
@@ -419,6 +424,7 @@ impl PyAnnotationData {
         })
     }
 
+    #[pyo3(signature = (**kwargs))]
     fn test_annotations(&self, kwargs: Option<&PyDict>) -> PyResult<bool> {
         let iterparams = IterParams::new(kwargs)?;
         self.map(|data| {
@@ -793,6 +799,11 @@ impl PyData {
         pyself.data.len()
     }
 
+    fn __bool__(pyself: PyRef<'_, Self>) -> bool {
+        !pyself.data.is_empty()
+    }
+
+    #[pyo3(signature = (**kwargs))]
     fn annotations(&self, kwargs: Option<&PyDict>) -> PyResult<PyAnnotations> {
         let iterparams = IterParams::new(kwargs)?;
         self.map(|data, store| {
@@ -803,6 +814,7 @@ impl PyData {
         })
     }
 
+    #[pyo3(signature = (**kwargs))]
     fn test_annotations(&self, kwargs: Option<&PyDict>) -> PyResult<bool> {
         let iterparams = IterParams::new(kwargs)?;
         self.map(|data, store| {

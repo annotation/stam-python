@@ -250,14 +250,11 @@ impl PyAnnotationStore {
         })
     }
 
-    fn annotations<'py>(
-        &self,
-        kwargs: Option<&PyDict>,
-        py: Python<'py>,
-    ) -> PyResult<PyAnnotations> {
+    #[pyo3(signature = (**kwargs))]
+    fn annotations(&self, kwargs: Option<&PyDict>) -> PyResult<PyAnnotations> {
         let iterparams = IterParams::new(kwargs)?;
         self.map(|store| {
-            let mut iter = store.annotations();
+            let iter = store.annotations();
             iterparams.evaluate_to_pyannotations(iter, store, &self.store)
         })
     }

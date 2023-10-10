@@ -167,6 +167,7 @@ impl PyAnnotation {
     }
 
     /// Returns annotations this annotation refers to (i.e. using an AnnotationSelector)
+    #[pyo3(signature = (**kwargs))]
     fn annotations_in_targets(&self, kwargs: Option<&PyDict>) -> PyResult<PyAnnotations> {
         let iterparams = IterParams::new(kwargs)?;
         let mut recursive: bool = false;
@@ -184,6 +185,7 @@ impl PyAnnotation {
     }
 
     /// Returns annotations that are referring to this annotation (i.e. others using an AnnotationSelector)
+    #[pyo3(signature = (**kwargs))]
     fn annotations(&self, kwargs: Option<&PyDict>) -> PyResult<PyAnnotations> {
         let iterparams = IterParams::new(kwargs)?;
         self.map(|annotation| {
@@ -259,6 +261,7 @@ impl PyAnnotation {
     }
 
     /// Returns annotation data instances that pertain to this annotation.
+    #[pyo3(signature = (**kwargs))]
     fn data(&self, kwargs: Option<&PyDict>) -> PyResult<PyData> {
         let iterparams = IterParams::new(kwargs)?;
         self.map(|annotation| {
@@ -267,6 +270,7 @@ impl PyAnnotation {
         })
     }
 
+    #[pyo3(signature = (**kwargs))]
     fn test_data(&self, kwargs: Option<&PyDict>) -> PyResult<bool> {
         let iterparams = IterParams::new(kwargs)?;
         self.map(|annotation| {
@@ -341,11 +345,16 @@ impl PyAnnotations {
         pyself.annotations.len()
     }
 
+    fn __bool__(pyself: PyRef<'_, Self>) -> bool {
+        !pyself.annotations.is_empty()
+    }
+
     fn is_sorted(pyself: PyRef<'_, Self>) -> bool {
         pyself.sorted
     }
 
     /// Returns annotation data instances used by the annotations in this collection.
+    #[pyo3(signature = (**kwargs))]
     fn data(&self, kwargs: Option<&PyDict>) -> PyResult<PyData> {
         let iterparams = IterParams::new(kwargs)?;
         self.map(|annotations, store| {
@@ -356,6 +365,7 @@ impl PyAnnotations {
         })
     }
 
+    #[pyo3(signature = (**kwargs))]
     fn test_data(&self, kwargs: Option<&PyDict>) -> PyResult<bool> {
         let iterparams = IterParams::new(kwargs)?;
         self.map(|annotations, store| {
@@ -366,6 +376,7 @@ impl PyAnnotations {
         })
     }
 
+    #[pyo3(signature = (**kwargs))]
     fn annotations(&self, kwargs: Option<&PyDict>) -> PyResult<PyAnnotations> {
         let iterparams = IterParams::new(kwargs)?;
         self.map(|annotations, store| {
@@ -376,6 +387,7 @@ impl PyAnnotations {
         })
     }
 
+    #[pyo3(signature = (**kwargs))]
     fn annotations_in_targets(&self, kwargs: Option<&PyDict>) -> PyResult<PyAnnotations> {
         let iterparams = IterParams::new(kwargs)?;
         let mut recursive: bool = false;

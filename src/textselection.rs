@@ -307,6 +307,7 @@ impl PyTextSelection {
         })
     }
 
+    #[pyo3(signature = (**kwargs))]
     fn annotations(&self, kwargs: Option<&PyDict>) -> PyResult<PyAnnotations> {
         let iterparams = IterParams::new(kwargs)?;
         self.map(|textselection| {
@@ -315,6 +316,7 @@ impl PyTextSelection {
         })
     }
 
+    #[pyo3(signature = (**kwargs))]
     fn test_annotations(&self, kwargs: Option<&PyDict>) -> PyResult<bool> {
         let iterparams = IterParams::new(kwargs)?;
         self.map(|textselection| {
@@ -499,6 +501,11 @@ impl PyTextSelections {
         pyself.textselections.len()
     }
 
+    fn __bool__(pyself: PyRef<'_, Self>) -> bool {
+        !pyself.textselections.is_empty()
+    }
+
+    #[pyo3(signature = (**kwargs))]
     fn annotations(&self, kwargs: Option<&PyDict>) -> PyResult<PyAnnotations> {
         let iterparams = IterParams::new(kwargs)?;
         self.map(|textselections, store| {
@@ -511,6 +518,7 @@ impl PyTextSelections {
         })
     }
 
+    #[pyo3(signature = (**kwargs))]
     fn test_annotations(&self, kwargs: Option<&PyDict>) -> PyResult<bool> {
         let iterparams = IterParams::new(kwargs)?;
         self.map(|textselections, store| {

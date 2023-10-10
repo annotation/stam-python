@@ -176,6 +176,7 @@ impl PyAnnotationDataSet {
         })
     }
 
+    #[pyo3(signature = (**kwargs))]
     fn data(&self, kwargs: Option<&PyDict>) -> PyResult<PyData> {
         let iterparams = IterParams::new(kwargs)?;
         self.map(|dataset| {
@@ -184,6 +185,7 @@ impl PyAnnotationDataSet {
         })
     }
 
+    #[pyo3(signature = (**kwargs))]
     fn test_data(&self, kwargs: Option<&PyDict>) -> PyResult<bool> {
         let iterparams = IterParams::new(kwargs)?;
         self.map(|dataset| {

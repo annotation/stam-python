@@ -382,6 +382,7 @@ impl PyTextResource {
     }
 
     /// Returns all annotations (:obj:`Annotation`) that reference this resource via either a TextSelector or a ResourceSelector (if any).
+    #[pyo3(signature = (**kwargs))]
     fn annotations(&self, kwargs: Option<&PyDict>) -> PyResult<PyAnnotations> {
         let iterparams = IterParams::new(kwargs)?;
         self.map(|resource| {
@@ -390,6 +391,7 @@ impl PyTextResource {
         })
     }
 
+    #[pyo3(signature = (**kwargs))]
     fn annotations_as_metadata(&self, kwargs: Option<&PyDict>) -> PyResult<PyAnnotations> {
         let iterparams = IterParams::new(kwargs)?;
         self.map(|resource| {
@@ -398,6 +400,7 @@ impl PyTextResource {
         })
     }
 
+    #[pyo3(signature = (**kwargs))]
     fn annotations_on_text(&self, kwargs: Option<&PyDict>) -> PyResult<PyAnnotations> {
         let iterparams = IterParams::new(kwargs)?;
         self.map(|resource| {
@@ -406,6 +409,7 @@ impl PyTextResource {
         })
     }
 
+    #[pyo3(signature = (**kwargs))]
     fn test_annotations(&self, kwargs: Option<&PyDict>) -> PyResult<bool> {
         let iterparams = IterParams::new(kwargs)?;
         self.map(|resource| {
@@ -416,6 +420,7 @@ impl PyTextResource {
         })
     }
 
+    #[pyo3(signature = (**kwargs))]
     fn test_annotations_as_metadata(&self, kwargs: Option<&PyDict>) -> PyResult<bool> {
         let iterparams = IterParams::new(kwargs)?;
         self.map(|resource| {
@@ -426,6 +431,7 @@ impl PyTextResource {
         })
     }
 
+    #[pyo3(signature = (**kwargs))]
     fn test_annotations_on_text(&self, kwargs: Option<&PyDict>) -> PyResult<bool> {
         let iterparams = IterParams::new(kwargs)?;
         self.map(|resource| {

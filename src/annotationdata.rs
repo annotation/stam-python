@@ -90,22 +90,18 @@ impl PyDataKey {
         })
     }
 
-    fn data<'py>(&self, kwargs: Option<&PyDict>, py: Python<'py>) -> PyResult<PyData> {
+    fn data(&self, kwargs: Option<&PyDict>) -> PyResult<PyData> {
         let iterparams = IterParams::new(kwargs)?;
         self.map(|key| {
-            let mut iter = key.data();
+            let iter = key.data();
             iterparams.evaluate_to_pydata(iter, key.rootstore(), &self.store)
         })
     }
 
-    fn annotations<'py>(
-        &self,
-        kwargs: Option<&PyDict>,
-        py: Python<'py>,
-    ) -> PyResult<PyAnnotations> {
+    fn annotations(&self, kwargs: Option<&PyDict>) -> PyResult<PyAnnotations> {
         let iterparams = IterParams::new(kwargs)?;
         self.map(|key| {
-            let mut iter = key.annotations();
+            let iter = key.annotations();
             iterparams.evaluate_to_pyannotations(iter, key.rootstore(), &self.store)
         })
     }
@@ -397,14 +393,10 @@ impl PyAnnotationData {
         Ok(PyAnnotationDataSet::new(self.set, &self.store))
     }
 
-    fn annotations<'py>(
-        &self,
-        kwargs: Option<&PyDict>,
-        py: Python<'py>,
-    ) -> PyResult<PyAnnotations> {
+    fn annotations(&self, kwargs: Option<&PyDict>) -> PyResult<PyAnnotations> {
         let iterparams = IterParams::new(kwargs)?;
         self.map(|data| {
-            let mut iter = data.annotations();
+            let iter = data.annotations();
             iterparams.evaluate_to_pyannotations(iter, data.rootstore(), &self.store)
         })
     }

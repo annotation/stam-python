@@ -151,7 +151,7 @@ impl PyAnnotation {
     /// Returns a list of all textselections of the annotation.
     /// Note that this will always return a list (even it if only contains a single element),
     /// as an annotation may reference multiple text selections.
-    fn textselections<'py>(&self, py: Python<'py>) -> PyResult<PyTextSelections> {
+    fn textselections(&self) -> PyResult<PyTextSelections> {
         self.map(|annotation| {
             let iter = annotation.textselections();
             Ok(PyTextSelections {
@@ -163,11 +163,7 @@ impl PyAnnotation {
     }
 
     /// Returns annotations this annotation refers to (i.e. using an AnnotationSelector)
-    fn annotations_in_targets<'py>(
-        &self,
-        kwargs: Option<&PyDict>,
-        py: Python<'py>,
-    ) -> PyResult<PyAnnotations> {
+    fn annotations_in_targets(&self, kwargs: Option<&PyDict>) -> PyResult<PyAnnotations> {
         let iterparams = IterParams::new(kwargs)?;
         let mut recursive: bool = false;
         if let Some(kwargs) = kwargs {
@@ -178,20 +174,16 @@ impl PyAnnotation {
             }
         }
         self.map(|annotation| {
-            let mut iter = annotation.annotations_in_targets(recursive);
+            let iter = annotation.annotations_in_targets(recursive);
             iterparams.evaluate_to_pyannotations(iter, annotation.store(), &self.store)
         })
     }
 
     /// Returns annotations that are referring to this annotation (i.e. others using an AnnotationSelector)
-    fn annotations<'py>(
-        &self,
-        kwargs: Option<&PyDict>,
-        py: Python<'py>,
-    ) -> PyResult<PyAnnotations> {
+    fn annotations(&self, kwargs: Option<&PyDict>) -> PyResult<PyAnnotations> {
         let iterparams = IterParams::new(kwargs)?;
         self.map(|annotation| {
-            let mut iter = annotation.annotations();
+            let iter = annotation.annotations();
             iterparams.evaluate_to_pyannotations(iter, annotation.store(), &self.store)
         })
     }
@@ -263,10 +255,10 @@ impl PyAnnotation {
     }
 
     /// Returns annotation data instances that pertain to this annotation.
-    fn data<'py>(&self, kwargs: Option<&PyDict>, py: Python<'py>) -> PyResult<PyData> {
+    fn data(&self, kwargs: Option<&PyDict>) -> PyResult<PyData> {
         let iterparams = IterParams::new(kwargs)?;
         self.map(|annotation| {
-            let mut iter = annotation.data();
+            let iter = annotation.data();
             iterparams.evaluate_to_pydata(iter, annotation.store(), &self.store)
         })
     }
@@ -277,11 +269,7 @@ impl PyAnnotation {
             .unwrap()
     }
 
-    fn related_text(
-        &self,
-        operator: PyTextSelectionOperator,
-        py: Python,
-    ) -> PyResult<PyTextSelections> {
+    fn related_text(&self, operator: PyTextSelectionOperator) -> PyResult<PyTextSelections> {
         self.map(|annotation| {
             let iter = annotation.related_text(operator.operator);
             Ok(PyTextSelections {
@@ -327,37 +315,27 @@ impl PyAnnotations {
     }
 
     /// Returns annotation data instances used by the annotations in this collection.
-    fn data<'py>(&self, kwargs: Option<&PyDict>, py: Python<'py>) -> PyResult<PyData> {
+    fn data(&self, kwargs: Option<&PyDict>) -> PyResult<PyData> {
         let iterparams = IterParams::new(kwargs)?;
         self.map(|annotations, store| {
-            let mut iter =
-                Annotations::from_handles(Cow::Borrowed(annotations), self.sorted, store)
-                    .iter()
-                    .data();
+            let iter = Annotations::from_handles(Cow::Borrowed(annotations), self.sorted, store)
+                .iter()
+                .data();
             iterparams.evaluate_to_pydata(iter, store, &self.store)
         })
     }
 
-    fn annotations<'py>(
-        &self,
-        kwargs: Option<&PyDict>,
-        py: Python<'py>,
-    ) -> PyResult<PyAnnotations> {
+    fn annotations(&self, kwargs: Option<&PyDict>) -> PyResult<PyAnnotations> {
         let iterparams = IterParams::new(kwargs)?;
         self.map(|annotations, store| {
-            let mut iter =
-                Annotations::from_handles(Cow::Borrowed(annotations), self.sorted, store)
-                    .iter()
-                    .annotations();
+            let iter = Annotations::from_handles(Cow::Borrowed(annotations), self.sorted, store)
+                .iter()
+                .annotations();
             iterparams.evaluate_to_pyannotations(iter, store, &self.store)
         })
     }
 
-    fn annotations_in_targets<'py>(
-        &self,
-        kwargs: Option<&PyDict>,
-        py: Python<'py>,
-    ) -> PyResult<PyAnnotations> {
+    fn annotations_in_targets(&self, kwargs: Option<&PyDict>) -> PyResult<PyAnnotations> {
         let iterparams = IterParams::new(kwargs)?;
         let mut recursive: bool = false;
         if let Some(kwargs) = kwargs {
@@ -368,10 +346,9 @@ impl PyAnnotations {
             }
         }
         self.map(|annotations, store| {
-            let mut iter =
-                Annotations::from_handles(Cow::Borrowed(annotations), self.sorted, store)
-                    .iter()
-                    .annotations_in_targets(recursive);
+            let iter = Annotations::from_handles(Cow::Borrowed(annotations), self.sorted, store)
+                .iter()
+                .annotations_in_targets(recursive);
             iterparams.evaluate_to_pyannotations(iter, store, &self.store)
         })
     }
@@ -471,7 +448,7 @@ impl PyAnnotation {
 impl<'py> IterParams<'py> {
     pub(crate) fn evaluate_to_pyannotations<'store>(
         self,
-        mut iter: AnnotationsIter<'store>,
+        iter: AnnotationsIter<'store>,
         store: &'store AnnotationStore,
         wrappedstore: &Arc<RwLock<AnnotationStore>>,
     ) -> Result<PyAnnotations, StamError>

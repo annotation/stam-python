@@ -382,30 +382,26 @@ impl PyTextResource {
     }
 
     /// Returns all annotations (:obj:`Annotation`) that reference this resource via either a TextSelector or a ResourceSelector (if any).
-    fn annotations(&self, kwargs: Option<&PyDict>, py: Python) -> PyResult<PyAnnotations> {
+    fn annotations(&self, kwargs: Option<&PyDict>) -> PyResult<PyAnnotations> {
         let iterparams = IterParams::new(kwargs)?;
         self.map(|resource| {
-            let mut iter = resource.annotations();
+            let iter = resource.annotations();
             iterparams.evaluate_to_pyannotations(iter, resource.store(), &self.store)
         })
     }
 
-    fn annotations_as_metadata(
-        &self,
-        kwargs: Option<&PyDict>,
-        py: Python,
-    ) -> PyResult<PyAnnotations> {
+    fn annotations_as_metadata(&self, kwargs: Option<&PyDict>) -> PyResult<PyAnnotations> {
         let iterparams = IterParams::new(kwargs)?;
         self.map(|resource| {
-            let mut iter = resource.annotations_as_metadata();
+            let iter = resource.annotations_as_metadata();
             iterparams.evaluate_to_pyannotations(iter, resource.store(), &self.store)
         })
     }
 
-    fn annotations_on_text(&self, kwargs: Option<&PyDict>, py: Python) -> PyResult<PyAnnotations> {
+    fn annotations_on_text(&self, kwargs: Option<&PyDict>) -> PyResult<PyAnnotations> {
         let iterparams = IterParams::new(kwargs)?;
         self.map(|resource| {
-            let mut iter = resource.annotations_on_text();
+            let iter = resource.annotations_on_text();
             iterparams.evaluate_to_pyannotations(iter, resource.store(), &self.store)
         })
     }
@@ -419,7 +415,6 @@ impl PyTextResource {
         &self,
         operator: PyTextSelectionOperator,
         referenceselections: Vec<PyTextSelection>,
-        py: Python,
     ) -> PyResult<PyTextSelections> {
         self.map(|textselection| {
             let mut refset = TextSelectionSet::new(self.handle);

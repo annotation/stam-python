@@ -1,21 +1,12 @@
-use pyo3::exceptions::{PyRuntimeError, PyValueError};
+use pyo3::exceptions::PyValueError;
+use pyo3::prelude::*;
 use pyo3::types::*;
-use pyo3::{prelude::*, AsPyPointer};
 use std::borrow::Cow;
-use std::ops::FnOnce;
-use std::sync::{Arc, RwLock};
 
 use crate::annotation::{PyAnnotation, PyAnnotations};
-use crate::annotationdata::{
-    data_request_parser, dataoperator_from_kwargs, PyAnnotationData, PyData, PyDataKey,
-};
-use crate::annotationdataset::PyAnnotationDataSet;
-use crate::annotationstore::MapStore;
+use crate::annotationdata::{dataoperator_from_kwargs, PyAnnotationData, PyData, PyDataKey};
 use crate::error::PyStamError;
-use crate::get_limit;
-use crate::resources::{PyOffset, PyTextResource};
-use crate::selector::{PySelector, PySelectorKind};
-use crate::textselection::{PyTextSelection, PyTextSelectionOperator};
+use crate::textselection::PyTextSelectionOperator;
 use stam::*;
 
 pub enum Filter<'a> {
@@ -26,7 +17,7 @@ pub enum Filter<'a> {
     DataKey(AnnotationDataSetHandle, DataKeyHandle),
     Value(DataOperator<'a>),
     TextRelation(TextSelectionOperator),
-    FindData(AnnotationDataSetHandle, DataKeyHandle, DataOperator<'a>),
+    //FindData(AnnotationDataSetHandle, DataKeyHandle, DataOperator<'a>),
 }
 
 pub struct IterParams<'a> {
@@ -37,10 +28,10 @@ pub struct IterParams<'a> {
 fn add_filter<'py>(filters: &mut Vec<Filter<'py>>, filter: &'py PyAny) -> PyResult<()> {
     if filter.is_instance_of::<PyList>() {
         let vec: Vec<&PyAny> = filter.extract()?;
-        add_multi_filter(filters, vec);
+        add_multi_filter(filters, vec)?;
     } else if filter.is_instance_of::<PyTuple>() {
         let vec: Vec<&PyAny> = filter.extract()?;
-        add_multi_filter(filters, vec);
+        add_multi_filter(filters, vec)?;
     } else if filter.is_instance_of::<PyAnnotationData>() {
         let adata: PyRef<'_, PyAnnotationData> = filter.extract()?;
         filters.push(Filter::AnnotationData(adata.set, adata.handle));

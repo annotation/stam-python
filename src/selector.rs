@@ -68,11 +68,6 @@ pub(crate) struct PySelector {
     pub(crate) subselectors: Vec<PySelector>,
 }
 
-pub(crate) struct PyTarget {
-    pub(crate) selector: PySelector,
-    pub(crate) store: Arc<RwLock<AnnotationStore>>,
-}
-
 impl PySelector {
     pub(crate) fn build(&self) -> SelectorBuilder<'_> {
         match self.kind.kind {

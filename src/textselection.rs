@@ -307,23 +307,15 @@ impl PyTextSelection {
         })
     }
 
-    fn annotations<'py>(
-        &self,
-        kwargs: Option<&PyDict>,
-        py: Python<'py>,
-    ) -> PyResult<PyAnnotations> {
+    fn annotations(&self, kwargs: Option<&PyDict>) -> PyResult<PyAnnotations> {
         let iterparams = IterParams::new(kwargs)?;
         self.map(|textselection| {
-            let mut iter = textselection.annotations();
+            let iter = textselection.annotations();
             iterparams.evaluate_to_pyannotations(iter, textselection.rootstore(), &self.store)
         })
     }
 
-    fn related_text(
-        &self,
-        operator: PyTextSelectionOperator,
-        py: Python,
-    ) -> PyResult<PyTextSelections> {
+    fn related_text(&self, operator: PyTextSelectionOperator) -> PyResult<PyTextSelections> {
         self.map(|textselection| {
             let iter = textselection.related_text(operator.operator);
             Ok(PyTextSelections {

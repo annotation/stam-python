@@ -327,22 +327,16 @@ impl PyTextSelection {
         })
     }
 
+    #[pyo3(signature = (operator, **kwargs))]
     fn related_text(
         &self,
         operator: PyTextSelectionOperator,
-        limit: Option<usize>,
+        kwargs: Option<&PyDict>,
     ) -> PyResult<PyTextSelections> {
+        let iterparams = IterParams::new(kwargs)?;
         self.map(|textselection| {
             let iter = textselection.related_text(operator.operator);
-            Ok(PyTextSelections {
-                textselections: if let Some(limit) = limit {
-                    iter.to_handles_limit(limit)
-                } else {
-                    iter.to_handles()
-                },
-                store: self.store.clone(),
-                cursor: 0,
-            })
+            iterparams.evaluate_to_pytextselections(iter, textselection.rootstore(), &self.store)
         })
     }
 
@@ -532,26 +526,20 @@ impl PyTextSelections {
         })
     }
 
+    #[pyo3(signature = (operator, **kwargs))]
     fn related_text(
         &self,
         operator: PyTextSelectionOperator,
-        limit: Option<usize>,
+        kwargs: Option<&PyDict>,
     ) -> PyResult<PyTextSelections> {
+        let iterparams = IterParams::new(kwargs)?;
         self.map(|textselections, store| {
             let iter = stam::TextSelectionsIter::from_handles(
                 textselections.iter().copied().collect(), //MAYBE TODO: work away the extra copy
                 store,
             )
             .related_text(operator.operator);
-            Ok(PyTextSelections {
-                textselections: if let Some(limit) = limit {
-                    iter.to_handles_limit(limit)
-                } else {
-                    iter.to_handles()
-                },
-                store: self.store.clone(),
-                cursor: 0,
-            })
+            iterparams.evaluate_to_pytextselections(iter, store, &self.store)
         })
     }
 }
@@ -570,6 +558,32 @@ impl PyTextSelections {
             Err(PyRuntimeError::new_err(
                 "Unable to obtain store (should never happen)",
             ))
+        }
+    }
+}
+
+impl<'py> IterParams<'py> {
+    pub(crate) fn evaluate_to_pytextselections<'store>(
+        self,
+        iter: TextSelectionsIter<'store>,
+        store: &'store AnnotationStore,
+        wrappedstore: &Arc<RwLock<AnnotationStore>>,
+    ) -> Result<PyTextSelections, StamError>
+    where
+        'py: 'store,
+    {
+        let limit = self.limit();
+        match self.evaluate_textselections(iter, store) {
+            Ok(iter) => Ok(PyTextSelections {
+                textselections: if let Some(limit) = limit {
+                    iter.to_handles_limit(limit)
+                } else {
+                    iter.to_handles()
+                },
+                store: wrappedstore.clone(),
+                cursor: 0,
+            }),
+            Err(e) => Err(e.into()),
         }
     }
 }

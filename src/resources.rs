@@ -451,21 +451,14 @@ impl PyTextResource {
         &self,
         operator: PyTextSelectionOperator,
         referenceselections: Vec<PyTextSelection>,
-        limit: Option<usize>,
+        kwargs: Option<&PyDict>,
     ) -> PyResult<PyTextSelections> {
+        let iterparams = IterParams::new(kwargs)?;
         self.map(|textselection| {
             let mut refset = TextSelectionSet::new(self.handle);
             refset.extend(referenceselections.into_iter().map(|x| x.textselection));
             let iter = textselection.related_text(operator.operator, refset);
-            Ok(PyTextSelections {
-                textselections: if let Some(limit) = limit {
-                    iter.to_handles_limit(limit)
-                } else {
-                    iter.to_handles()
-                },
-                store: self.store.clone(),
-                cursor: 0,
-            })
+            iterparams.evaluate_to_pytextselections(iter, textselection.rootstore(), &self.store)
         })
     }
 }

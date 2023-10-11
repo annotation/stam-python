@@ -225,11 +225,17 @@ class Annotation:
         Use `text()` instead to retrieve a list of texts
         """
 
-    def textselections(self, limit: Optional[int] = None) -> TextSelections:
+    def textselections(self, **kwargs) -> TextSelections:
         """
         Returns a collection of all textselections (:class:`TextSelection`) referenced by the annotation (i.e. via a *TextSelector*).
         Note that this will always return a collection (even it if only contains a single element),
         as an annotation may reference multiple text selections.
+
+        Keyword Arguments
+        -------------------
+
+        limit: Optional[int] = None
+            The maximum number of results to return (default: unlimited)
         """
 
     def annotations_in_targets(self, recursive= False, limit: Optional[int] = None) -> Annotations:
@@ -313,11 +319,11 @@ class Annotation:
         filter: Union[AnnotationData,Tuple[AnnotationData],List[AnnotationData],DataKey,Annotations,Data]
             If you want to add multiple different filters, use `filters` instead.
             Filter annotations based on:
-            * `AnnotationData` - Returns only annotations that have this exact data  (you can only pass this once).
+            * `AnnotationData` - Returns only this exact data  (you can only pass this once). Use :meth:`test_data` instead.
             * a tuple/list of `AnnotationData` - Returns only annotations with data that matches one of the items in the tuple/list.
-            * `DataKey` - Returns annotations with data matching this key (you can only pass this once).
-            * `Annotations` - Returns only annotations that are already in the provided :obj:`Annotations` collection (intersection)
-            * `Data` - Returns only annotations with data that is in the provided :obj:`Data` collection.
+            * `DataKey` - Returns data matching this key (you can only pass this once).
+            * `Annotations` - Returns data that is used by by annotations in the provided :obj:`Annotations` collection.
+            * `Data` - Returns only data that is in the provided :obj:`Data` collection.
         filters: List[Union[AnnotationData,DataKey,Annotations,Data]]
         value: Optional[Union[str,int,float,bool,List[Union[str,int,float,bool]]]]
             Search for data matching a specific value.
@@ -347,14 +353,26 @@ class Annotation:
         Unlike :meth:`data`, this method merely tests without returning the data, and as such is more performant.
         """
 
-    def related_text(self, operator: TextSelectionOperator, limit: Optional[int] = None) -> TextSelections:
+    def related_text(self, operator: TextSelectionOperator, **kwargs) -> TextSelections:
         """
         Applies a :class:`TextSelectionOperator` to find all other
         text selections who are in a specific relation with the ones from the current annotation. 
-        Returns a collection of all matching :class:`TextSelection` instances.
+        Returns a collection :class:`TextSelections` containing all matching :class:`TextSelection` instances.
        
         If you are interested in the annotations associated with the found text selections, then
         add `.annotations()` to the result.
+
+        Parameters
+        ------------
+
+        operator: TextSelectionOperator
+            The operator to apply when comparing text selections
+
+        Keyword Arguments
+        -------------------
+
+        limit: Optional[int] = None
+            The maximum number of results to return (default: unlimited)
         """
 
 
@@ -419,11 +437,13 @@ class Annotations:
         Returns a collection of all textselections associated with the annotations in this collection.
         """
 
-    def related_text(self, operator: TextSelectionOperator, limit: Optional[int] = None) -> TextSelections:
+    def related_text(self, operator: TextSelectionOperator, **kwargs) -> TextSelections:
         """
         Applies a :class:`TextSelectionOperator` to find all other
         text selections who are in a specific relation with any from the current collection of annotations. 
         Returns a collection of all matching :class:`TextSelection` instances.
+
+        See :meth:`Annotation.related_text` for allowed paramters/keyword arguments.
         """
 
 class AnnotationDataSet:
@@ -702,7 +722,7 @@ class TextSelections:
         The annotations can be filtered using keyword arguments. See :meth:`Annotation.annotations`.
        """
 
-    def related_text(self, operator: TextSelectionOperator, limit: Optional[int] = None) -> TextSelections:
+    def related_text(self, operator: TextSelectionOperator, **kwargs) -> TextSelections:
         """
         Applies a :class:`TextSelectionOperator` to find all other
         text selections who are in a specific relation with the ones from the current collections. 
@@ -710,6 +730,8 @@ class TextSelections:
        
         If you are interested in the annotations associated with the found text selections, then
         add `.annotations()` to the result.
+
+        See :meth:`Annotation.related_text` for allowed keyword arguments.
         """
 
 
@@ -1069,7 +1091,7 @@ class TextResource:
         The annotations can be filtered using keyword arguments. See :meth:`Annotation.annotations`.
        """
 
-    def related_text(self, operator: TextSelectionOperator, referenceselections: List[TextSelection], limit: Optional[int] = None) -> TextSelections:
+    def related_text(self, operator: TextSelectionOperator, referenceselections: List[TextSelection], **kwargs) -> TextSelections:
         """
         Applies a :class:`TextSelectionOperator` to find all other
         text selections who are in a specific relation with the ones from `referenceselections`.
@@ -1082,6 +1104,8 @@ class TextResource:
             The operator to apply when comparing text selections
         referenceselections: List[TextSelection]
             Text selections to use as reference
+
+        See :meth:`Annotation.related_text` for allowed keyword arguments.
         """
 
 class TextSelection:
@@ -1231,19 +1255,19 @@ class TextSelection:
         The annotations can be filtered using keyword arguments. See :meth:`Annotation.annotations`.
        """
 
-    def related_text(self, operator: TextSelectionOperator, limit: Optional[int] = None) -> List[TextSelection]:
+    def related_text(self, operator: TextSelectionOperator, **kwargs) -> TextSelections:
         """
         Applies a :class:`TextSelectionOperator` to find all other
         text selections who are in a specific relation with this one.
-        Returns all matching :class:`TextSelection` instances in a list.
+        Returns all matching :class:`TextSelection` instances in a collection :class:`TextSelections`.
        
         Parameters
         ------------
 
         operator: TextSelectionOperator
             The operator to apply when comparing text selections
-        limit: Optional[int] = None
-            The maximum number of results to return (default: unlimited)
+
+        See :meth:`Annotation.related_text` for allowed keyword arguments.
         """
 
 

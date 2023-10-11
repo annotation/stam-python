@@ -151,18 +151,12 @@ impl PyAnnotation {
     /// Returns a list of all textselections of the annotation.
     /// Note that this will always return a list (even it if only contains a single element),
     /// as an annotation may reference multiple text selections.
-    fn textselections(&self, limit: Option<usize>) -> PyResult<PyTextSelections> {
+    #[pyo3(signature = (**kwargs))]
+    fn textselections(&self, kwargs: Option<&PyDict>) -> PyResult<PyTextSelections> {
+        let iterparams = IterParams::new(kwargs)?;
         self.map(|annotation| {
             let iter = annotation.textselections();
-            Ok(PyTextSelections {
-                textselections: if let Some(limit) = limit {
-                    iter.to_handles_limit(limit)
-                } else {
-                    iter.to_handles()
-                },
-                store: self.store.clone(),
-                cursor: 0,
-            })
+            iterparams.evaluate_to_pytextselections(iter, annotation.store(), &self.store)
         })
     }
 
@@ -255,11 +249,6 @@ impl PyAnnotation {
         })
     }
 
-    /// Returns a (possibly heterogeneous) list of all the direct targets of this annotation,
-    fn targets(&self) -> Py<PyList> {
-        todo!() //TODO: implement
-    }
-
     /// Returns annotation data instances that pertain to this annotation.
     #[pyo3(signature = (**kwargs))]
     fn data(&self, kwargs: Option<&PyDict>) -> PyResult<PyData> {
@@ -285,22 +274,16 @@ impl PyAnnotation {
             .unwrap()
     }
 
+    #[pyo3(signature = (operator, **kwargs))]
     fn related_text(
         &self,
         operator: PyTextSelectionOperator,
-        limit: Option<usize>,
+        kwargs: Option<&PyDict>,
     ) -> PyResult<PyTextSelections> {
+        let iterparams = IterParams::new(kwargs)?;
         self.map(|annotation| {
             let iter = annotation.related_text(operator.operator);
-            Ok(PyTextSelections {
-                textselections: if let Some(limit) = limit {
-                    iter.to_handles_limit(limit)
-                } else {
-                    iter.to_handles()
-                },
-                store: self.store.clone(),
-                cursor: 0,
-            })
+            iterparams.evaluate_to_pytextselections(iter, annotation.rootstore(), &self.store)
         })
     }
 }
@@ -407,41 +390,29 @@ impl PyAnnotations {
         })
     }
 
-    fn textselections(&self, limit: Option<usize>) -> PyResult<PyTextSelections> {
+    #[pyo3(signature = (**kwargs))]
+    fn textselections(&self, kwargs: Option<&PyDict>) -> PyResult<PyTextSelections> {
+        let iterparams = IterParams::new(kwargs)?;
         self.map(|annotations, store| {
             let iter = Annotations::from_handles(Cow::Borrowed(annotations), self.sorted, store)
                 .iter()
                 .textselections();
-            Ok(PyTextSelections {
-                textselections: if let Some(limit) = limit {
-                    iter.to_handles_limit(limit)
-                } else {
-                    iter.to_handles()
-                },
-                store: self.store.clone(),
-                cursor: 0,
-            })
+            iterparams.evaluate_to_pytextselections(iter, store, &self.store)
         })
     }
 
+    #[pyo3(signature = (operator, **kwargs))]
     fn related_text(
         &self,
         operator: PyTextSelectionOperator,
-        limit: Option<usize>,
+        kwargs: Option<&PyDict>,
     ) -> PyResult<PyTextSelections> {
+        let iterparams = IterParams::new(kwargs)?;
         self.map(|annotations, store| {
             let iter = Annotations::from_handles(Cow::Borrowed(annotations), self.sorted, store)
                 .iter()
                 .related_text(operator.operator);
-            Ok(PyTextSelections {
-                textselections: if let Some(limit) = limit {
-                    iter.to_handles_limit(limit)
-                } else {
-                    iter.to_handles()
-                },
-                store: self.store.clone(),
-                cursor: 0,
-            })
+            iterparams.evaluate_to_pytextselections(iter, store, &self.store)
         })
     }
 }

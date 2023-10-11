@@ -453,7 +453,8 @@ pub struct PyTextSelections {
 
 #[pymethods]
 impl PyTextSelections {
-    fn __iter__(pyself: PyRef<'_, Self>) -> PyRef<'_, Self> {
+    fn __iter__(mut pyself: PyRefMut<'_, Self>) -> PyRefMut<'_, Self> {
+        pyself.cursor = 0;
         pyself
     }
 

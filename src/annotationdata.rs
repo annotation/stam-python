@@ -383,10 +383,9 @@ impl PyAnnotationData {
         self.map(|annotationdata| Ok(annotationdata.id().map(|x| x.to_owned())))
     }
 
-    /// Returns the public ID (by value, aka a copy)
-    /// Use this sparingly
-    fn __str__(&self) -> PyResult<Option<String>> {
-        self.map(|annotationdata| Ok(annotationdata.id().map(|x| x.to_owned())))
+    /// Returns the value as a string
+    fn __str__(&self) -> PyResult<String> {
+        self.map(|annotationdata| Ok(annotationdata.value().to_string()))
     }
 
     /// Tests the ID of the dataset

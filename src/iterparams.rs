@@ -193,7 +193,7 @@ impl<'py> IterParams<'py> {
                         iter = iter.filter_data(key.data().filter_value(op).to_cache());
                     } else {
                         return Err(StamError::OtherError(
-                            "Python: You can specify a value filter only if you pass filter=DataKey",
+                            "Python: You can specify a value filter only if you pass filter=DataKey (Annotations)",
                         ));
                     }
                 }
@@ -258,10 +258,56 @@ impl<'py> IterParams<'py> {
     where
         'py: 'store,
     {
+        let mut has_value_filter = false;
+        let mut datakey_filter: Option<ResultItem<DataKey>> = None;
+        for filter in self.filters.iter() {
+            if let Filter::Value(op) = filter {
+                if let DataOperator::Any = op {
+                    //ignore
+                } else {
+                    has_value_filter = true;
+                }
+            }
+        }
         for filter in self.filters.into_iter() {
             match filter {
                 Filter::TextRelation(op) => {
                     iter = iter.related_text(op);
+                }
+                Filter::Annotation(handle) => {
+                    iter = iter.filter_annotation_handle(handle);
+                }
+                Filter::Annotations((annotations, sorted)) => {
+                    let annotations =
+                        Annotations::from_handles(Cow::Owned(annotations), sorted, store);
+                    iter = iter.filter_annotations(annotations);
+                }
+                Filter::AnnotationData(set_handle, data_handle) => {
+                    iter = iter.filter_annotationdata_handle(set_handle, data_handle);
+                }
+                Filter::Data((data, sorted)) => {
+                    let data = Data::from_handles(Cow::Owned(data), sorted, store);
+                    iter = iter.filter_data(data);
+                }
+                Filter::DataKey(set_handle, key_handle) => {
+                    if let Some(dataset) = store.dataset(set_handle) {
+                        if let Some(key) = dataset.key(key_handle) {
+                            if !has_value_filter {
+                                iter = iter.filter_data(key.data().to_cache());
+                            } else {
+                                datakey_filter = Some(key); //will be handled further in Filter::Value arm
+                            }
+                        }
+                    }
+                }
+                Filter::Value(operator) => {
+                    if let Some(key) = &datakey_filter {
+                        iter = iter.filter_data(key.data().filter_value(operator).to_cache());
+                    } else {
+                        return Err(StamError::OtherError(
+                            "Python: You can specify a value filter only if you pass filter=DataKey (TextSelections)",
+                        ));
+                    }
                 }
                 _ => {
                     return Err(StamError::OtherError(

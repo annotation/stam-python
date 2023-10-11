@@ -119,6 +119,7 @@ class AnnotationStore:
             * `AnnotationData` - Returns only annotations that have this exact data  (you can only pass this once).
             * a tuple/list of `AnnotationData` - Returns only annotations with data that matches one of the items in the tuple/list.
             * `DataKey` - Returns annotations with data matching this key (you can only pass this once).
+            * a tuple/list of `DataKey`
             * `Annotations` - Returns only annotations that are already in the provided :obj:`Annotations` collection (intersection)
             * `Data` - Returns only annotations with data that is in the provided :obj:`Data` collection.
             * `TextSelectionOperator` - Returns only annotations that are in a particular textual relationship with the current one (e.g. overlap,embedding,adjacency,etc).
@@ -229,13 +230,30 @@ class Annotation:
         """
         Returns a collection of all textselections (:class:`TextSelection`) referenced by the annotation (i.e. via a *TextSelector*).
         Note that this will always return a collection (even it if only contains a single element),
-        as an annotation may reference multiple text selections.
+        as an annotation may reference multiple text selections. 
+
+        Text selections will be returned in textual order, except if a DirectionalSelector was used.
+
+        Text selections may be filtered using the following keyword arguments:
 
         Keyword Arguments
         -------------------
 
         limit: Optional[int] = None
             The maximum number of results to return (default: unlimited)
+        filter: Union[AnnotationData,Tuple[AnnotationData],List[AnnotationData],DataKey,Annotations,Data,TextSelectionOperator]
+            If you want to add multiple different filters, use `filters` instead.
+            Filter annotations based on:
+            * `AnnotationData` - Returns only text selections referenced by annotations that have this exact data  (you can only pass this once).
+            * a tuple/list of `AnnotationData` - Returns only text selections referenced by annotations with data that matches one of the items in the tuple/list.
+            * `DataKey` - Returns text selections referenced by annotations with data matching this key (you can only pass this once).
+            * a tuple/list of `DataKey`
+            * `Annotations` - Returns only text selections referenced by annotations that are already in the provided :obj:`Annotations` collection (intersection)
+            * `Data` - Returns only text selections referenced by annotations with data that is in the provided :obj:`Data` collection.
+        filters: List[Union[AnnotationData,DataKey,Annotations,Data]]
+        value: Optional[Union[str,int,float,bool]]
+            Constrain the search to text selections referenced by annotations with data of a certain value. This can only be used with `filter=DataKey`.
+            This holds the exact value to search for, there are other variants of this keyword available, see :meth:`data` for a full list. 
         """
 
     def annotations_in_targets(self, recursive= False, limit: Optional[int] = None) -> Annotations:
@@ -268,6 +286,7 @@ class Annotation:
             * `AnnotationData` - Returns only annotations that have this exact data  (you can only pass this once).
             * a tuple/list of `AnnotationData` - Returns only annotations with data that matches one of the items in the tuple/list.
             * `DataKey` - Returns annotations with data matching this key (you can only pass this once).
+            * a tuple/list of `DataKey`
             * `Annotations` - Returns only annotations that are already in the provided :obj:`Annotations` collection (intersection)
             * `Data` - Returns only annotations with data that is in the provided :obj:`Data` collection.
         filters: List[Union[AnnotationData,DataKey,Annotations,Data]]
@@ -322,6 +341,7 @@ class Annotation:
             * `AnnotationData` - Returns only this exact data  (you can only pass this once). Use :meth:`test_data` instead.
             * a tuple/list of `AnnotationData` - Returns only annotations with data that matches one of the items in the tuple/list.
             * `DataKey` - Returns data matching this key (you can only pass this once).
+            * a tuple/list of `DataKey`
             * `Annotations` - Returns data that is used by by annotations in the provided :obj:`Annotations` collection.
             * `Data` - Returns only data that is in the provided :obj:`Data` collection.
         filters: List[Union[AnnotationData,DataKey,Annotations,Data]]
@@ -358,6 +378,8 @@ class Annotation:
         Applies a :class:`TextSelectionOperator` to find all other
         text selections who are in a specific relation with the ones from the current annotation. 
         Returns a collection :class:`TextSelections` containing all matching :class:`TextSelection` instances.
+
+        Text selections will be returned in textual order. They may be filtered via keyword arguments. See :meth:`Annotation.textselections`.
        
         If you are interested in the annotations associated with the found text selections, then
         add `.annotations()` to the result.
@@ -373,6 +395,8 @@ class Annotation:
 
         limit: Optional[int] = None
             The maximum number of results to return (default: unlimited)
+
+        See :meth:`Annotation.textselections` for further keyword arguments to filter.
         """
 
 
@@ -442,6 +466,8 @@ class Annotations:
         Applies a :class:`TextSelectionOperator` to find all other
         text selections who are in a specific relation with any from the current collection of annotations. 
         Returns a collection of all matching :class:`TextSelection` instances.
+
+        Text selections will be returned in textual order. They may be filtered via keyword arguments. See :meth:`Annotation.textselections`.
 
         See :meth:`Annotation.related_text` for allowed paramters/keyword arguments.
         """
@@ -727,6 +753,8 @@ class TextSelections:
         Applies a :class:`TextSelectionOperator` to find all other
         text selections who are in a specific relation with the ones from the current collections. 
         Returns a collection of all matching :class:`TextSelection` instances.
+
+        Text selections will be returned in textual order. They may be filtered via keyword arguments. See :meth:`Annotation.textselections`.
        
         If you are interested in the annotations associated with the found text selections, then
         add `.annotations()` to the result.
@@ -1095,7 +1123,9 @@ class TextResource:
         """
         Applies a :class:`TextSelectionOperator` to find all other
         text selections who are in a specific relation with the ones from `referenceselections`.
-        Returns all matching :class:`TextSelection` instances in a list.
+        Returns all matching :class:`TextSelection` instances in a collection :class:`TextSelections`.
+
+        Text selections will be returned in textual order. They may be filtered via keyword arguments. See :meth:`Annotation.textselections`.
        
         Parameters
         ------------
@@ -1260,6 +1290,8 @@ class TextSelection:
         Applies a :class:`TextSelectionOperator` to find all other
         text selections who are in a specific relation with this one.
         Returns all matching :class:`TextSelection` instances in a collection :class:`TextSelections`.
+
+        Text selections will be returned in textual order. They may be filtered via keyword arguments. See :meth:`Annotation.textselections`.
        
         Parameters
         ------------

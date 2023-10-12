@@ -36,15 +36,6 @@ impl PyDataKey {
             store: store.clone(),
         }
     }
-
-    pub(crate) fn new_py<'py>(
-        handle: DataKeyHandle,
-        set: AnnotationDataSetHandle,
-        store: &Arc<RwLock<AnnotationStore>>,
-        py: Python<'py>,
-    ) -> &'py PyAny {
-        Self::new(handle, set, store).into_py(py).into_ref(py)
-    }
 }
 
 #[pymethods]
@@ -192,15 +183,6 @@ impl PyAnnotationData {
             handle,
             store: store.clone(),
         }
-    }
-
-    pub(crate) fn new_py<'py>(
-        handle: AnnotationDataHandle,
-        set: AnnotationDataSetHandle,
-        store: &Arc<RwLock<AnnotationStore>>,
-        py: Python<'py>,
-    ) -> &'py PyAny {
-        Self::new(handle, set, store).into_py(py).into_ref(py)
     }
 }
 

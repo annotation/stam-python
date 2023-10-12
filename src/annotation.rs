@@ -43,14 +43,6 @@ impl PyAnnotation {
             store: store.clone(),
         }
     }
-
-    pub(crate) fn new_py<'py>(
-        handle: AnnotationHandle,
-        store: &Arc<RwLock<AnnotationStore>>,
-        py: Python<'py>,
-    ) -> &'py PyAny {
-        Self::new(handle, store).into_py(py).into_ref(py)
-    }
 }
 
 #[pymethods]
@@ -185,6 +177,17 @@ impl PyAnnotation {
         self.map(|annotation| {
             let iter = annotation.annotations();
             iterparams.evaluate_to_pyannotations(iter, annotation.store(), &self.store)
+        })
+    }
+
+    #[pyo3(signature = (**kwargs))]
+    fn test_annotations(&self, kwargs: Option<&PyDict>) -> PyResult<bool> {
+        let iterparams = IterParams::new(kwargs)?;
+        self.map(|annotation| {
+            let iter = annotation.annotations();
+            Ok(iterparams
+                .evaluate_annotations(iter, annotation.store())?
+                .test())
         })
     }
 

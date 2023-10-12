@@ -102,7 +102,7 @@ class AnnotationStore:
         or use the equally named method on other objects for more constrained and filterable annotations (e.g. :meth:`DataKey.annotations`, :meth:`AnnotationDataSet.annotations`, :meth:`TextResource.annotations`)
         """
 
-    def annotations(self) -> Annotations:
+    def annotations(self, **kwargs) -> Annotations:
         """Returns an iterator over all annotations (:class:`Annotation`) in this store.
 
         Filtering can be applied using keyword arguments. It is recommended to only use this method if you apply further filtering, otherwise the memory overhead may be very large if you have many annotations.
@@ -128,6 +128,8 @@ class AnnotationStore:
             Constrain the search to annotations with data of a certain value. This can only be used with `filter=DataKey`.
             This holds the exact value to search for, there are other variants of this keyword available, see :meth:`data` for a full list. 
         """
+
+
 
     def datasets(self) -> Iterator[AnnotationDataSet]:
         """Returns an iterator over all annotation data sets (:class:`AnnotationDataSet`) in this store"""
@@ -294,6 +296,14 @@ class Annotation:
             Constrain the search to annotations with data of a certain value. This can only be used with `filter=DataKey`.
             This holds the exact value to search for, there are other variants of this keyword available, see :meth:`data` for a full list. 
         """
+
+    def test_annotations(self, **kwargs) -> bool:
+        """
+        Tests whwther there are annotations (:class:`Annotations` containing :class:`Annotation`) that are referring to this annotation (i.e. others using an AnnotationSelector).
+        This method is like :meth:`annotations`, but only tests and does not return the annotations, as such it is more performant.
+
+        The annotations can be filtered using keyword arguments. See :meth:`Annotation.annotations`.
+       """
 
     def resources(self, limit: Optional[int] = None) -> List[TextResource]:
         """Returns a list of resources (:class:`TextResource`) this annotation refers to

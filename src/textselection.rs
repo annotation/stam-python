@@ -36,17 +36,6 @@ impl PyTextSelection {
         }
     }
 
-    pub(crate) fn new_py<'py>(
-        textselection: TextSelection,
-        resource: TextResourceHandle,
-        store: &Arc<RwLock<AnnotationStore>>,
-        py: Python<'py>,
-    ) -> &'py PyAny {
-        Self::new(textselection, resource, store)
-            .into_py(py)
-            .into_ref(py)
-    }
-
     pub(crate) fn from_result(
         result: ResultTextSelection<'_>,
         store: &Arc<RwLock<AnnotationStore>>,

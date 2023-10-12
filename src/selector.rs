@@ -1,7 +1,6 @@
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 use pyo3::pyclass::CompareOp;
-use std::sync::{Arc, RwLock};
 
 use crate::annotation::PyAnnotation;
 use crate::annotationdataset::PyAnnotationDataSet;

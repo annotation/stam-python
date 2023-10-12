@@ -7,7 +7,7 @@ use std::hash::{Hash, Hasher};
 use std::ops::FnOnce;
 use std::sync::{Arc, RwLock};
 
-use crate::annotation::{PyAnnotation, PyAnnotations};
+use crate::annotation::PyAnnotations;
 use crate::annotationdataset::PyAnnotationDataSet;
 use crate::annotationstore::MapStore;
 use crate::error::PyStamError;

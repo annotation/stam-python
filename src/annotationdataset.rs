@@ -5,12 +5,8 @@ use pyo3::types::*;
 use std::ops::FnOnce;
 use std::sync::{Arc, RwLock};
 
-use crate::annotation::PyAnnotation;
-use crate::annotationdata::{
-    data_request_parser, datavalue_from_py, PyAnnotationData, PyData, PyDataKey,
-};
+use crate::annotationdata::{datavalue_from_py, PyAnnotationData, PyData, PyDataKey};
 use crate::error::PyStamError;
-use crate::get_limit;
 use crate::iterparams::IterParams;
 use crate::selector::{PySelector, PySelectorKind};
 use stam::*;

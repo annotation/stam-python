@@ -200,11 +200,6 @@ impl<'py> IterParams<'py> {
                 Filter::TextRelation(op) => {
                     iter = iter.filter_related_text(op);
                 }
-                _ => {
-                    return Err(StamError::OtherError(
-                        "Python: not a valid filter in this context (Annotations)",
-                    ));
-                }
             }
         }
         Ok(iter)
@@ -308,11 +303,6 @@ impl<'py> IterParams<'py> {
                             "Python: You can specify a value filter only if you pass filter=DataKey (TextSelections)",
                         ));
                     }
-                }
-                _ => {
-                    return Err(StamError::OtherError(
-                        "Python: not a valid filter in this context (TextSelections)",
-                    ));
                 }
             }
         }

@@ -5,9 +5,7 @@ use std::ops::FnOnce;
 use std::sync::{Arc, RwLock};
 
 use crate::annotation::{PyAnnotation, PyAnnotations};
-use crate::annotationdata::{
-    annotationdata_builder, data_request_parser, PyAnnotationData, PyData,
-};
+use crate::annotationdata::{annotationdata_builder, data_request_parser, PyData};
 use crate::annotationdataset::PyAnnotationDataSet;
 use crate::config::get_config;
 use crate::error::PyStamError;
@@ -15,7 +13,6 @@ use crate::get_limit;
 use crate::iterparams::IterParams;
 use crate::resources::PyTextResource;
 use crate::selector::PySelector;
-use crate::textselection::PyTextSelection;
 use stam::*;
 
 #[pyclass(dict, module = "stam", name = "AnnotationStore")]

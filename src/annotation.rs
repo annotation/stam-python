@@ -6,15 +6,14 @@ use std::borrow::Cow;
 use std::ops::FnOnce;
 use std::sync::{Arc, RwLock};
 
-use crate::annotationdata::{data_request_parser, PyAnnotationData, PyData};
+use crate::annotationdata::{PyAnnotationData, PyData};
 use crate::annotationdataset::PyAnnotationDataSet;
 use crate::annotationstore::MapStore;
 use crate::error::PyStamError;
-use crate::get_limit;
 use crate::iterparams::IterParams;
 use crate::resources::{PyOffset, PyTextResource};
 use crate::selector::{PySelector, PySelectorKind};
-use crate::textselection::{PyTextSelection, PyTextSelectionOperator, PyTextSelections};
+use crate::textselection::{PyTextSelectionOperator, PyTextSelections};
 use stam::*;
 
 #[pyclass(dict, module = "stam", name = "Annotation")]

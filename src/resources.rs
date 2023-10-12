@@ -5,10 +5,8 @@ use pyo3::types::*;
 use std::ops::FnOnce;
 use std::sync::{Arc, RwLock};
 
-use crate::annotation::{PyAnnotation, PyAnnotations};
-use crate::annotationdata::{data_request_parser, PyAnnotationData, PyData};
+use crate::annotation::PyAnnotations;
 use crate::error::PyStamError;
-use crate::get_limit;
 use crate::iterparams::IterParams;
 use crate::selector::{PySelector, PySelectorKind};
 use crate::textselection::{

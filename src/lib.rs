@@ -12,9 +12,6 @@ mod resources;
 mod selector;
 mod textselection;
 
-use pyo3::exceptions::{PyRuntimeError, PyValueError};
-use pyo3::prelude::*;
-use pyo3::pyclass::CompareOp;
 use pyo3::types::*;
 
 use crate::annotation::{PyAnnotation, PyAnnotations};

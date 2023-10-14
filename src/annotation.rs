@@ -417,6 +417,24 @@ impl PyAnnotations {
             iterparams.evaluate_to_pytextselections(iter, store, &self.store)
         })
     }
+
+    fn textual_order(mut pyself: PyRefMut<'_, Self>) -> PyRefMut<'_, Self> {
+        pyself
+            .map_mut(|annotations, store| {
+                annotations.sort_unstable_by(|a, b| {
+                    let a = store
+                        .annotation(*a)
+                        .expect("annotation handle must be valid!");
+                    let b = store
+                        .annotation(*b)
+                        .expect("annotation handle must be valid!");
+                    compare_annotation_textual_order(&a, &b)
+                });
+                Ok(())
+            })
+            .unwrap();
+        pyself
+    }
 }
 
 impl PyAnnotations {
@@ -426,6 +444,19 @@ impl PyAnnotations {
     {
         if let Ok(store) = self.store.read() {
             f(&self.annotations, &store).map_err(|err| PyStamError::new_err(format!("{}", err)))
+        } else {
+            Err(PyRuntimeError::new_err(
+                "Unable to obtain store (should never happen)",
+            ))
+        }
+    }
+
+    fn map_mut<T, F>(&mut self, f: F) -> Result<T, PyErr>
+    where
+        F: FnOnce(&mut Vec<AnnotationHandle>, &AnnotationStore) -> Result<T, StamError>,
+    {
+        if let Ok(store) = self.store.read() {
+            f(&mut self.annotations, &store).map_err(|err| PyStamError::new_err(format!("{}", err)))
         } else {
             Err(PyRuntimeError::new_err(
                 "Unable to obtain store (should never happen)",

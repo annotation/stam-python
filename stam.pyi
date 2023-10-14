@@ -482,6 +482,14 @@ class Annotations:
         See :meth:`Annotation.related_text` for allowed paramters/keyword arguments.
         """
 
+    def textual_order(self) -> Annotations:
+        """
+        Sorts the annotations in textual order (provided they refer to any text at all)
+
+        This has some performance cost, so prevent calling this method on methods like :meth:`Annotation.annotations_in_targets` which already produce textual order (in most cases)
+        """
+
+
 class AnnotationDataSet:
     """
     An `AnnotationDataSet` stores the keys (:class:`DataKey`) and values

@@ -780,6 +780,12 @@ class TextSelections:
         See :meth:`Annotation.related_text` for allowed keyword arguments.
         """
 
+    def textual_order(self) -> TextSelections:
+        """
+        Sorts the annotations in textual order.
+
+        This has some performance cost, so prevent calling this method on methods that already promise to return textual order (which most textselection methods do!) 
+        """
 
 class Selector:
     """

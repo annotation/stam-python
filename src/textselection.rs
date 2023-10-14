@@ -529,6 +529,32 @@ impl PyTextSelections {
             iterparams.evaluate_to_pytextselections(iter, store, &self.store)
         })
     }
+
+    fn textual_order(mut pyself: PyRefMut<'_, Self>) -> PyRefMut<'_, Self> {
+        pyself
+            .map_mut(|textselections, store| {
+                textselections.sort_unstable_by(|(a_res, a_tsel), (b_res, b_tsel)| {
+                    let resource = store.get(*a_res).expect("resource must exist");
+                    let a = resource
+                        .get(*a_tsel)
+                        .unwrap()
+                        .as_resultitem(resource, store);
+                    let resource = if a_res == b_res {
+                        resource
+                    } else {
+                        store.get(*b_res).expect("resource must exist")
+                    };
+                    let b = resource
+                        .get(*b_tsel)
+                        .unwrap()
+                        .as_resultitem(resource, store);
+                    a.cmp(&b)
+                });
+                Ok(())
+            })
+            .unwrap();
+        pyself
+    }
 }
 
 impl PyTextSelections {
@@ -541,6 +567,23 @@ impl PyTextSelections {
     {
         if let Ok(store) = self.store.read() {
             f(&self.textselections, &store).map_err(|err| PyStamError::new_err(format!("{}", err)))
+        } else {
+            Err(PyRuntimeError::new_err(
+                "Unable to obtain store (should never happen)",
+            ))
+        }
+    }
+
+    fn map_mut<T, F>(&mut self, f: F) -> Result<T, PyErr>
+    where
+        F: FnOnce(
+            &mut Vec<(TextResourceHandle, TextSelectionHandle)>,
+            &AnnotationStore,
+        ) -> Result<T, StamError>,
+    {
+        if let Ok(store) = self.store.read() {
+            f(&mut self.textselections, &store)
+                .map_err(|err| PyStamError::new_err(format!("{}", err)))
         } else {
             Err(PyRuntimeError::new_err(
                 "Unable to obtain store (should never happen)",

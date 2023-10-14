@@ -487,6 +487,31 @@ impl PyTextSelections {
         !pyself.textselections.is_empty()
     }
 
+    fn __str__(pyself: PyRef<'_, Self>) -> PyResult<String> {
+        PyTextSelections::text_join(pyself, " ")
+    }
+
+    fn text_join(pyself: PyRef<'_, Self>, delimiter: &str) -> PyResult<String> {
+        pyself.map(|textselections, store| {
+            let iter = stam::TextSelectionsIter::from_handles(
+                textselections.iter().copied().collect(), //MAYBE TODO: work away the extra copy
+                store,
+            );
+            Ok(iter.text_join(delimiter))
+        })
+    }
+
+    fn text(pyself: PyRef<'_, Self>) -> PyResult<Vec<String>> {
+        pyself.map(|textselections, store| {
+            let iter = stam::TextSelectionsIter::from_handles(
+                textselections.iter().copied().collect(), //MAYBE TODO: work away the extra copy
+                store,
+            );
+            let v: Vec<String> = iter.text().map(|s| s.to_string()).collect();
+            Ok(v)
+        })
+    }
+
     #[pyo3(signature = (**kwargs))]
     fn annotations(&self, kwargs: Option<&PyDict>) -> PyResult<PyAnnotations> {
         let iterparams = IterParams::new(kwargs)?;

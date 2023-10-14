@@ -750,6 +750,18 @@ class TextSelections:
     def __getitem__(self, int) -> TextSelection:
         """Returns a textselection in the collection by index"""
 
+    def __str__(self) -> str:
+        """Returns the text of all textselections.
+
+        The results are space-delimited, use :meth:`text_join` instead if you want another delimiter.
+        """
+
+    def text_join(self, delimiter: str) -> str:
+        """Returns the text of all textselections, separated by the provider delimiter. This is more efficient than calling `.text().join()` yourself."""
+
+    def text(self, delimiter: str) -> List[str]:
+        """Returns the text of all textselections in a list"""
+
     def annotations(self, **kwargs) -> Annotations:
         """
         Returns annotations (:class:`Annotations` containing :class:`Annotation`) that refer to any of the text selections in this collection

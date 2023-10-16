@@ -99,7 +99,7 @@ impl<'py> IterParams<'py> {
         let mut filters = Vec::new();
         let mut limit: Option<usize> = None;
         if let Some(kwargs) = kwargs {
-            if let Some(v) = kwargs.get_item("limit") {
+            if let Ok(Some(v)) = kwargs.get_item("limit") {
                 match v.extract() {
                     Ok(v) => limit = v,
                     Err(e) => {
@@ -110,9 +110,9 @@ impl<'py> IterParams<'py> {
                     }
                 }
             }
-            if let Some(filter) = kwargs.get_item("filter") {
+            if let Ok(Some(filter)) = kwargs.get_item("filter") {
                 add_filter(&mut filters, filter)?;
-            } else if let Some(filter) = kwargs.get_item("filters") {
+            } else if let Ok(Some(filter)) = kwargs.get_item("filters") {
                 if filter.is_instance_of::<PyList>() {
                     let vec = filter.downcast::<PyList>()?;
                     for filter in vec {

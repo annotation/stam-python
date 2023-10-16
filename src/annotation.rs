@@ -157,7 +157,7 @@ impl PyAnnotation {
         let iterparams = IterParams::new(kwargs)?;
         let mut recursive: bool = false;
         if let Some(kwargs) = kwargs {
-            if let Some(v) = kwargs.get_item("recursive") {
+            if let Ok(Some(v)) = kwargs.get_item("recursive") {
                 if let Ok(v) = v.extract() {
                     recursive = v;
                 }
@@ -378,7 +378,7 @@ impl PyAnnotations {
         let iterparams = IterParams::new(kwargs)?;
         let mut recursive: bool = false;
         if let Some(kwargs) = kwargs {
-            if let Some(v) = kwargs.get_item("recursive") {
+            if let Ok(Some(v)) = kwargs.get_item("recursive") {
                 if let Ok(v) = v.extract() {
                     recursive = v;
                 }

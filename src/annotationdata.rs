@@ -463,7 +463,7 @@ pub(crate) fn annotationdata_builder<'a>(data: &'a PyAny) -> PyResult<Annotation
         Ok(builder)
     } else if data.is_instance_of::<PyDict>() {
         let data = data.downcast::<PyDict>()?;
-        if let Some(id) = data.get_item("id") {
+        if let Ok(Some(id)) = data.get_item("id") {
             if id.is_instance_of::<PyAnnotationData>() {
                 let adata: PyRef<'_, PyAnnotationData> = id.extract()?;
                 builder = builder.with_id(adata.handle.into());
@@ -473,7 +473,7 @@ pub(crate) fn annotationdata_builder<'a>(data: &'a PyAny) -> PyResult<Annotation
                 builder = builder.with_id(id.into());
             }
         }
-        if let Some(key) = data.get_item("key") {
+        if let Ok(Some(key)) = data.get_item("key") {
             if key.is_instance_of::<PyDataKey>() {
                 let key: PyRef<'_, PyDataKey> = key.extract()?;
                 builder = builder.with_key(key.handle.into());
@@ -482,7 +482,7 @@ pub(crate) fn annotationdata_builder<'a>(data: &'a PyAny) -> PyResult<Annotation
                 builder = builder.with_key(key.into());
             }
         }
-        if let Some(set) = data.get_item("set") {
+        if let Ok(Some(set)) = data.get_item("set") {
             if set.is_instance_of::<PyAnnotationDataSet>() {
                 let set: PyRef<'_, PyAnnotationDataSet> = set.extract()?;
                 builder = builder.with_dataset(set.handle.into());
@@ -491,7 +491,7 @@ pub(crate) fn annotationdata_builder<'a>(data: &'a PyAny) -> PyResult<Annotation
                 builder = builder.with_dataset(set.into());
             }
         }
-        if let Some(value) = data.get_item("value") {
+        if let Ok(Some(value)) = data.get_item("value") {
             builder = builder.with_value(
                 datavalue_from_py(value)
                     .map_err(|_e| PyValueError::new_err("Invalid type for value"))?,
@@ -514,37 +514,37 @@ pub(crate) fn dataoperator_from_kwargs<'a, 'py>(
 where
     'py: 'a,
 {
-    if let Some(value) = kwargs.get_item("value") {
+    if let Ok(Some(value)) = kwargs.get_item("value") {
         Ok(Some(dataoperator_from_py(value)?))
-    } else if let Some(value) = kwargs.get_item("value_not") {
+    } else if let Ok(Some(value)) = kwargs.get_item("value_not") {
         Ok(Some(DataOperator::Not(Box::new(dataoperator_from_py(
             value,
         )?))))
-    } else if let Some(value) = kwargs.get_item("value_greater") {
+    } else if let Ok(Some(value)) = kwargs.get_item("value_greater") {
         Ok(Some(dataoperator_greater_from_py(value)?))
-    } else if let Some(value) = kwargs.get_item("value_not_greater") {
+    } else if let Ok(Some(value)) = kwargs.get_item("value_not_greater") {
         Ok(Some(DataOperator::Not(Box::new(
             dataoperator_greater_from_py(value)?,
         ))))
-    } else if let Some(value) = kwargs.get_item("value_less") {
+    } else if let Ok(Some(value)) = kwargs.get_item("value_less") {
         Ok(Some(dataoperator_less_from_py(value)?))
-    } else if let Some(value) = kwargs.get_item("value_not_less") {
+    } else if let Ok(Some(value)) = kwargs.get_item("value_not_less") {
         Ok(Some(DataOperator::Not(Box::new(
             dataoperator_less_from_py(value)?,
         ))))
-    } else if let Some(value) = kwargs.get_item("value_greatereq") {
+    } else if let Ok(Some(value)) = kwargs.get_item("value_greatereq") {
         Ok(Some(dataoperator_greatereq_from_py(value)?))
-    } else if let Some(value) = kwargs.get_item("value_not_greatereq") {
+    } else if let Ok(Some(value)) = kwargs.get_item("value_not_greatereq") {
         Ok(Some(DataOperator::Not(Box::new(
             dataoperator_greatereq_from_py(value)?,
         ))))
-    } else if let Some(value) = kwargs.get_item("value_lesseq") {
+    } else if let Ok(Some(value)) = kwargs.get_item("value_lesseq") {
         Ok(Some(dataoperator_lesseq_from_py(value)?))
-    } else if let Some(value) = kwargs.get_item("value_not_lesseq") {
+    } else if let Ok(Some(value)) = kwargs.get_item("value_not_lesseq") {
         Ok(Some(DataOperator::Not(Box::new(
             dataoperator_lesseq_from_py(value)?,
         ))))
-    } else if let Some(values) = kwargs.get_item("value_in") {
+    } else if let Ok(Some(values)) = kwargs.get_item("value_in") {
         if values.is_instance_of::<PyTuple>() {
             let values: &PyTuple = values.downcast().unwrap();
             let mut suboperators = Vec::with_capacity(values.len());
@@ -555,7 +555,7 @@ where
         } else {
             Err(StamError::OtherError("`value_in` must be a tuple"))
         }
-    } else if let Some(values) = kwargs.get_item("value_not_in") {
+    } else if let Ok(Some(values)) = kwargs.get_item("value_not_in") {
         if values.is_instance_of::<PyTuple>() {
             let values: &PyTuple = values.downcast().unwrap();
             let mut suboperators = Vec::with_capacity(values.len());
@@ -568,7 +568,7 @@ where
         } else {
             Err(StamError::OtherError("`value_in` must be a tuple"))
         }
-    } else if let Some(values) = kwargs.get_item("value_in_range") {
+    } else if let Ok(Some(values)) = kwargs.get_item("value_in_range") {
         if let Ok((min, max)) = values.extract::<(isize, isize)>() {
             Ok(Some(DataOperator::And(vec![
                 DataOperator::GreaterThanOrEqual(min),
@@ -584,7 +584,7 @@ where
                 "`value_in_range` must be a 2-tuple min,max (exclusive) with numbers (both int or both float)",
             ))
         }
-    } else if let Some(values) = kwargs.get_item("value_not_in_range") {
+    } else if let Ok(Some(values)) = kwargs.get_item("value_not_in_range") {
         if let Ok((min, max)) = values.extract::<(isize, isize)>() {
             Ok(Some(DataOperator::And(vec![
                 DataOperator::LessThan(min),
@@ -692,7 +692,7 @@ where
     'py: 'store,
 {
     if let Some(kwargs) = kwargs {
-        if let Some(set) = kwargs.get_item("set") {
+        if let Ok(Some(set)) = kwargs.get_item("set") {
             if set.is_instance_of::<PyAnnotationDataSet>() {
                 let set: PyRef<'py, PyAnnotationDataSet> =
                     set.extract().expect("extract should succeed");
@@ -703,7 +703,7 @@ where
                 set_handle = Some(store.resolve_dataset_id(set)?);
             }
         }
-        if let Some(key) = kwargs.get_item("key") {
+        if let Ok(Some(key)) = kwargs.get_item("key") {
             if key.is_instance_of::<PyDataKey>() {
                 let key: PyRef<'py, PyDataKey> = key.extract().expect("extract should succeed");
                 set_handle = Some(key.set);

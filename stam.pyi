@@ -778,6 +778,14 @@ class TextSelections:
         The annotations can be filtered using keyword arguments. See :meth:`Annotation.annotations`.
        """
 
+    def test_data(self, **kwargs) -> bool:
+        """
+        Tests whether there are any annotations that reference any of the text selections in the iterator, with data that passes the provided filters.
+        The result is functionally equivalent to doing `.annotations().test_data()`, but this shortcut method is implemented much more efficiently and therefore recommended.
+
+        The data can be filtered using keyword arguments. See :meth:`Annotations.data`.
+        """
+
     def related_text(self, operator: TextSelectionOperator, **kwargs) -> TextSelections:
         """
         Applies a :class:`TextSelectionOperator` to find all other
@@ -1320,6 +1328,14 @@ class TextSelection:
 
         The annotations can be filtered using keyword arguments. See :meth:`Annotation.annotations`.
        """
+
+    def test_data(self, **kwargs) -> bool:
+        """
+        Tests whether there are any annotations that reference this text selection with data that passes the provided filters.
+        The result is functionally equivalent to doing `.annotations().test_data()`, but this shortcut method is implemented much more efficiently and therefore recommended.
+
+        The data can be filtered using keyword arguments. See :meth:`Annotations.data`.
+        """
 
     def related_text(self, operator: TextSelectionOperator, **kwargs) -> TextSelections:
         """

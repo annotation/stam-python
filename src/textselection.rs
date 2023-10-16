@@ -314,6 +314,17 @@ impl PyTextSelection {
         })
     }
 
+    #[pyo3(signature = (**kwargs))]
+    fn test_data(&self, kwargs: Option<&PyDict>) -> PyResult<bool> {
+        let iterparams = IterParams::new(kwargs)?;
+        self.map(|textselection| {
+            let iter = textselection.annotations().data_unchecked();
+            Ok(iterparams
+                .evaluate_data(iter, textselection.rootstore())?
+                .test())
+        })
+    }
+
     #[pyo3(signature = (operator, **kwargs))]
     fn related_text(
         &self,
@@ -535,6 +546,20 @@ impl PyTextSelections {
             )
             .annotations();
             Ok(iterparams.evaluate_annotations(iter, store)?.test())
+        })
+    }
+
+    #[pyo3(signature = (**kwargs))]
+    fn test_data(&self, kwargs: Option<&PyDict>) -> PyResult<bool> {
+        let iterparams = IterParams::new(kwargs)?;
+        self.map(|textselections, store| {
+            let iter = stam::TextSelectionsIter::from_handles(
+                textselections.iter().copied().collect(), //MAYBE TODO: work away the extra copy
+                store,
+            )
+            .annotations_unchecked()
+            .data_unchecked();
+            Ok(iterparams.evaluate_data(iter, store)?.test())
         })
     }
 

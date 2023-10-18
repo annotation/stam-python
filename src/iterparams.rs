@@ -174,7 +174,7 @@ impl<'py> IterParams<'py> {
                         .ok_or_else(|| StamError::HandleError("Unable to find key"))?;
                     //check if we also have a value filter
                     if !has_value_filter {
-                        iter = iter.filter_data(key.data().to_cache());
+                        iter = iter.filter_data(key.data().to_collection());
                     } else {
                         datakey_filter = Some(key); //will be handled further in Filter::Value arm
                     }
@@ -190,7 +190,7 @@ impl<'py> IterParams<'py> {
                 }
                 Filter::Value(op) => {
                     if let Some(key) = &datakey_filter {
-                        iter = iter.filter_data(key.data().filter_value(op).to_cache());
+                        iter = iter.filter_data(key.data().filter_value(op).to_collection());
                     } else {
                         return Err(StamError::OtherError(
                             "Python: You can specify a value filter only if you pass filter=DataKey (Annotations)",
@@ -288,7 +288,7 @@ impl<'py> IterParams<'py> {
                     if let Some(dataset) = store.dataset(set_handle) {
                         if let Some(key) = dataset.key(key_handle) {
                             if !has_value_filter {
-                                iter = iter.filter_data(key.data().to_cache());
+                                iter = iter.filter_data(key.data().to_collection());
                             } else {
                                 datakey_filter = Some(key); //will be handled further in Filter::Value arm
                             }
@@ -297,7 +297,7 @@ impl<'py> IterParams<'py> {
                 }
                 Filter::Value(operator) => {
                     if let Some(key) = &datakey_filter {
-                        iter = iter.filter_data(key.data().filter_value(operator).to_cache());
+                        iter = iter.filter_data(key.data().filter_value(operator).to_collection());
                     } else {
                         return Err(StamError::OtherError(
                             "Python: You can specify a value filter only if you pass filter=DataKey (TextSelections)",

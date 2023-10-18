@@ -303,9 +303,9 @@ impl PyAnnotationStore {
                     let sorted = iter.returns_sorted();
                     Ok(PyData {
                         data: if let Some(limit) = limit {
-                            iter.to_cache_limit(limit).take()
+                            iter.to_collection_limit(limit).take()
                         } else {
-                            iter.to_cache().take()
+                            iter.to_collection().take()
                         },
                         store: self.store.clone(),
                         cursor: 0,

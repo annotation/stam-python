@@ -29,7 +29,7 @@ actual application.
 
 class AnnotationStore:
     """
-    An Annotation Store is an unordered collection of annotations, resources and
+    An Annotation Store is a collection of annotations, resources and
     annotation data sets. It can be seen as the *root* of the *graph model* and the glue
     that holds everything together. It is the entry point for any stam model.
     """

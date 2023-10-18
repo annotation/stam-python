@@ -557,9 +557,9 @@ impl<'py> IterParams<'py> {
                 let sorted = iter.returns_sorted();
                 Ok(PyAnnotations {
                     annotations: if let Some(limit) = limit {
-                        iter.to_cache_limit(limit).take()
+                        iter.to_collection_limit(limit).take()
                     } else {
-                        iter.to_cache().take()
+                        iter.to_collection().take()
                     },
                     store: wrappedstore.clone(),
                     cursor: 0,

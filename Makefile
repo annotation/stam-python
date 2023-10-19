@@ -22,4 +22,7 @@ local:
 notebook: env
 	. env/bin/activate && ipython kernel install --user --name=venv && jupyter notebook
 
+docs:
+	cd docs && sphinx-build -b html . build
+
 

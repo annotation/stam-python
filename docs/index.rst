@@ -1,7 +1,7 @@
 STAM Python Binding - API Documentation
 =========================================
 
-`STAM <https:/github.com/annotation/stam>`_ is a data model for stand-off text
+`STAM <https://github.com/annotation/stam>`_ is a data model for stand-off text
 annotation and described in detail `here <https://github.com/annotation/stam>`_.
 This is a python library (to be more specific; a python binding written in
 Rust) to work with the model.

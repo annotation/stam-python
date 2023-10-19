@@ -1,5 +1,5 @@
-STAM Python Binding - API Documentation
-=========================================
+STAM Library for Python - API Documentation
+==============================================
 
 `STAM <https://github.com/annotation/stam>`_ is a data model for stand-off text
 annotation and described in detail `here <https://github.com/annotation/stam>`_.

@@ -225,7 +225,7 @@ class Annotation:
         """Returns the public ID (by value, aka a copy)
         Don't use this for extensive ID comparisons, use :meth:`has_id` instead as it is more performant (no copy)."""
 
-    def has_id(self, id: str) -> Optional[str]:
+    def has_id(self, id: str) -> bool:
         """Tests the ID"""
 
     def __iter__(self) -> Iterator[AnnotationData]:
@@ -531,7 +531,7 @@ class AnnotationDataSet:
         """Returns the public ID (by value, aka a copy)
         Don't use this for extensive ID comparisons, use :meth:`has_id` instead as it is more performant (no copy)."""
 
-    def has_id(self, id: str) -> Optional[str]:
+    def has_id(self, id: str) -> bool:
         """Tests the ID"""
 
     def key(self, key: str) -> DataKey:
@@ -588,7 +588,7 @@ class DataKey:
         """Returns the public ID (by value, aka a copy)
         Don't use this for extensive ID comparisons, use :meth:`has_id` instead as it is more performant (no copy)."""
 
-    def has_id(self, id: str) -> Optional[str]:
+    def has_id(self, id: str) -> bool:
         """Tests the ID"""
 
     def dataset(self) -> AnnotationDataSet:
@@ -668,7 +668,7 @@ class AnnotationData:
         """Returns the public ID (by value, aka a copy)
         Don't use this for extensive ID comparisons, use :meth:`has_id` instead as it is more performant (no copy)."""
 
-    def has_id(self, id: str) -> Optional[str]:
+    def has_id(self, id: str) -> bool:
         """Tests the ID"""
 
     def key(self) -> DataKey:
@@ -1041,7 +1041,7 @@ class TextResource:
         """Returns the public ID (by value, aka a copy)
         Don't use this for extensive ID comparisons, use :meth:`has_id` instead as it is more performant (no copy)."""
 
-    def has_id(self, id: str) -> Optional[str]:
+    def has_id(self, id: str) -> bool:
         """Tests the ID"""
 
     def __iter__(self) -> Iterator[TextSelection]:

@@ -141,13 +141,14 @@ class AnnotationStore:
         filter: Union[AnnotationData,Tuple[AnnotationData],List[AnnotationData],DataKey,Annotations,Data,TextSelectionOperator]
             If you want to add multiple different filters, use `filters` instead.
             Filter annotations based on:
-            * `AnnotationData` - Returns only annotations that have this exact data  (you can only pass this once).
-            * a tuple/list of `AnnotationData` - Returns only annotations with data that matches one of the items in the tuple/list.
-            * `DataKey` - Returns annotations with data matching this key (you can only pass this once).
-            * a tuple/list of `DataKey`
-            * `Annotations` - Returns only annotations that are already in the provided :obj:`Annotations` collection (intersection)
-            * `Data` - Returns only annotations with data that is in the provided :obj:`Data` collection.
-            * `TextSelectionOperator` - Returns only annotations that are in a particular textual relationship with the current one (e.g. overlap,embedding,adjacency,etc).
+
+            * :class:`AnnotationData` - Returns only annotations that have this exact data  (you can only pass this once).
+            * a tuple/list of :class:`AnnotationData` - Returns only annotations with data that matches one of the items in the tuple/list.
+            * :class:`DataKey` - Returns annotations with data matching this key (you can only pass this once).
+            * a tuple/list of :class:`DataKey`
+            * :class:`Annotations` - Returns only annotations that are already in the provided :obj:`Annotations` collection (intersection)
+            * :class:`Data` - Returns only annotations with data that is in the provided :obj:`Data` collection.
+            * :class:`TextSelectionOperator` - Returns only annotations that are in a particular textual relationship with the current one (e.g. overlap,embedding,adjacency,etc).
         filters: List[Union[AnnotationData,DataKey,Annotations,Data]]
         value: Optional[Union[str,int,float,bool]]
             Constrain the search to annotations with data of a certain value. This can only be used with `filter=DataKey`.
@@ -271,12 +272,13 @@ class Annotation:
         filter: Union[AnnotationData,Tuple[AnnotationData],List[AnnotationData],DataKey,Annotations,Data,TextSelectionOperator]
             If you want to add multiple different filters, use `filters` instead.
             Filter annotations based on:
-            * `AnnotationData` - Returns only text selections referenced by annotations that have this exact data  (you can only pass this once).
-            * a tuple/list of `AnnotationData` - Returns only text selections referenced by annotations with data that matches one of the items in the tuple/list.
-            * `DataKey` - Returns text selections referenced by annotations with data matching this key (you can only pass this once).
-            * a tuple/list of `DataKey`
-            * `Annotations` - Returns only text selections referenced by annotations that are already in the provided :obj:`Annotations` collection (intersection)
-            * `Data` - Returns only text selections referenced by annotations with data that is in the provided :obj:`Data` collection.
+
+            * :class:`AnnotationData` - Returns only text selections referenced by annotations that have this exact data  (you can only pass this once).
+            * a tuple/list of :class:`AnnotationData` - Returns only text selections referenced by annotations with data that matches one of the items in the tuple/list.
+            * :class:`DataKey` - Returns text selections referenced by annotations with data matching this key (you can only pass this once).
+            * a tuple/list of :class:`DataKey`
+            * :class:`Annotations` - Returns only text selections referenced by annotations that are already in the provided :obj:`Annotations` collection (intersection)
+            * :class:`Data` - Returns only text selections referenced by annotations with data that is in the provided :obj:`Data` collection.
         filters: List[Union[AnnotationData,DataKey,Annotations,Data]]
         value: Optional[Union[str,int,float,bool]]
             Constrain the search to text selections referenced by annotations with data of a certain value. This can only be used with `filter=DataKey`.
@@ -310,12 +312,13 @@ class Annotation:
         filter: Union[AnnotationData,Tuple[AnnotationData],List[AnnotationData],DataKey,Annotations,Data]
             If you want to add multiple different filters, use `filters` instead.
             Filter annotations based on:
-            * `AnnotationData` - Returns only annotations that have this exact data  (you can only pass this once).
-            * a tuple/list of `AnnotationData` - Returns only annotations with data that matches one of the items in the tuple/list.
-            * `DataKey` - Returns annotations with data matching this key (you can only pass this once).
-            * a tuple/list of `DataKey`
-            * `Annotations` - Returns only annotations that are already in the provided :obj:`Annotations` collection (intersection)
-            * `Data` - Returns only annotations with data that is in the provided :obj:`Data` collection.
+
+            * :class:`AnnotationData` - Returns only annotations that have this exact data  (you can only pass this once).
+            * a tuple/list of :class:`AnnotationData` - Returns only annotations with data that matches one of the items in the tuple/list.
+            * :class:`DataKey` - Returns annotations with data matching this key (you can only pass this once).
+            * a tuple/list of :class:`DataKey`
+            * :class:`Annotations` - Returns only annotations that are already in the provided :obj:`Annotations` collection (intersection)
+            * :class:`Data` - Returns only annotations with data that is in the provided :obj:`Data` collection.
         filters: List[Union[AnnotationData,DataKey,Annotations,Data]]
         value: Optional[Union[str,int,float,bool]]
             Constrain the search to annotations with data of a certain value. This can only be used with `filter=DataKey`.
@@ -373,12 +376,13 @@ class Annotation:
         filter: Union[AnnotationData,Tuple[AnnotationData],List[AnnotationData],DataKey,Annotations,Data]
             If you want to add multiple different filters, use `filters` instead.
             Filter annotations based on:
-            * `AnnotationData` - Returns only this exact data  (you can only pass this once). Use :meth:`test_data` instead.
-            * a tuple/list of `AnnotationData` - Returns only annotations with data that matches one of the items in the tuple/list.
-            * `DataKey` - Returns data matching this key (you can only pass this once).
-            * a tuple/list of `DataKey`
-            * `Annotations` - Returns data that is used by by annotations in the provided :obj:`Annotations` collection.
-            * `Data` - Returns only data that is in the provided :obj:`Data` collection.
+
+            * :class:`AnnotationData` - Returns only this exact data  (you can only pass this once). Use :meth:`test_data` instead.
+            * a tuple/list of :class:`AnnotationData` - Returns only annotations with data that matches one of the items in the tuple/list.
+            * :class:`DataKey` - Returns data matching this key (you can only pass this once).
+            * a tuple/list of :class:`DataKey`
+            * :class:`Annotations` - Returns data that is used by by annotations in the provided :obj:`Annotations` collection.
+            * :class:`Data` - Returns only data that is in the provided :obj:`Data` collection.
         filters: List[Union[AnnotationData,DataKey,Annotations,Data]]
         value: Optional[Union[str,int,float,bool,List[Union[str,int,float,bool]]]]
             Search for data matching a specific value.
@@ -700,11 +704,12 @@ class AnnotationData:
         filter: Union[AnnotationData,Tuple[AnnotationData],List[AnnotationData],DataKey,Annotations,Data]
             If you want to add multiple different filters, use `filters` instead.
             Filter annotations based on:
-            * `AnnotationData` - Returns only annotations that have this exact data  (you can only pass this once).
-            * a tuple/list of `AnnotationData` - Returns only annotations with data that matches one of the items in the tuple/list.
-            * `DataKey` - Returns annotations with data matching this key (you can only pass this once).
-            * `Annotations` - Returns only annotations that are already in the provided :obj:`Annotations` collection (intersection)
-            * `Data` - Returns only annotations with data that is in the provided :obj:`Data` collection.
+
+            * :class:`AnnotationData` - Returns only annotations that have this exact data  (you can only pass this once).
+            * a tuple/list of :class:`AnnotationData` - Returns only annotations with data that matches one of the items in the tuple/list.
+            * :class:`DataKey` - Returns annotations with data matching this key (you can only pass this once).
+            * :class:`Annotations` - Returns only annotations that are already in the provided :obj:`Annotations` collection (intersection)
+            * :class:`Data` - Returns only annotations with data that is in the provided :obj:`Data` collection.
         filters: List[Union[AnnotationData,DataKey,Annotations,Data]]
         value: Optional[Union[str,int,float,bool]]
             Constrain the search to annotations with data of a certain value. This can only be used with `filter=DataKey`.

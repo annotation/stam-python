@@ -27,10 +27,22 @@ Annotation
 .. autoclass:: Annotation
     :members:
 
+Annotations
+----------------
+
+.. autoclass:: Annotations
+    :members:
+
 AnnotationData
 ----------------
 
 .. autoclass:: AnnotationData
+    :members:
+
+Data
+----------------
+
+.. autoclass:: Data
     :members:
 
 DataKey
@@ -43,6 +55,12 @@ DataValue
 ----------------
 
 .. autoclass:: DataValue
+    :members:
+
+DataOperator
+----------------
+
+.. autoclass:: DataOperator
     :members:
 
 Offset
@@ -73,6 +91,12 @@ TextSelection
 ----------------
 
 .. autoclass:: TextSelection
+    :members:
+
+TextSelections
+----------------
+
+.. autoclass:: TextSelections
     :members:
 
 TextSelectionOperator

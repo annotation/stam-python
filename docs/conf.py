@@ -50,6 +50,7 @@ autoapi_dirs = [".."]
 autoapi_file_patterns = ["*.pyi"]
 autoapi_ignore = ["*env*"]
 autoapi_member_order = "alphabetical"
+autoapi_python_class_content = "both"
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = []

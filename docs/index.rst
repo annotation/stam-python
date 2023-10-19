@@ -38,11 +38,9 @@ Contents
 ========
 
 .. toctree::
-    :maxdepth: 2
-
-    API Reference <stam.rst>
-
+    :maxdepth: 5
 
 Index
 =====
+
 * :ref:`genindex`

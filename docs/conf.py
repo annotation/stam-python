@@ -34,16 +34,22 @@ with open('../Cargo.toml') as f:
 # extensions coming with Sphinx (named 'sphinx.ext.*') or your custom
 # ones.
 extensions = [
-    'sphinx.ext.autodoc',
+    #'sphinx.ext.autodoc',
     'sphinx.ext.extlinks',
     'sphinx.ext.intersphinx',
     'sphinx.ext.napoleon',
+    'autoapi.extension',
 ]
 
 autodoc_typehints = 'both'
 napoleon_google_docstring = False
 napoleon_numpy_docstring = True
 autodoc_member_order = 'bysource'
+
+autoapi_dirs = [".."]
+autoapi_file_patterns = ["*.pyi"]
+autoapi_ignore = ["*env*","*build*"]
+autoapi_member_order = "alphabetical"
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = []
@@ -83,7 +89,7 @@ html_theme_options = {
     # Toc options
     'collapse_navigation': True,
     'sticky_navigation': True,
-    'navigation_depth': 4,
+    'navigation_depth': 5,
     'includehidden': True,
     'titles_only': False
 }

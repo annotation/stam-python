@@ -15,12 +15,6 @@ AnnotationDataSet
 .. autoclass:: AnnotationDataSet
     :members:
 
-TextResource
-----------------
-
-.. autoclass:: TextResource
-    :members:
-
 Annotation
 ----------------
 
@@ -57,12 +51,6 @@ DataValue
 .. autoclass:: DataValue
     :members:
 
-DataOperator
-----------------
-
-.. autoclass:: DataOperator
-    :members:
-
 Offset
 ----------------
 
@@ -85,6 +73,12 @@ SelectorKind
 ----------------
 
 .. autoclass:: SelectorKind
+    :members:
+
+TextResource
+----------------
+
+.. autoclass:: TextResource
     :members:
 
 TextSelection

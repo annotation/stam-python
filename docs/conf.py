@@ -48,7 +48,7 @@ autodoc_member_order = 'bysource'
 
 autoapi_dirs = [".."]
 autoapi_file_patterns = ["*.pyi"]
-autoapi_ignore = ["*env*","*build*"]
+autoapi_ignore = ["*env*"]
 autoapi_member_order = "alphabetical"
 
 # Add any paths that contain templates here, relative to this directory.

@@ -405,7 +405,7 @@ class Test4(unittest.TestCase):
                             target=Selector.textselector(resource, Offset.simple(0,5)),
                             data={ "id": "D2", "key": "pos", "value": "interjection", "set": "testdataset"})
         self.store.annotate(id="Word",
-                            target=Selector.multiselector(
+                            target=Selector.compositeselector(
                                 Selector.annotationselector(self.store.annotation("A1"), Offset.whole()),
                                 Selector.annotationselector(self.store.annotation("A2"), Offset.whole()),
                             ),
@@ -419,11 +419,10 @@ class Test4(unittest.TestCase):
         self.assertEqual(str(textselections[0]), "Hello")
         self.assertEqual(str(textselections[1]), "world")
 
-    def test_multiselector_iter(self):
+    def test_complexselector_iter(self):
         annotation = self.store.annotation("Word")
 
         #extract annotations we point to
-        count = 0
         targetannotations = annotation.annotations_in_targets()
         self.assertIsInstance( targetannotations, Annotations)
         self.assertEqual( len(targetannotations), 2)

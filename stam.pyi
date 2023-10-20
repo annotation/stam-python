@@ -230,6 +230,28 @@ class AnnotationStore:
             Value must not match any in the tuple
         value_in_range: Optional[Tuple[Union[int,float]]]
             Must be a numeric 2-tuple with min and max (inclusive) values
+
+
+        Examples
+        -------------
+
+        Query for specific annotation data::
+
+            for annotationdata in store.find_data(set="some-set", key="structuretype", value="word"):
+                # only returns one
+                ...
+
+        Query for all data for a key::
+
+            for annotationdata in store.find_data(set="some-set", key="structuretype"):
+                ...
+
+        Note, the latter can be accomplished more efficiently as::
+
+            for annotationdata in store.dataset("some-set").key("structuretype").data():
+                ...
+
+        `find_data` should be considered as a convenience/shortcut method.
         """
 
 
@@ -360,6 +382,11 @@ class Annotation:
             for annotation in store.annotations(filter=key, value="noun"):
                  ...
 
+        But if you already have the key, like in the example above, you may just as well do (more efficient)::
+
+            for annotation in key.annotations(value="noun"):
+                 ...
+
         """
 
     def test_annotations(self, **kwargs) -> bool:
@@ -449,6 +476,17 @@ class Annotation:
             Value must not match any in the tuple
         value_in_range: Optional[Tuple[Union[int,float]]]
             Must be a numeric 2-tuple with min and max (inclusive) values
+
+
+        Example
+        -----------
+
+        Get all part-of-speech data pertaining to this annotation::
+
+            key = store.dataset("linguistic-set").key("part-of-speech")
+            for data in annotation.data(filter=key):
+                ...
+
         """
 
     def test_data(self, **kwargs) -> bool:
@@ -475,13 +513,40 @@ class Annotation:
         operator: TextSelectionOperator
             The operator to apply when comparing text selections
 
+
         Keyword Arguments
         -------------------
 
         limit: Optional[int] = None
             The maximum number of results to return (default: unlimited)
 
+
         See :meth:`Annotation.textselections` for further keyword arguments to filter.
+
+        Examples
+        -------------
+
+        Find all text selections that overlap with the annotation::
+
+            for textselection in annotation.related_text(TextSelectionOperator.overlaps()):
+                ...
+
+        If you want to get the annotations instead, just add ``.annotations()``::
+
+            for annotations in annotation.related_text(TextSelectionOperator.overlaps()).annotations():
+                ...
+
+        Assume `sentence` is an annotation representing a sentence, we can find text selections inside (embedded in) the sentence as follows::
+
+            for textselection in sentence.related_text(TextSelectionOperator.embeds()):
+                ...
+
+        Like above, but now we actively look for annotations that are marked as words, effectively selecting
+        all words in a sentence::
+
+            data_word = store.dataset("structural-set").key("type").data(value="word", limit=1)[0]
+            for word in sentence.related_text(TextSelectionOperator.embeds()).annotations(filter=data_word):
+                ...
         """
 
 
@@ -524,6 +589,16 @@ class Annotations:
 
         The annotations can be filtered using keyword arguments; see :meth:`Annotation.annotations`.
         If no filters are set (default), all annotations are returned (without duplicates) in chronological order.
+
+        Example
+        -----------
+
+        Say `annotation` represents a word, we can get all annotations that with key "part-of-speech", that point to this annotation::
+
+            key = store.dataset("linguistic-set").key("part-of-speech")
+            for pos_annotation in annotation.annotations(filter=key):
+                data = annotation.data(filter=key,limit=1)[0]
+                ...
         """
 
     def annotations_in_targets(self, **kwargs) -> Annotations:
@@ -554,7 +629,7 @@ class Annotations:
 
         Text selections will be returned in textual order. They may be filtered via keyword arguments. See :meth:`Annotation.textselections`.
 
-        See :meth:`Annotation.related_text` for allowed paramters/keyword arguments.
+        See :meth:`Annotation.related_text` for allowed paramters/keyword arguments and examples.
         """
 
     def textual_order(self) -> Annotations:
@@ -606,7 +681,7 @@ class AnnotationDataSet:
         """Returns an iterator over all :class:`DataKey` instances in the dataset"""
 
     def __iter__(self) -> Iterator[AnnotationData]:
-        """Returns an iterator over all :class:`AnnotationData` in the dataset. If you want to do any filtering, use :meth:`data ` instead."""
+        """Returns an iterator over all :class:`AnnotationData` in the dataset. If you want to do any filtering, use :meth:`data` instead."""
 
     def data(self, **kwargs) -> Data:
         """
@@ -649,6 +724,14 @@ class DataKey:
         Returns annotation data (:class:`Data` containing :class:`AnnotationData`) used by this key.
 
         The data can be filtered using keyword arguments. See :meth:`Annotation.data`. Note that only a subset makes sense in this context, set and key are already fixed.
+
+        Example
+        --------
+
+        Assume the key represents part-of-speech tags, get all annotations for value "noun"::
+
+            for data in key.data(value="noun"):
+                # returns only one
         """
 
     def test_data(self, **kwargs) -> bool:
@@ -657,13 +740,30 @@ class DataKey:
         The data can be filtered using keyword arguments. See :meth:`Annotation.data`. Note that only a subset makes sense in this context, set and key are already fixed.
 
         This method is like :meth:`data`, but merely tests without returning the data, and as such is more performant.
+
+        Example
+        --------
+
+        Assume the key represents part-of-speech tags, get all annotations for value "noun"::
+
+            if key.test_data(value="noun"):
+                #value exists
+                ...
         """
 
     def annotations(self, **kwargs) -> Annotations:
         """
         Returns annotations (:class:`Annotations` containing :class:`Annotation`) that make use of this key.
 
-        The annotations can be filtered using keyword arguments. See :meth:`Annotation.annotations'
+        The annotations can be filtered on value using keyword arguments. See :meth:`Annotation.annotations`, but note that not all keyword arguments apply in this context (set and key are predetermined already).
+
+        Example
+        --------
+
+        Assume the key represents part-of-speech tags, get all annotations for value "noun"::
+
+            for annotation in key.annotations(value="noun"):
+                 ...
         """
 
     def test_annotations(self, **kwargs) -> bool:
@@ -672,6 +772,14 @@ class DataKey:
         This method is like :meth:`annotations`, but only tests and does not return the annotations, as such it is more performant.
 
         The annotations can be filtered using keyword arguments. See :meth:`Annotation.annotations`.
+
+        Example
+        --------
+
+        Assume the key represents part-of-speech tags, test if there are annotations for data value "noun":
+
+            if key.test_annotations(value="noun"):
+                 ...
        """
 
     def annotations_count(self, limit: Optional[int] = None) -> int:
@@ -873,7 +981,7 @@ class TextSelections:
         If you are interested in the annotations associated with the found text selections, then
         add `.annotations()` to the result.
 
-        See :meth:`Annotation.related_text` for allowed keyword arguments.
+        See :meth:`Annotation.related_text` for allowed keyword arguments and examples.
         """
 
     def textual_order(self) -> TextSelections:
@@ -935,7 +1043,7 @@ class Selector:
     @staticmethod
     def resourceselector(resource: TextResource) -> Selector:
         """Creates a *ResourceSelector* - A selector pointing to a resource as whole. These type
-  of annotation can be interpreted as *metadata*.
+        of annotation can be interpreted as *metadata*.
 
         Parameters
         ------------
@@ -949,19 +1057,27 @@ class Selector:
 
         Instantiation::
 
-            Selector.textselector(store.resource("my-resource"))
+            Selector.resourceselector(store.resource("my-resource"))
         """
 
     @staticmethod
     def datasetselector(dataset: AnnotationDataSet) -> Selector:
         """Creates a *DataSetSelector* - A selector pointing to an annotation dataset as whole. These type
-  of annotation can be interpreted as *metadata*.
+        of annotation can be interpreted as *metadata*.
+
 
         Parameters
-        ------------
+        -----------------
 
         dataset: AnnotationDataSet
             The annotation data set.
+
+        Example
+        ------------
+
+        Instantiation::
+
+            Selector.datasetselector(store.dataset("my-dataset"))
         """
 
     @staticmethod
@@ -969,7 +1085,7 @@ class Selector:
         """Creates a *MultiSelector* - A selector that consists of multiple other selectors (subselectors) to select multiple targets. This *MUST* be interpreted as the annotation applying to each target *individually*, without any relation between the different targets.
 
         Parameters
-        ------------
+        --------------------
 
         *subselectors: Selector
             The underlying selectors.
@@ -1289,6 +1405,7 @@ class TextResource:
             The operator to apply when comparing text selections
         referenceselections: List[TextSelection]
             Text selections to use as reference
+ 
 
         See :meth:`Annotation.related_text` for allowed keyword arguments.
         """
@@ -1355,7 +1472,7 @@ class TextSelection:
         Passing multiple regular expressions at once is more efficient than calling this function anew for each one.
         If capture groups are used in the regular expression, only those parts will be returned (the rest is context). If none are used,
         the entire expression is returned. The regular expressions are passed as strings and
-         must follow this syntax: https://docs.rs/regex/latest/regex/#syntax , which may differ slightly from Python's regular expressions!
+        must follow this syntax: https://docs.rs/regex/latest/regex/#syntax , which may differ slightly from Python's regular expressions!
        
         The `allow_overlap` parameter determines if the matching expressions are allowed to
         overlap. It you are doing some form of tokenisation, you also likely want this set to
@@ -1428,7 +1545,7 @@ class TextSelection:
         """
         Returns annotations (:class:`Annotations` containing :class:`Annotation`) that reference this text selection via a *TextSelector* (if any).
 
-        The annotations can be filtered using keyword arguments. See :meth:`Annotation.annotations'
+        The annotations can be filtered using keyword arguments. See :meth:`Annotation.annotations`
         """
 
     def test_annotations(self, **kwargs) -> bool:
@@ -1462,7 +1579,8 @@ class TextSelection:
         operator: TextSelectionOperator
             The operator to apply when comparing text selections
 
-        See :meth:`Annotation.related_text` for allowed keyword arguments.
+
+        See :meth:`Annotation.related_text` for allowed keyword arguments and examples.
         """
 
 

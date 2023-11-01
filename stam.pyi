@@ -118,7 +118,7 @@ class AnnotationStore:
     def set_filename(self, filename: str) -> None:
         """Set the filename for the annotationstore, the format is derived from the extension, can be `.json` or `csv`"""
     
-    def annotate(self, target: Selector, data: Union[dict,List[dict],AnnotationData,List[AnnotationData]], id: Optional[str]) -> Annotation:
+    def annotate(self, target: Selector, data: Union[dict,List[dict],AnnotationData,List[AnnotationData]], id: Optional[str] = None) -> Annotation:
         """Adds a new annotation. Returns the :obj:`Annotation` instance that was just created.
         
         Parameters

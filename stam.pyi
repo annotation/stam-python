@@ -430,6 +430,9 @@ class Annotation:
     def offset(self) -> Optional[Offset]:
         """Returns the offset this annotation's selector targets, exactly as specified"""
 
+    def target(self) -> Selector:
+        """Returns the target selector (:class:`Selector`) for this annotation. This is mainly useful if you want to add another annotation pointing to the same target."""
+
     def selector_kind(self) -> SelectorKind:
         """Returns the type of the selector of this annotation"""
 

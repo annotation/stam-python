@@ -399,3 +399,40 @@ impl PySelector {
         }
     }
 }
+
+impl PySelector {
+    pub(crate) fn from_selector(selector: &Selector, store: &AnnotationStore) -> Self {
+        Self {
+            kind: PySelectorKind {
+                kind: selector.kind(),
+            },
+            resource: match selector {
+                Selector::TextSelector(res_id, ..)
+                | Selector::ResourceSelector(res_id)
+                | Selector::AnnotationSelector(_, Some((res_id, _, _))) => Some(*res_id),
+                _ => None,
+            },
+            dataset: match selector {
+                Selector::DataSetSelector(set_id) => Some(*set_id),
+                _ => None,
+            },
+            annotation: match selector {
+                Selector::AnnotationSelector(a_id, ..) => Some(*a_id),
+                _ => None,
+            },
+            offset: selector.offset(store).map(|offset| PyOffset { offset }),
+            subselectors: if selector.is_complex() {
+                if let Some(subselectors) = selector.subselectors() {
+                    subselectors
+                        .into_iter()
+                        .map(|x| Self::from_selector(x, store))
+                        .collect()
+                } else {
+                    Vec::new()
+                }
+            } else {
+                Vec::new()
+            },
+        }
+    }
+}

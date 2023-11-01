@@ -241,6 +241,15 @@ impl PyAnnotation {
         })
     }
 
+    /// Returns the target selector
+    fn target(&self) -> PyResult<PySelector> {
+        self.map_store(|store| {
+            let annotation: &Annotation = store.get(self.handle)?;
+            let target = annotation.target();
+            Ok(PySelector::from_selector(target, store))
+        })
+    }
+
     /// Returns the type of the selector
     fn selector_kind(&self) -> PyResult<PySelectorKind> {
         self.map_store(|store| {

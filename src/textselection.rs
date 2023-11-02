@@ -784,31 +784,34 @@ impl PyTextSelectionOperator {
     /// Create an operator to test if two textselection(sets) are embedded.
     /// All TextSelections in B are embedded by a TextSelection in A (cf. textfabric's `[[`)
     /// If modifier `all` is set: All TextSelections in B are embedded by all TextSelection in A (cf. textfabric's `[[`)
-    fn embedded(all: Option<bool>, negate: Option<bool>) -> PyResult<Self> {
+    fn embedded(all: Option<bool>, negate: Option<bool>, limit: Option<usize>) -> PyResult<Self> {
         Ok(Self {
             operator: TextSelectionOperator::Embedded {
                 all: all.unwrap_or(false),
                 negate: negate.unwrap_or(false),
+                limit,
             },
         })
     }
 
     #[staticmethod]
-    fn before(all: Option<bool>, negate: Option<bool>) -> PyResult<Self> {
+    fn before(all: Option<bool>, negate: Option<bool>, limit: Option<usize>) -> PyResult<Self> {
         Ok(Self {
             operator: TextSelectionOperator::Before {
                 all: all.unwrap_or(false),
                 negate: negate.unwrap_or(false),
+                limit,
             },
         })
     }
 
     #[staticmethod]
-    fn after(all: Option<bool>, negate: Option<bool>) -> PyResult<Self> {
+    fn after(all: Option<bool>, negate: Option<bool>, limit: Option<usize>) -> PyResult<Self> {
         Ok(Self {
             operator: TextSelectionOperator::After {
                 all: all.unwrap_or(false),
                 negate: negate.unwrap_or(false),
+                limit,
             },
         })
     }

@@ -1658,11 +1658,12 @@ class TextSelectionOperator:
 
 
     @staticmethod
-    def embedded(all: Optional[bool] = False, negate: Optional[bool] = False) -> TextSelectionOperator:
+    def embedded(all: Optional[bool] = False, negate: Optional[bool] = False, limit: Optional[int] = None) -> TextSelectionOperator:
         """
         Create an operator to test if two textselection(sets) are embedded.
         All TextSelections in B are embedded by a TextSelection in A (cf. textfabric's `[[`)
         If modifier `all` is set: All TextSelections in B are embedded by all TextSelection in A (cf. textfabric's `[[`)
+
 
         Parameters
         -----------------
@@ -1670,10 +1671,12 @@ class TextSelectionOperator:
             If this is set, then for each `TextSelection` in A, the relationship must hold with **ALL** of the text selections in B. The normal behaviour, when this is set to false, is a match with any item suffices (and may be returned).
         negate: Optional[bool] 
             Inverses the operator (turns it into a negation).
+        limit: Optional[usize]
+            Constrain the lookup to at most this many unicode points (increases performance)
         """
 
     @staticmethod
-    def before(all: Optional[bool] = False, negate: Optional[bool] = False) -> TextSelectionOperator:
+    def before(all: Optional[bool] = False, negate: Optional[bool] = False, limit: Optional[int] = None) -> TextSelectionOperator:
         """
         Create an operator to test if one textselection(sets) comes before another
         Each TextSelections in A comes before a textselection in B
@@ -1685,10 +1688,12 @@ class TextSelectionOperator:
             If this is set, then for each `TextSelection` in A, the relationship must hold with **ALL** of the text selections in B. The normal behaviour, when this is set to false, is a match with any item suffices (and may be returned).
         negate: Optional[bool] 
             Inverses the operator (turns it into a negation).
+        limit: Optional[usize]
+            Constrain the lookup to at most this many unicode points (increases performance)
         """
 
     @staticmethod
-    def after(all: Optional[bool] = False, negate: Optional[bool] = False) -> TextSelectionOperator:
+    def after(all: Optional[bool] = False, negate: Optional[bool] = False, limit: Optional[int] = None) -> TextSelectionOperator:
         """
         Create an operator to test if one textselection(sets) comes after another
         Each TextSeleciton In A  comes after a textselection in B
@@ -1700,6 +1705,8 @@ class TextSelectionOperator:
             If this is set, then for each `TextSelection` in A, the relationship must hold with **ALL** of the text selections in B. The normal behaviour, when this is set to false, is a match with any item suffices (and may be returned).
         negate: Optional[bool] 
             Inverses the operator (turns it into a negation).
+        limit: Optional[usize]
+            Constrain the lookup to at most this many unicode points (increases performance)
         """
 
     @staticmethod

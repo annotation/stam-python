@@ -7,7 +7,7 @@ use std::sync::{Arc, RwLock};
 
 use crate::annotation::PyAnnotations;
 use crate::error::PyStamError;
-use crate::iterparams::IterParams;
+use crate::iterparams::*;
 use crate::selector::{PySelector, PySelectorKind};
 use crate::textselection::{
     PyTextSelection, PyTextSelectionIter, PyTextSelectionOperator, PyTextSelections,
@@ -379,67 +379,102 @@ impl PyTextResource {
         self.map(|res| res.beginaligned_cursor(&Cursor::EndAligned(endalignedcursor)))
     }
 
-    /// Returns all annotations (:obj:`Annotation`) that reference this resource via either a TextSelector or a ResourceSelector (if any).
-    #[pyo3(signature = (**kwargs))]
-    fn annotations(&self, kwargs: Option<&PyDict>) -> PyResult<PyAnnotations> {
-        let iterparams = IterParams::new(kwargs)?;
-        self.map(|resource| {
-            let iter = resource.annotations();
-            iterparams.evaluate_to_pyannotations(iter, resource.store(), &self.store)
-        })
+    /// Returns annotations that are referring to this resource via a TextSelector
+    #[pyo3(signature = (*args, **kwargs))]
+    fn annotations(&self, args: &PyList, kwargs: Option<&PyDict>) -> PyResult<PyAnnotations> {
+        let limit = get_limit(kwargs);
+        if !has_filters(args, kwargs) {
+            self.map(|resource| {
+                Ok(PyAnnotations::from_iter(
+                    resource.annotations().limit(limit),
+                    &self.store,
+                ))
+            })
+        } else {
+            self.map_with_query(
+                Type::Annotation,
+                Constraint::ResourceVariable("main", SelectionQualifier::Normal),
+                args,
+                kwargs,
+                |annotation, query| {
+                    Ok(PyAnnotations::from_query(
+                        query,
+                        annotation.store(),
+                        &self.store,
+                        limit,
+                    ))
+                },
+            )
+        }
     }
 
-    #[pyo3(signature = (**kwargs))]
-    fn annotations_as_metadata(&self, kwargs: Option<&PyDict>) -> PyResult<PyAnnotations> {
-        let iterparams = IterParams::new(kwargs)?;
-        self.map(|resource| {
-            let iter = resource.annotations_as_metadata();
-            iterparams.evaluate_to_pyannotations(iter, resource.store(), &self.store)
-        })
+    #[pyo3(signature = (*args, **kwargs))]
+    fn annotations_as_metadata(
+        &self,
+        args: &PyList,
+        kwargs: Option<&PyDict>,
+    ) -> PyResult<PyAnnotations> {
+        let limit = get_limit(kwargs);
+        if !has_filters(args, kwargs) {
+            self.map(|resource| {
+                Ok(PyAnnotations::from_iter(
+                    resource.annotations_as_metadata().limit(limit),
+                    &self.store,
+                ))
+            })
+        } else {
+            self.map_with_query(
+                Type::Annotation,
+                Constraint::ResourceVariable("main", SelectionQualifier::Metadata),
+                args,
+                kwargs,
+                |annotation, query| {
+                    Ok(PyAnnotations::from_query(
+                        query,
+                        annotation.store(),
+                        &self.store,
+                        limit,
+                    ))
+                },
+            )
+        }
     }
 
-    #[pyo3(signature = (**kwargs))]
-    fn annotations_on_text(&self, kwargs: Option<&PyDict>) -> PyResult<PyAnnotations> {
-        let iterparams = IterParams::new(kwargs)?;
-        self.map(|resource| {
-            let iter = resource.annotations_on_text();
-            iterparams.evaluate_to_pyannotations(iter, resource.store(), &self.store)
-        })
+    #[pyo3(signature = (*args, **kwargs))]
+    fn test_annotations(&self, args: &PyList, kwargs: Option<&PyDict>) -> PyResult<bool> {
+        if !has_filters(args, kwargs) {
+            self.map(|resource| Ok(resource.annotations().test()))
+        } else {
+            self.map_with_query(
+                Type::Annotation,
+                Constraint::ResourceVariable("main", SelectionQualifier::Normal),
+                args,
+                kwargs,
+                |resource, query| Ok(resource.store().query(query).test()),
+            )
+        }
     }
 
-    #[pyo3(signature = (**kwargs))]
-    fn test_annotations(&self, kwargs: Option<&PyDict>) -> PyResult<bool> {
-        let iterparams = IterParams::new(kwargs)?;
-        self.map(|resource| {
-            let iter = resource.annotations();
-            Ok(iterparams
-                .evaluate_annotations(iter, resource.store())?
-                .test())
-        })
+    #[pyo3(signature = (*args, **kwargs))]
+    fn test_annotations_as_metadata(
+        &self,
+        args: &PyList,
+        kwargs: Option<&PyDict>,
+    ) -> PyResult<bool> {
+        if !has_filters(args, kwargs) {
+            self.map(|resource| Ok(resource.annotations_as_metadata().test()))
+        } else {
+            self.map_with_query(
+                Type::Annotation,
+                Constraint::ResourceVariable("main", SelectionQualifier::Metadata),
+                args,
+                kwargs,
+                |resource, query| Ok(resource.store().query(query).test()),
+            )
+        }
     }
 
-    #[pyo3(signature = (**kwargs))]
-    fn test_annotations_as_metadata(&self, kwargs: Option<&PyDict>) -> PyResult<bool> {
-        let iterparams = IterParams::new(kwargs)?;
-        self.map(|resource| {
-            let iter = resource.annotations_as_metadata();
-            Ok(iterparams
-                .evaluate_annotations(iter, resource.store())?
-                .test())
-        })
-    }
-
-    #[pyo3(signature = (**kwargs))]
-    fn test_annotations_on_text(&self, kwargs: Option<&PyDict>) -> PyResult<bool> {
-        let iterparams = IterParams::new(kwargs)?;
-        self.map(|resource| {
-            let iter = resource.annotations_on_text();
-            Ok(iterparams
-                .evaluate_annotations(iter, resource.store())?
-                .test())
-        })
-    }
-
+    /*
     /// Applies a `TextSelectionOperator` to find all other text selections that are in a specific
     /// relation with the reference selections (a list of :obj:`TextSelection` instances). Returns
     /// all matching TextSelections in a list
@@ -451,7 +486,6 @@ impl PyTextResource {
         referenceselections: Vec<PyTextSelection>,
         kwargs: Option<&PyDict>,
     ) -> PyResult<PyTextSelections> {
-        let iterparams = IterParams::new(kwargs)?;
         self.map(|textselection| {
             let mut refset = TextSelectionSet::new(self.handle);
             refset.extend(referenceselections.into_iter().map(|x| x.textselection));
@@ -459,6 +493,7 @@ impl PyTextResource {
             iterparams.evaluate_to_pytextselections(iter, textselection.rootstore(), &self.store)
         })
     }
+    */
 }
 
 impl PyTextResource {
@@ -477,6 +512,36 @@ impl PyTextResource {
                 "Unable to obtain store (should never happen)",
             ))
         }
+    }
+
+    fn map_with_query<'a, T, F>(
+        &'a self,
+        resulttype: Type,
+        constraint: Constraint<'a>,
+        args: &PyList,
+        kwargs: Option<&PyDict>,
+        f: F,
+    ) -> Result<T, PyErr>
+    where
+        F: FnOnce(ResultItem<'a, TextResource>, Query<'a>) -> Result<T, StamError>,
+    {
+        self.map(|resource| {
+            let query = Query::new(QueryType::Select, Some(Type::TextResource), Some("main"))
+                .with_constraint(Constraint::Handle(Filter::TextResource(resource.handle())))
+                .with_subquery(
+                    build_query(
+                        Query::new(QueryType::Select, Some(resulttype), Some("sub"))
+                            .with_constraint(constraint),
+                        args,
+                        kwargs,
+                        resource.store(),
+                    )
+                    .map_err(|e| {
+                        StamError::QuerySyntaxError(format!("{}", e), "(python to query)")
+                    })?,
+                );
+            f(resource, query)
+        })
     }
 }
 

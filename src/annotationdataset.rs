@@ -7,7 +7,7 @@ use std::sync::{Arc, RwLock};
 
 use crate::annotationdata::{datavalue_from_py, PyAnnotationData, PyData, PyDataKey};
 use crate::error::PyStamError;
-use crate::iterparams::IterParams;
+use crate::iterparams::*;
 use crate::selector::{PySelector, PySelectorKind};
 use stam::*;
 
@@ -172,22 +172,32 @@ impl PyAnnotationDataSet {
         })
     }
 
-    #[pyo3(signature = (**kwargs))]
-    fn data(&self, kwargs: Option<&PyDict>) -> PyResult<PyData> {
-        let iterparams = IterParams::new(kwargs)?;
-        self.map(|dataset| {
-            let iter = dataset.data();
-            iterparams.evaluate_to_pydata(iter, dataset.store(), &self.store)
-        })
+    #[pyo3(signature = (*args, **kwargs))]
+    fn data(&self, args: &PyList, kwargs: Option<&PyDict>) -> PyResult<PyData> {
+        let limit = get_limit(kwargs);
+        if !has_filters(args, kwargs) {
+            self.map(|dataset| Ok(PyData::from_iter(dataset.data().limit(limit), &self.store)))
+        } else {
+            self.map_with_query(Type::AnnotationData, args, kwargs, |dataset, query| {
+                Ok(PyData::from_query(
+                    query,
+                    dataset.store(),
+                    &self.store,
+                    limit,
+                ))
+            })
+        }
     }
 
-    #[pyo3(signature = (**kwargs))]
-    fn test_data(&self, kwargs: Option<&PyDict>) -> PyResult<bool> {
-        let iterparams = IterParams::new(kwargs)?;
-        self.map(|dataset| {
-            let iter = dataset.data();
-            Ok(iterparams.evaluate_data(iter, dataset.store())?.test())
-        })
+    #[pyo3(signature = (*args, **kwargs))]
+    fn test_data(&self, args: &PyList, kwargs: Option<&PyDict>) -> PyResult<bool> {
+        if !has_filters(args, kwargs) {
+            self.map(|dataset| Ok(dataset.data().test()))
+        } else {
+            self.map_with_query(Type::AnnotationData, args, kwargs, |dataset, query| {
+                Ok(dataset.store().query(query).test())
+            })
+        }
     }
 
     /// Returns a Selector (DataSetSelector) pointing to this AnnotationDataSet
@@ -240,6 +250,40 @@ impl PyAnnotationDataSet {
                 "Can't get exclusive lock to write to store",
             ))
         }
+    }
+
+    fn map_with_query<'a, T, F>(
+        &'a self,
+        resulttype: Type,
+        args: &PyList,
+        kwargs: Option<&PyDict>,
+        f: F,
+    ) -> Result<T, PyErr>
+    where
+        F: FnOnce(ResultItem<'a, AnnotationDataSet>, Query<'a>) -> Result<T, StamError>,
+    {
+        self.map(|dataset| {
+            let query = Query::new(
+                QueryType::Select,
+                Some(Type::AnnotationDataSet),
+                Some("main"),
+            )
+            .with_constraint(Constraint::Handle(Filter::AnnotationDataSet(
+                dataset.handle(),
+            )))
+            .with_subquery(
+                build_query(
+                    Query::new(QueryType::Select, Some(resulttype), Some("sub")).with_constraint(
+                        Constraint::AnnotationVariable("main", AnnotationQualifier::None),
+                    ),
+                    args,
+                    kwargs,
+                    dataset.store(),
+                )
+                .map_err(|e| StamError::QuerySyntaxError(format!("{}", e), "(python to query)"))?,
+            );
+            f(dataset, query)
+        })
     }
 }
 

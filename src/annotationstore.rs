@@ -9,8 +9,7 @@ use crate::annotationdata::{annotationdata_builder, data_request_parser, PyData}
 use crate::annotationdataset::PyAnnotationDataSet;
 use crate::config::get_config;
 use crate::error::PyStamError;
-use crate::get_limit;
-use crate::iterparams::IterParams;
+use crate::iterparams::*;
 use crate::resources::PyTextResource;
 use crate::selector::PySelector;
 use stam::*;
@@ -247,13 +246,21 @@ impl PyAnnotationStore {
         })
     }
 
-    #[pyo3(signature = (**kwargs))]
-    fn annotations(&self, kwargs: Option<&PyDict>) -> PyResult<PyAnnotations> {
-        let iterparams = IterParams::new(kwargs)?;
-        self.map(|store| {
-            let iter = store.annotations();
-            iterparams.evaluate_to_pyannotations(iter, store, &self.store)
-        })
+    #[pyo3(signature = (*args, **kwargs))]
+    fn annotations(&self, args: &PyList, kwargs: Option<&PyDict>) -> PyResult<PyAnnotations> {
+        let limit = get_limit(kwargs);
+        if !has_filters(args, kwargs) {
+            self.map(|store| {
+                Ok(PyAnnotations::from_iter(
+                    store.annotations().limit(limit),
+                    &self.store,
+                ))
+            })
+        } else {
+            self.map_with_query(Type::Annotation, args, kwargs, |query, store| {
+                Ok(PyAnnotations::from_query(query, store, &self.store, limit))
+            })
+        }
     }
 
     /// Returns a generator over all annotations in this store
@@ -266,6 +273,7 @@ impl PyAnnotationStore {
 
     /// Returns a generator over all resources in this store
     fn resources(&self) -> PyResult<PyResourceIter> {
+        //TODO: transform to PyResources
         Ok(PyResourceIter {
             store: self.store.clone(),
             index: 0,
@@ -291,30 +299,16 @@ impl PyAnnotationStore {
         self.map_mut(|store| Ok(store.shrink_to_fit(true)))
     }
 
-    /// Find annotation data for the specified set, key and value
-    /// Returns all found AnnotationData instances
-    #[pyo3(signature = (**kwargs))]
-    fn find_data(&self, kwargs: Option<&PyDict>) -> PyResult<PyData> {
+    #[pyo3(signature = (*args, **kwargs))]
+    fn data(&self, args: &PyList, kwargs: Option<&PyDict>) -> PyResult<PyData> {
         let limit = get_limit(kwargs);
-        self.map(
-            |store| match data_request_parser(kwargs, store, None, None) {
-                Ok((sethandle, keyhandle, op)) => {
-                    let iter = store.find_data(sethandle, keyhandle, op);
-                    let sorted = iter.returns_sorted();
-                    Ok(PyData {
-                        data: if let Some(limit) = limit {
-                            iter.to_collection_limit(limit).take()
-                        } else {
-                            iter.to_collection().take()
-                        },
-                        store: self.store.clone(),
-                        cursor: 0,
-                        sorted,
-                    })
-                }
-                Err(e) => Err(e),
-            },
-        )
+        if !has_filters(args, kwargs) {
+            self.map(|store| Ok(PyData::from_iter(store.data().limit(limit), &self.store)))
+        } else {
+            self.map_with_query(Type::AnnotationData, args, kwargs, |query, store| {
+                Ok(PyData::from_query(query, store, &self.store, limit))
+            })
+        }
     }
 }
 
@@ -373,6 +367,28 @@ impl PyAnnotationStore {
         F: FnOnce(&mut AnnotationStore) -> Result<T, StamError>,
     {
         self.map_store_mut(f)
+    }
+
+    fn map_with_query<'a, T, F>(
+        &'a self,
+        resulttype: Type,
+        args: &PyList,
+        kwargs: Option<&PyDict>,
+        f: F,
+    ) -> Result<T, PyErr>
+    where
+        F: FnOnce(Query<'a>, &'a AnnotationStore) -> Result<T, StamError>,
+    {
+        self.map_store(|store| {
+            let query = build_query(
+                Query::new(QueryType::Select, Some(resulttype), None),
+                args,
+                kwargs,
+                store,
+            )
+            .map_err(|e| StamError::QuerySyntaxError(format!("{}", e), "(python to query)"))?;
+            f(query, store)
+        })
     }
 }
 

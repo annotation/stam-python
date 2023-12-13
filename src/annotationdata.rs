@@ -11,7 +11,7 @@ use crate::annotation::PyAnnotations;
 use crate::annotationdataset::PyAnnotationDataSet;
 use crate::annotationstore::MapStore;
 use crate::error::PyStamError;
-use crate::iterparams::*;
+use crate::query::*;
 use stam::*;
 
 #[pyclass(dict, module = "stam", name = "DataKey")]

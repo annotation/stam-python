@@ -7,7 +7,7 @@ use std::sync::{Arc, RwLock};
 
 use crate::annotation::PyAnnotations;
 use crate::error::PyStamError;
-use crate::iterparams::*;
+use crate::query::*;
 use crate::selector::{PySelector, PySelectorKind};
 use crate::textselection::{
     PyTextSelection, PyTextSelectionIter, PyTextSelectionOperator, PyTextSelections,

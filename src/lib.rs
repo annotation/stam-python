@@ -7,7 +7,7 @@ mod annotationstore;
 mod config;
 mod error;
 //mod query;
-mod iterparams;
+mod query;
 mod resources;
 mod selector;
 mod textselection;

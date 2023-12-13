@@ -10,7 +10,7 @@ use crate::annotationdata::{PyAnnotationData, PyData};
 use crate::annotationdataset::PyAnnotationDataSet;
 use crate::annotationstore::MapStore;
 use crate::error::PyStamError;
-use crate::iterparams::*;
+use crate::query::*;
 use crate::resources::{PyOffset, PyTextResource};
 use crate::selector::{PySelector, PySelectorKind};
 use crate::textselection::{PyTextSelectionOperator, PyTextSelections};

@@ -7,7 +7,7 @@ use std::sync::{Arc, RwLock};
 
 use crate::annotationdata::{datavalue_from_py, PyAnnotationData, PyData, PyDataKey};
 use crate::error::PyStamError;
-use crate::iterparams::*;
+use crate::query::*;
 use crate::selector::{PySelector, PySelectorKind};
 use stam::*;
 

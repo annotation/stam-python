@@ -9,7 +9,7 @@ use crate::annotationdata::{annotationdata_builder, data_request_parser, PyData}
 use crate::annotationdataset::PyAnnotationDataSet;
 use crate::config::get_config;
 use crate::error::PyStamError;
-use crate::iterparams::*;
+use crate::query::*;
 use crate::resources::PyTextResource;
 use crate::selector::PySelector;
 use stam::*;

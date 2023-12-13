@@ -10,7 +10,7 @@ use std::sync::{Arc, RwLock};
 use crate::annotation::PyAnnotations;
 use crate::annotationdata::PyData;
 use crate::error::PyStamError;
-use crate::iterparams::*;
+use crate::query::*;
 use crate::resources::{PyOffset, PyTextResource};
 use crate::textselection::TextSelectionHandle;
 use stam::*;

@@ -9,52 +9,59 @@ use crate::error::PyStamError;
 use crate::textselection::PyTextSelectionOperator;
 use stam::*;
 
-pub enum Filter<'a> {
-    Annotation(AnnotationHandle),
-    Annotations((Vec<AnnotationHandle>, bool)), //the boolean expresses whether the data is sorted or not
-    AnnotationData(AnnotationDataSetHandle, AnnotationDataHandle),
-    Data((Vec<(AnnotationDataSetHandle, AnnotationDataHandle)>, bool)), //the boolean expresses whether the data is sorted or not
-    DataKey(AnnotationDataSetHandle, DataKeyHandle),
-    Value(DataOperator<'a>),
-    TextRelation(TextSelectionOperator),
-    //FindData(AnnotationDataSetHandle, DataKeyHandle, DataOperator<'a>),
-}
-
-pub struct IterParams<'a> {
+pub struct QueryBuilder<'a> {
     filters: Vec<Filter<'a>>,
     limit: Option<usize>,
 }
 
-fn add_filter<'py>(filters: &mut Vec<Filter<'py>>, filter: &'py PyAny) -> PyResult<()> {
+fn add_filter<'a>(
+    query: &mut Query<'a>,
+    store: &'a AnnotationStore,
+    filter: &'a PyAny,
+    operator: &mut Option<DataOperator>,
+) -> PyResult<()> {
     if filter.is_instance_of::<PyList>() {
         let vec: Vec<&PyAny> = filter.extract()?;
-        add_multi_filter(filters, vec)?;
+        add_multi_filter(query, store, vec)?;
     } else if filter.is_instance_of::<PyTuple>() {
         let vec: Vec<&PyAny> = filter.extract()?;
-        add_multi_filter(filters, vec)?;
+        add_multi_filter(query, store, vec)?;
     } else if filter.is_instance_of::<PyAnnotationData>() {
         let adata: PyRef<'_, PyAnnotationData> = filter.extract()?;
-        filters.push(Filter::AnnotationData(adata.set, adata.handle));
+        query.constrain(Constraint::Filter(Filter::AnnotationData(
+            adata.set,
+            adata.handle,
+        )));
     } else if filter.is_instance_of::<PyDataKey>() {
         let key: PyRef<'_, PyDataKey> = filter.extract()?;
-        filters.push(Filter::DataKey(key.set, key.handle));
+        if operator.is_some() {
+            query.constrain(Constraint::Filter(Filter::DataKeyAndOperator(
+                key.set,
+                key.handle,
+                operator.take().unwrap(),
+            )));
+        } else {
+            query.constrain(Constraint::Filter(Filter::DataKey(key.set, key.handle)));
+        }
     } else if filter.is_instance_of::<PyAnnotation>() {
         let annotation: PyRef<'_, PyAnnotation> = filter.extract()?;
-        filters.push(Filter::Annotation(annotation.handle));
+        query.constrain(Constraint::Filter(Filter::Annotation(annotation.handle)));
     } else if filter.is_instance_of::<PyTextSelectionOperator>() {
         let operator: PyRef<'_, PyTextSelectionOperator> = filter.extract()?;
-        filters.push(Filter::TextRelation(operator.operator));
-    } else if filter.is_instance_of::<PyAnnotations>() {
-        let annotations: PyRef<'py, PyAnnotations> = filter.extract()?;
-        filters.push(Filter::Annotations((
-            annotations.annotations.iter().copied().collect(),
-            annotations.sorted,
+        query.constrain(Constraint::Filter(Filter::TextSelectionOperator(
+            operator.operator,
         )));
+    } else if filter.is_instance_of::<PyAnnotations>() {
+        let annotations: PyRef<'a, PyAnnotations> = filter.extract()?;
+        query.constrain(Constraint::Filter(Filter::Annotations(Handles::from_iter(
+            annotations.annotations.iter().copied(),
+            store,
+        ))));
     } else if filter.is_instance_of::<PyData>() {
         let data: PyRef<'_, PyData> = filter.extract()?;
-        filters.push(Filter::Data((
-            data.data.iter().copied().collect(),
-            data.sorted,
+        query.constrain(Constraint::Filter(Filter::Data(
+            Handles::from_iter(data.data.iter().copied(), store),
+            FilterMode::Any,
         )));
     } else {
         return Err(PyValueError::new_err(
@@ -64,248 +71,175 @@ fn add_filter<'py>(filters: &mut Vec<Filter<'py>>, filter: &'py PyAny) -> PyResu
     Ok(())
 }
 
-fn add_multi_filter<'a>(filters: &mut Vec<Filter<'a>>, filter: Vec<&PyAny>) -> PyResult<()> {
+fn add_multi_filter<'a>(
+    query: &mut Query<'a>,
+    store: &AnnotationStore,
+    filter: Vec<&PyAny>,
+) -> PyResult<()> {
     if filter.iter().all(|x| x.is_instance_of::<PyAnnotation>()) {
-        filters.push(Filter::Annotations((
-            filter
-                .iter()
-                .map(|x| {
-                    let annotation: PyRef<'_, PyAnnotation> = x.extract().unwrap();
-                    annotation.handle
-                })
-                .collect(),
-            false, //we don't know if the data is sorted
-        )));
+        query.constrain(Constraint::Filter(Filter::Annotations(Handles::from_iter(
+            filter.iter().map(|x| {
+                let annotation: PyRef<'_, PyAnnotation> = x.extract().unwrap();
+                annotation.handle
+            }),
+            store,
+        ))));
     } else if filter
         .iter()
         .all(|x| x.is_instance_of::<PyAnnotationData>())
     {
-        filters.push(Filter::Data((
-            filter
-                .iter()
-                .map(|x| {
+        query.constrain(Constraint::Filter(Filter::Data(
+            Handles::from_iter(
+                filter.iter().map(|x| {
                     let adata: PyRef<'_, PyAnnotationData> = x.extract().unwrap();
                     (adata.set, adata.handle)
-                })
-                .collect(),
-            false, //we don't know if the data is sorted
+                }),
+                store,
+            ),
+            FilterMode::Any,
         )));
     }
     Ok(())
 }
 
-impl<'py> IterParams<'py> {
-    pub fn new(kwargs: Option<&'py PyDict>) -> PyResult<Self> {
-        let mut filters = Vec::new();
-        let mut limit: Option<usize> = None;
-        if let Some(kwargs) = kwargs {
-            if let Ok(Some(v)) = kwargs.get_item("limit") {
-                match v.extract() {
-                    Ok(v) => limit = v,
-                    Err(e) => {
-                        return Err(PyValueError::new_err(format!(
-                            "Limit should be an integer or None: {}",
-                            e
-                        )))
-                    }
+pub(crate) fn build_query<'py>(
+    mut query: Query<'py>,
+    args: &'py PyList, //TODO: implement!
+    kwargs: Option<&'py PyDict>,
+    store: &'py AnnotationStore,
+) -> PyResult<Query<'py>> {
+    if let Some(kwargs) = kwargs {
+        let mut operator =
+            dataoperator_from_kwargs(kwargs).map_err(|e| PyStamError::new_err(format!("{}", e)))?;
+        if let Ok(Some(filter)) = kwargs.get_item("filter") {
+            add_filter(&mut query, store, filter, &mut operator)?;
+        } else if let Ok(Some(filter)) = kwargs.get_item("filters") {
+            if filter.is_instance_of::<PyList>() {
+                let vec = filter.downcast::<PyList>()?;
+                for filter in vec {
+                    add_filter(&mut query, store, filter, &mut operator)?;
+                }
+            } else if filter.is_instance_of::<PyTuple>() {
+                let vec = filter.downcast::<PyTuple>()?;
+                for filter in vec {
+                    add_filter(&mut query, store, filter, &mut operator)?;
                 }
             }
+        }
+        //if the operator has not been consumed yet in an earlier add_filter step, add a constraint for it now:
+        if let Some(operator) = operator {
+            query.constrain(Constraint::Filter(Filter::DataOperator(operator)));
+        }
+    }
+    Ok(query)
+}
+
+impl<'py> QueryBuilder<'py> {
+    pub fn new(
+        resulttype: Type,
+        store: &'py AnnotationStore,
+        kwargs: Option<&'py PyDict>,
+        name: Option<&'py str>,
+    ) -> PyResult<Query<'py>> {
+        let mut query = Query::new(QueryType::Select, Some(resulttype), name);
+
+        if let Some(kwargs) = kwargs {
+            let mut operator = dataoperator_from_kwargs(kwargs)
+                .map_err(|e| PyStamError::new_err(format!("{}", e)))?;
             if let Ok(Some(filter)) = kwargs.get_item("filter") {
-                add_filter(&mut filters, filter)?;
+                add_filter(&mut query, store, filter, &mut operator)?;
             } else if let Ok(Some(filter)) = kwargs.get_item("filters") {
                 if filter.is_instance_of::<PyList>() {
                     let vec = filter.downcast::<PyList>()?;
                     for filter in vec {
-                        add_filter(&mut filters, filter)?;
+                        add_filter(&mut query, store, filter, &mut operator)?;
                     }
                 } else if filter.is_instance_of::<PyTuple>() {
                     let vec = filter.downcast::<PyTuple>()?;
                     for filter in vec {
-                        add_filter(&mut filters, filter)?;
+                        add_filter(&mut query, store, filter, &mut operator)?;
                     }
                 }
             }
-            if let Some(operator) = dataoperator_from_kwargs(kwargs)
-                .map_err(|e| PyStamError::new_err(format!("{}", e)))?
-            {
-                filters.push(Filter::Value(operator));
+            //if the operator has not been consumed yet in an earlier add_filter step, add a constraint for it now:
+            if let Some(operator) = operator {
+                query.constrain(Constraint::Filter(Filter::DataOperator(operator)));
             }
         }
-        Ok(Self { filters, limit })
-    }
-
-    pub fn limit(&self) -> Option<usize> {
-        self.limit
-    }
-
-    pub fn evaluate_annotations<'store>(
-        self,
-        mut iter: stam::AnnotationsIter<'store>,
-        store: &'store AnnotationStore,
-    ) -> Result<stam::AnnotationsIter<'store>, StamError>
-    where
-        'py: 'store,
-    {
-        let mut has_value_filter = false;
-        let mut datakey_filter: Option<ResultItem<DataKey>> = None;
-        for filter in self.filters.iter() {
-            if let Filter::Value(op) = filter {
-                if let DataOperator::Any = op {
-                    //ignore
-                } else {
-                    has_value_filter = true;
-                }
-            }
-        }
-        for filter in self.filters.into_iter() {
-            match filter {
-                Filter::Annotation(handle) => {
-                    iter = iter.filter_handle(handle);
-                }
-                Filter::AnnotationData(set_handle, data_handle) => {
-                    iter = iter.filter_annotationdata_handle(set_handle, data_handle);
-                }
-                Filter::DataKey(set_handle, key_handle) => {
-                    let dataset = store
-                        .dataset(set_handle)
-                        .ok_or_else(|| StamError::HandleError("Unable to find dataset"))?;
-                    let key = dataset
-                        .key(key_handle)
-                        .ok_or_else(|| StamError::HandleError("Unable to find key"))?;
-                    //check if we also have a value filter
-                    if !has_value_filter {
-                        iter = iter.filter_data(key.data().to_collection());
-                    } else {
-                        datakey_filter = Some(key); //will be handled further in Filter::Value arm
-                    }
-                }
-                Filter::Annotations((annotations, sorted)) => {
-                    let annotations =
-                        Annotations::from_handles(Cow::Owned(annotations), sorted, store);
-                    iter = iter.filter_annotations(annotations.iter());
-                }
-                Filter::Data((data, sorted)) => {
-                    let data = Data::from_handles(Cow::Owned(data), sorted, store);
-                    iter = iter.filter_data(data);
-                }
-                Filter::Value(op) => {
-                    if let Some(key) = &datakey_filter {
-                        iter = iter.filter_data(key.data().filter_value(op).to_collection());
-                    } else {
-                        return Err(StamError::OtherError(
-                            "Python: You can specify a value filter only if you pass filter=DataKey (Annotations)",
-                        ));
-                    }
-                }
-                Filter::TextRelation(op) => {
-                    iter = iter.filter_related_text(op);
-                }
-            }
-        }
-        Ok(iter)
-    }
-
-    pub fn evaluate_data<'store>(
-        self,
-        mut iter: stam::DataIter<'store>,
-        store: &'store AnnotationStore,
-    ) -> Result<stam::DataIter<'store>, StamError>
-    where
-        'py: 'store,
-    {
-        for filter in self.filters.into_iter() {
-            match filter {
-                Filter::Annotation(handle) => {
-                    if let Some(annotation) = store.annotation(handle) {
-                        iter = iter.filter_annotation(&annotation);
-                    }
-                }
-                Filter::Annotations((annotations, sorted)) => {
-                    let annotations =
-                        Annotations::from_handles(Cow::Owned(annotations), sorted, store);
-                    iter = iter.filter_annotations(annotations.iter());
-                }
-                Filter::Data((data, sorted)) => {
-                    let data = Data::from_handles(Cow::Owned(data), sorted, store);
-                    iter = iter.filter_data(data.iter());
-                }
-                Filter::DataKey(set_handle, key_handle) => {
-                    iter = iter.filter_key_handle(set_handle, key_handle);
-                }
-                Filter::Value(operator) => {
-                    iter = iter.filter_value(operator.clone());
-                }
-                _ => {
-                    return Err(StamError::OtherError(
-                        "Python: not a valid filter in this context (Data)",
-                    ));
-                }
-            }
-        }
-        Ok(iter)
-    }
-
-    pub fn evaluate_textselections<'store>(
-        self,
-        mut iter: stam::TextSelectionsIter<'store>,
-        store: &'store AnnotationStore,
-    ) -> Result<stam::TextSelectionsIter<'store>, StamError>
-    where
-        'py: 'store,
-    {
-        let mut has_value_filter = false;
-        let mut datakey_filter: Option<ResultItem<DataKey>> = None;
-        for filter in self.filters.iter() {
-            if let Filter::Value(op) = filter {
-                if let DataOperator::Any = op {
-                    //ignore
-                } else {
-                    has_value_filter = true;
-                }
-            }
-        }
-        for filter in self.filters.into_iter() {
-            match filter {
-                Filter::TextRelation(op) => {
-                    iter = iter.related_text(op);
-                }
-                Filter::Annotation(handle) => {
-                    iter = iter.filter_annotation_handle(handle);
-                }
-                Filter::Annotations((annotations, sorted)) => {
-                    let annotations =
-                        Annotations::from_handles(Cow::Owned(annotations), sorted, store);
-                    iter = iter.filter_annotations(annotations);
-                }
-                Filter::AnnotationData(set_handle, data_handle) => {
-                    iter = iter.filter_annotationdata_handle(set_handle, data_handle);
-                }
-                Filter::Data((data, sorted)) => {
-                    let data = Data::from_handles(Cow::Owned(data), sorted, store);
-                    iter = iter.filter_data(data);
-                }
-                Filter::DataKey(set_handle, key_handle) => {
-                    if let Some(dataset) = store.dataset(set_handle) {
-                        if let Some(key) = dataset.key(key_handle) {
-                            if !has_value_filter {
-                                iter = iter.filter_data(key.data().to_collection());
-                            } else {
-                                datakey_filter = Some(key); //will be handled further in Filter::Value arm
-                            }
-                        }
-                    }
-                }
-                Filter::Value(operator) => {
-                    if let Some(key) = &datakey_filter {
-                        iter = iter.filter_data(key.data().filter_value(operator).to_collection());
-                    } else {
-                        return Err(StamError::OtherError(
-                            "Python: You can specify a value filter only if you pass filter=DataKey (TextSelections)",
-                        ));
-                    }
-                }
-            }
-        }
-        Ok(iter)
+        Ok(query)
     }
 }
+
+pub(crate) fn has_filters(args: &PyList, kwargs: Option<&PyDict>) -> bool {
+    if !args.is_empty() {
+        return true;
+    }
+    if let Some(kwargs) = kwargs {
+        for key in kwargs.keys() {
+            if let Ok(Some("limit")) | Ok(Some("recursive")) = key.extract() {
+                continue; //this doesn't count as a filter
+            } else {
+                return true;
+            }
+        }
+    }
+    false
+}
+
+pub(crate) fn get_recursive(kwargs: Option<&PyDict>, default: bool) -> bool {
+    if let Some(kwargs) = kwargs {
+        if let Ok(Some(v)) = kwargs.get_item("recursive") {
+            if let Ok(v) = v.extract::<bool>() {
+                return v;
+            }
+        }
+    }
+    default
+}
+
+pub(crate) fn get_limit(kwargs: Option<&PyDict>) -> Option<usize> {
+    if let Some(kwargs) = kwargs {
+        if let Ok(Some(limit)) = kwargs.get_item("limit") {
+            if let Ok(limit) = limit.extract::<usize>() {
+                return Some(limit);
+            }
+        }
+    }
+    None
+}
+
+pub(crate) struct LimitIter<I: Iterator> {
+    inner: I,
+    limit: Option<usize>,
+}
+
+impl<I> Iterator for LimitIter<I>
+where
+    I: Iterator,
+{
+    type Item = I::Item;
+    fn next(&mut self) -> Option<Self::Item> {
+        if let Some(remainder) = self.limit.as_mut() {
+            if *remainder > 0 {
+                *remainder -= 1;
+                self.inner.next()
+            } else {
+                None
+            }
+        } else {
+            self.inner.next()
+        }
+    }
+}
+
+pub(crate) trait LimitIterator
+where
+    Self: Iterator,
+    Self: Sized,
+{
+    fn limit(self, limit: Option<usize>) -> LimitIter<Self> {
+        LimitIter { inner: self, limit }
+    }
+}
+
+impl<I> LimitIterator for I where I: Iterator {}

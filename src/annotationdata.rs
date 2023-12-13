@@ -11,7 +11,7 @@ use crate::annotation::PyAnnotations;
 use crate::annotationdataset::PyAnnotationDataSet;
 use crate::annotationstore::MapStore;
 use crate::error::PyStamError;
-use crate::iterparams::IterParams;
+use crate::iterparams::*;
 use stam::*;
 
 #[pyclass(dict, module = "stam", name = "DataKey")]
@@ -81,42 +81,65 @@ impl PyDataKey {
         })
     }
 
-    #[pyo3(signature = (**kwargs))]
-    fn data(&self, kwargs: Option<&PyDict>) -> PyResult<PyData> {
-        let iterparams = IterParams::new(kwargs)?;
-        self.map(|key| {
-            let iter = key.data();
-            iterparams.evaluate_to_pydata(iter, key.rootstore(), &self.store)
-        })
+    #[pyo3(signature = (*args, **kwargs))]
+    fn data(&self, args: &PyList, kwargs: Option<&PyDict>) -> PyResult<PyData> {
+        let limit = get_limit(kwargs);
+        if !has_filters(args, kwargs) {
+            self.map(|key| Ok(PyData::from_iter(key.data().limit(limit), &self.store)))
+        } else {
+            self.map_with_query(Type::AnnotationData, args, kwargs, |key, query| {
+                Ok(PyData::from_query(
+                    query,
+                    key.rootstore(),
+                    &self.store,
+                    limit,
+                ))
+            })
+        }
     }
 
-    #[pyo3(signature = (**kwargs))]
-    fn test_data(&self, kwargs: Option<&PyDict>) -> PyResult<bool> {
-        let iterparams = IterParams::new(kwargs)?;
-        self.map(|key| {
-            let iter = key.data();
-            Ok(iterparams.evaluate_data(iter, key.rootstore())?.test())
-        })
+    #[pyo3(signature = (*args, **kwargs))]
+    fn test_data(&self, args: &PyList, kwargs: Option<&PyDict>) -> PyResult<bool> {
+        if !has_filters(args, kwargs) {
+            self.map(|key| Ok(key.data().test()))
+        } else {
+            self.map_with_query(Type::AnnotationData, args, kwargs, |key, query| {
+                Ok(key.rootstore().query(query).test())
+            })
+        }
     }
 
-    #[pyo3(signature = (**kwargs))]
-    fn annotations(&self, kwargs: Option<&PyDict>) -> PyResult<PyAnnotations> {
-        let iterparams = IterParams::new(kwargs)?;
-        self.map(|key| {
-            let iter = key.annotations();
-            iterparams.evaluate_to_pyannotations(iter, key.rootstore(), &self.store)
-        })
+    #[pyo3(signature = (*args, **kwargs))]
+    fn annotations(&self, args: &PyList, kwargs: Option<&PyDict>) -> PyResult<PyAnnotations> {
+        let limit = get_limit(kwargs);
+        if !has_filters(args, kwargs) {
+            self.map(|key| {
+                Ok(PyAnnotations::from_iter(
+                    key.annotations().limit(limit),
+                    &self.store,
+                ))
+            })
+        } else {
+            self.map_with_query(Type::Annotation, args, kwargs, |key, query| {
+                Ok(PyAnnotations::from_query(
+                    query,
+                    key.rootstore(),
+                    &self.store,
+                    limit,
+                ))
+            })
+        }
     }
 
-    #[pyo3(signature = (**kwargs))]
-    fn test_annotations(&self, kwargs: Option<&PyDict>) -> PyResult<bool> {
-        let iterparams = IterParams::new(kwargs)?;
-        self.map(|key| {
-            let iter = key.annotations();
-            Ok(iterparams
-                .evaluate_annotations(iter, key.rootstore())?
-                .test())
-        })
+    #[pyo3(signature = (*args, **kwargs))]
+    fn test_annotations(&self, args: &PyList, kwargs: Option<&PyDict>) -> PyResult<bool> {
+        if !has_filters(args, kwargs) {
+            self.map(|key| Ok(key.annotations().test()))
+        } else {
+            self.map_with_query(Type::Annotation, args, kwargs, |key, query| {
+                Ok(key.rootstore().query(query).test())
+            })
+        }
     }
 
     fn annotations_count(&self) -> usize {
@@ -151,6 +174,38 @@ impl PyDataKey {
                 "Unable to obtain store (should never happen)",
             ))
         }
+    }
+
+    fn map_with_query<'a, T, F>(
+        &'a self,
+        resulttype: Type,
+        args: &PyList,
+        kwargs: Option<&PyDict>,
+        f: F,
+    ) -> Result<T, PyErr>
+    where
+        F: FnOnce(ResultItem<'a, DataKey>, Query<'a>) -> Result<T, StamError>,
+    {
+        self.map(|data| {
+            let query = Query::new(QueryType::Select, Some(Type::DataKey), Some("main"))
+                .with_constraint(Constraint::Handle(Filter::DataKey(
+                    data.set().handle(),
+                    data.handle(),
+                )))
+                .with_subquery(
+                    build_query(
+                        Query::new(QueryType::Select, Some(resulttype), Some("sub"))
+                            .with_constraint(Constraint::DataKeyVariable("main")),
+                        args,
+                        kwargs,
+                        data.rootstore(),
+                    )
+                    .map_err(|e| {
+                        StamError::QuerySyntaxError(format!("{}", e), "(python to query)")
+                    })?,
+                );
+            f(data, query)
+        })
     }
 }
 
@@ -396,24 +451,37 @@ impl PyAnnotationData {
         Ok(PyAnnotationDataSet::new(self.set, &self.store))
     }
 
-    #[pyo3(signature = (**kwargs))]
-    fn annotations(&self, kwargs: Option<&PyDict>) -> PyResult<PyAnnotations> {
-        let iterparams = IterParams::new(kwargs)?;
-        self.map(|data| {
-            let iter = data.annotations();
-            iterparams.evaluate_to_pyannotations(iter, data.rootstore(), &self.store)
-        })
+    #[pyo3(signature = (*args, **kwargs))]
+    fn annotations(&self, args: &PyList, kwargs: Option<&PyDict>) -> PyResult<PyAnnotations> {
+        let limit = get_limit(kwargs);
+        if !has_filters(args, kwargs) {
+            self.map(|data| {
+                Ok(PyAnnotations::from_iter(
+                    data.annotations().limit(limit),
+                    &self.store,
+                ))
+            })
+        } else {
+            self.map_with_query(Type::Annotation, args, kwargs, |data, query| {
+                Ok(PyAnnotations::from_query(
+                    query,
+                    data.rootstore(),
+                    &self.store,
+                    limit,
+                ))
+            })
+        }
     }
 
-    #[pyo3(signature = (**kwargs))]
-    fn test_annotations(&self, kwargs: Option<&PyDict>) -> PyResult<bool> {
-        let iterparams = IterParams::new(kwargs)?;
-        self.map(|data| {
-            let iter = data.annotations();
-            Ok(iterparams
-                .evaluate_annotations(iter, data.rootstore())?
-                .test())
-        })
+    #[pyo3(signature = (*args, **kwargs))]
+    fn test_annotations(&self, args: &PyList, kwargs: Option<&PyDict>) -> PyResult<bool> {
+        if !has_filters(args, kwargs) {
+            self.map(|key| Ok(key.annotations().test()))
+        } else {
+            self.map_with_query(Type::Annotation, args, kwargs, |key, query| {
+                Ok(key.rootstore().query(query).test())
+            })
+        }
     }
 
     fn annotations_len(&self) -> usize {
@@ -448,6 +516,38 @@ impl PyAnnotationData {
                 "Unable to obtain store (should never happen)",
             ))
         }
+    }
+
+    fn map_with_query<'a, T, F>(
+        &'a self,
+        resulttype: Type,
+        args: &PyList,
+        kwargs: Option<&PyDict>,
+        f: F,
+    ) -> Result<T, PyErr>
+    where
+        F: FnOnce(ResultItem<'a, AnnotationData>, Query<'a>) -> Result<T, StamError>,
+    {
+        self.map(|data| {
+            let query = Query::new(QueryType::Select, Some(Type::AnnotationData), Some("main"))
+                .with_constraint(Constraint::Handle(Filter::AnnotationData(
+                    data.set().handle(),
+                    data.handle(),
+                )))
+                .with_subquery(
+                    build_query(
+                        Query::new(QueryType::Select, Some(resulttype), Some("sub"))
+                            .with_constraint(Constraint::DataVariable("main")),
+                        args,
+                        kwargs,
+                        data.rootstore(),
+                    )
+                    .map_err(|e| {
+                        StamError::QuerySyntaxError(format!("{}", e), "(python to query)")
+                    })?,
+                );
+            f(data, query)
+        })
     }
 }
 
@@ -745,8 +845,6 @@ pub struct PyData {
     pub(crate) data: Vec<(AnnotationDataSetHandle, AnnotationDataHandle)>,
     pub(crate) store: Arc<RwLock<AnnotationStore>>,
     pub(crate) cursor: usize,
-    /// Indicates whether the annotations are sorted chronologically (by handle)
-    pub(crate) sorted: bool,
 }
 
 #[pymethods]
@@ -785,73 +883,114 @@ impl PyData {
         !pyself.data.is_empty()
     }
 
-    #[pyo3(signature = (**kwargs))]
-    fn annotations(&self, kwargs: Option<&PyDict>) -> PyResult<PyAnnotations> {
-        let iterparams = IterParams::new(kwargs)?;
-        self.map(|data, store| {
-            let iter = Data::from_handles(Cow::Borrowed(data), self.sorted, store)
-                .iter()
-                .annotations();
-            iterparams.evaluate_to_pyannotations(iter, store, &self.store)
-        })
+    #[pyo3(signature = (*args, **kwargs))]
+    fn annotations(&self, args: &PyList, kwargs: Option<&PyDict>) -> PyResult<PyAnnotations> {
+        let limit = get_limit(kwargs);
+        if !has_filters(args, kwargs) {
+            self.map(|data, store| {
+                Ok(PyAnnotations::from_iter(
+                    data.items().annotations().limit(limit),
+                    &self.store,
+                ))
+            })
+        } else {
+            self.map_with_query(Type::Annotation, args, kwargs, |query, store| {
+                Ok(PyAnnotations::from_query(query, store, &self.store, limit))
+            })
+        }
     }
 
-    #[pyo3(signature = (**kwargs))]
-    fn test_annotations(&self, kwargs: Option<&PyDict>) -> PyResult<bool> {
-        let iterparams = IterParams::new(kwargs)?;
-        self.map(|data, store| {
-            let iter = Data::from_handles(Cow::Borrowed(data), self.sorted, store)
-                .iter()
-                .annotations();
-            Ok(iterparams.evaluate_annotations(iter, store)?.test())
-        })
+    #[pyo3(signature = (*args, **kwargs))]
+    fn test_annotations(&self, args: &PyList, kwargs: Option<&PyDict>) -> PyResult<bool> {
+        if !has_filters(args, kwargs) {
+            self.map(|data, _| Ok(data.items().annotations().test()))
+        } else {
+            self.map_with_query(Type::Annotation, args, kwargs, |query, store| {
+                Ok(store.query(query).test())
+            })
+        }
     }
 }
 
 impl PyData {
-    fn map<T, F>(&self, f: F) -> Result<T, PyErr>
+    pub(crate) fn from_iter<'store>(
+        iter: impl Iterator<Item = ResultItem<'store, AnnotationData>>,
+        wrappedstore: &Arc<RwLock<AnnotationStore>>,
+    ) -> Self {
+        Self {
+            data: iter
+                .map(|item| (item.set().handle(), item.handle()))
+                .collect(),
+            store: wrappedstore.clone(),
+            cursor: 0,
+        }
+    }
+
+    pub(crate) fn from_query<'store>(
+        query: Query<'store>,
+        store: &'store AnnotationStore,
+        wrappedstore: &Arc<RwLock<AnnotationStore>>,
+        limit: Option<usize>,
+    ) -> Self {
+        assert!(query.resulttype() == Some(Type::Annotation));
+        Self {
+            data: store
+                .query(query)
+                .limit(limit)
+                .map(|resultitems| {
+                    //we use the deepest item if there are multiple
+                    if let Some(QueryResultItem::AnnotationData(data)) = resultitems.pop_last() {
+                        (data.set().handle(), data.handle())
+                    } else {
+                        unreachable!("Unexpected QueryResultItem");
+                    }
+                })
+                .collect(),
+            store: wrappedstore.clone(),
+            cursor: 0,
+        }
+    }
+
+    fn map<'store, T, F>(&self, f: F) -> Result<T, PyErr>
     where
-        F: FnOnce(
-            &Vec<(AnnotationDataSetHandle, AnnotationDataHandle)>,
-            &AnnotationStore,
-        ) -> Result<T, StamError>,
+        F: FnOnce(Handles<'store, AnnotationData>, &'store AnnotationStore) -> Result<T, StamError>,
     {
         if let Ok(store) = self.store.read() {
-            f(&self.data, &store).map_err(|err| PyStamError::new_err(format!("{}", err)))
+            let handles = Data::new(Cow::Borrowed(&self.data), false, &store);
+            f(handles, &store).map_err(|err| PyStamError::new_err(format!("{}", err)))
         } else {
             Err(PyRuntimeError::new_err(
                 "Unable to obtain store (should never happen)",
             ))
         }
     }
-}
 
-impl<'py> IterParams<'py> {
-    pub(crate) fn evaluate_to_pydata<'store>(
-        self,
-        iter: DataIter<'store>,
-        store: &'store AnnotationStore,
-        wrappedstore: &Arc<RwLock<AnnotationStore>>,
-    ) -> Result<PyData, StamError>
+    fn map_with_query<'a, T, F>(
+        &'a self,
+        resulttype: Type,
+        args: &PyList,
+        kwargs: Option<&PyDict>,
+        f: F,
+    ) -> Result<T, PyErr>
     where
-        'py: 'store,
+        F: FnOnce(Query<'a>, &'a AnnotationStore) -> Result<T, StamError>,
     {
-        let limit = self.limit();
-        match self.evaluate_data(iter, store) {
-            Ok(iter) => {
-                let sorted = iter.returns_sorted();
-                Ok(PyData {
-                    data: if let Some(limit) = limit {
-                        iter.to_collection_limit(limit).take()
-                    } else {
-                        iter.to_collection().take()
-                    },
-                    store: wrappedstore.clone(),
-                    cursor: 0,
-                    sorted,
-                })
-            }
-            Err(e) => Err(e.into()),
-        }
+        self.map(|data, store| {
+            let query = Query::new(QueryType::Select, Some(Type::AnnotationData), Some("main"))
+                .with_constraint(Constraint::Handle(Filter::Data(data, FilterMode::Any)))
+                .with_subquery(
+                    build_query(
+                        Query::new(QueryType::Select, Some(resulttype), Some("sub"))
+                            .with_constraint(Constraint::DataVariable("main")),
+                        args,
+                        kwargs,
+                        store,
+                    )
+                    .map_err(|e| {
+                        StamError::QuerySyntaxError(format!("{}", e), "(python to query)")
+                    })?,
+                );
+            f(query, store)
+        })
     }
 }

@@ -47,14 +47,3 @@ fn stam(py: Python<'_>, m: &PyModule) -> PyResult<()> {
     m.add_class::<PyTextSelections>()?;
     Ok(())
 }
-
-pub(crate) fn get_limit(kwargs: Option<&PyDict>) -> Option<usize> {
-    if let Some(kwargs) = kwargs {
-        if let Ok(Some(limit)) = kwargs.get_item("limit") {
-            if let Ok(limit) = limit.extract::<usize>() {
-                return Some(limit);
-            }
-        }
-    }
-    None
-}

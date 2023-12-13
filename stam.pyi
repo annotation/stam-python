@@ -152,7 +152,7 @@ class AnnotationStore:
         or use the equally named method on other objects for more constrained and filterable annotations (e.g. :meth:`DataKey.annotations`, :meth:`AnnotationDataSet.annotations`, :meth:`TextResource.annotations`)
         """
 
-    def annotations(self, **kwargs) -> Annotations:
+    def annotations(self, *args, **kwargs) -> Annotations:
         """Returns an iterator over all annotations (:class:`Annotation`) in this store.
 
         Filtering can be applied using keyword arguments. It is recommended to only use this method if you apply further filtering, otherwise the memory overhead may be very large if you have many annotations.
@@ -200,22 +200,32 @@ class AnnotationStore:
     def shrink_to_fit(self):
         """Reallocates internal data structures to tight fits to conserve memory space (if necessary). You can use this after having added lots of annotations to possibly reduce the memory consumption."""
 
-    def find_data(self, **kwargs) -> Data:
-        """
-        Find annotation data by set, key and value.
-        Returns :class:`Data`, which holds a collection of :class:`AnnotationData` instances.
+    def data(self, *args, **kwargs) -> Data:
+        """Returns an iterator over all annotations (:class:`Annotation`) in this store.
 
-        Keyword arguments
+        Filtering can be applied using keyword arguments. It is recommended to only use this method if you apply further filtering, otherwise the memory overhead may be very large if you have a lot of data.
+
+        Keyword Arguments
         -------------------
 
-        set: Optional[Union[str,AnnotationDataSet]]
-            The set to search for; it will search all sets if not specified
-        key: Optional[Union[str,DataKey]]
-            The key to search for; it will search all keys if not specified. If you specify a key, you must also specify a set!
-        value: Optional[Union[str,int,float,bool]]
-            The exact value to search for, if this or any of its variants mentioned below is omitted, it will search all values.
+        limit: Optional[int] = None
+            The maximum number of results to return (default: unlimited)
+        filter: Union[AnnotationData,Tuple[AnnotationData],List[AnnotationData],DataKey,Annotations,Data]
+            If you want to add multiple different filters, use `filters` instead.
+            Filter annotations based on:
+
+            * :class:`AnnotationData` - Returns only this exact data  (you can only pass this once). Use :meth:`test_data` instead.
+            * a tuple/list of :class:`AnnotationData` - Returns only annotations with data that matches one of the items in the tuple/list.
+            * :class:`DataKey` - Returns data matching this key (you can only pass this once).
+            * a tuple/list of :class:`DataKey`
+            * :class:`Annotations` - Returns data that is used by by annotations in the provided :obj:`Annotations` collection.
+            * :class:`Data` - Returns only data that is in the provided :obj:`Data` collection.
+        filters: List[Union[AnnotationData,DataKey,Annotations,Data]]
+        value: Optional[Union[str,int,float,bool,List[Union[str,int,float,bool]]]]
+            Search for data matching a specific value.
+            This holds exact value to search for. Further variants of this keyword are listed below:
         value_not: Optional[Union[str,int,float,bool]]
-            Value
+            Value must not match
         value_greater: Optional[Union[int,float]]
             Value must be greater than specified (int or float)
         value_less: Optional[Union[int,float]]
@@ -230,29 +240,61 @@ class AnnotationStore:
             Value must not match any in the tuple
         value_in_range: Optional[Tuple[Union[int,float]]]
             Must be a numeric 2-tuple with min and max (inclusive) values
-
-
-        Examples
-        -------------
-
-        Query for specific annotation data::
-
-            for annotationdata in store.find_data(set="some-set", key="structuretype", value="word"):
-                # only returns one
-                ...
-
-        Query for all data for a key::
-
-            for annotationdata in store.find_data(set="some-set", key="structuretype"):
-                ...
-
-        Note, the latter can be accomplished more efficiently as::
-
-            for annotationdata in store.dataset("some-set").key("structuretype").data():
-                ...
-
-        `find_data` should be considered as a convenience/shortcut method.
         """
+
+#   def find_data(self,  **kwargs) -> Data:
+#       """
+#       Find annotation data by set, key and value.
+#       Returns :class:`Data`, which holds a collection of :class:`AnnotationData` instances.
+
+#       Keyword arguments
+#       -------------------
+
+#       set: Optional[Union[str,AnnotationDataSet]]
+#           The set to search for; it will search all sets if not specified
+#       key: Optional[Union[str,DataKey]]
+#           The key to search for; it will search all keys if not specified. If you specify a key, you must also specify a set!
+#       value: Optional[Union[str,int,float,bool]]
+#           The exact value to search for, if this or any of its variants mentioned below is omitted, it will search all values.
+#       value_not: Optional[Union[str,int,float,bool]]
+#           Value
+#       value_greater: Optional[Union[int,float]]
+#           Value must be greater than specified (int or float)
+#       value_less: Optional[Union[int,float]]
+#           Value must be less than specified (int or float)
+#       value_greatereq: Optional[Union[int,float]]
+#           Value must be greater than specified or equal (int or float)
+#       value_lesseq: Optional[Union[int,float]]
+#           Value must be less than specified or equal (int or float)
+#       value_in: Optional[Tuple[Union[str,int,float,bool]]]
+#           Value must match any in the tuple (this is a logical OR statement)
+#       value_not_in: Optional[Tuple[Union[str,int,float,bool]]]
+#           Value must not match any in the tuple
+#       value_in_range: Optional[Tuple[Union[int,float]]]
+#           Must be a numeric 2-tuple with min and max (inclusive) values
+
+
+#       Examples
+#       -------------
+
+#       Query for specific annotation data::
+
+#           for annotationdata in store.find_data(set="some-set", key="structuretype", value="word"):
+#               # only returns one
+#               ...
+
+#       Query for all data for a key::
+
+#           for annotationdata in store.find_data(set="some-set", key="structuretype"):
+#               ...
+
+#       Note, the latter can be accomplished more efficiently as::
+
+#           for annotationdata in store.dataset("some-set").key("structuretype").data():
+#               ...
+
+#       `find_data` should be considered as a convenience/shortcut method.
+#       """
 
 
 class Annotation:
@@ -619,6 +661,20 @@ class Annotations:
             Follow AnnotationSelectors recursively (default False)
         """
 
+    def test_annotation(self, **kwargs) -> bool:
+        """
+        Tests whether certain annotations reference any annotation in this collection.
+        The annotation can be filtered using keyword arguments. See :meth:`annotations`.
+        Unlike :meth:`annotations`, this method merely tests without returning the data, and as such is more performant.
+        """
+
+    def test_annotations_in_targets(self, **kwargs) -> Annotations:
+        """
+        Tests whether annotations in this collection targets the specified annotation.
+        The annotation can be filtered using keyword arguments. See :meth:`annotations`.
+        Unlike :meth:`annotations_in_targets`, this method merely tests without returning the data, and as such is more performant.
+        """
+
     def textselections(self, limit: Optional[int] = None) -> TextSelections:
         """
         Returns a collection of all textselections associated with the annotations in this collection.
@@ -964,6 +1020,14 @@ class TextSelections:
 
         The annotations can be filtered using keyword arguments. See :meth:`Annotation.annotations`.
        """
+
+    def data(self, **kwargs) -> Data:
+        """
+        Returns annotation data (:class:`Data` containing :class:`AnnotationData`) used by annotations referring to the text selections in this collection.
+
+        The data can be filtered using keyword arguments; see :meth:`Annotation.data`.
+        If no filters are set (default), all data from all annotations on all text selections are returned (without duplicates).
+        """
 
     def test_data(self, **kwargs) -> bool:
         """
@@ -1346,12 +1410,6 @@ class TextResource:
         """
 
     def annotations(self, **kwargs) -> Annotations:
-        """Returns a collection of annotations (:class:`Annotations` contiaining :class:`Annotation`) that reference this resource via any selector.
-
-        The annotations can be filtered using keyword arguments. See :meth:`Annotation.annotations`.
-        """
-
-    def annotations_on_text(self, **kwargs) -> Annotations:
         """Returns a collection of annotations (:class:`Annotation`) that reference this resource via a *TextSelector* (if any).
         Does *NOT* include those that use a ResourceSelector, use :meth:`annotations_metadata` instead for those instead.
 
@@ -1368,7 +1426,7 @@ class TextResource:
 
     def test_annotations(self, **kwargs) -> bool:
         """
-        Tests whether there are any annotations that reference this resource (via any selector). 
+        Tests whether there are any annotations that reference the text of this resource (via a TextSelector). 
 
         This method is like :meth:`annotations`, but only tests and does not return the annotations, as such it is more performant.
 
@@ -1384,34 +1442,26 @@ class TextResource:
         The annotations can be filtered using keyword arguments. See :meth:`Annotation.annotations`.
        """
 
-    def test_annotations_on_text(self, **kwargs) -> bool:
-        """
-        Tests whether there are any annotations that reference the text of this resource (via a TextSelector). 
 
-        This method is like :meth:`annotations_on_text`, but only tests and does not return the annotations, as such it is more performant.
+#   def related_text(self, operator: TextSelectionOperator, referenceselections: List[TextSelection], **kwargs) -> TextSelections:
+#       """
+#       Applies a :class:`TextSelectionOperator` to find all other
+#       text selections who are in a specific relation with the ones from `referenceselections`.
+#       Returns all matching :class:`TextSelection` instances in a collection :class:`TextSelections`.
 
-        The annotations can be filtered using keyword arguments. See :meth:`Annotation.annotations`.
-       """
+#       Text selections will be returned in textual order. They may be filtered via keyword arguments. See :meth:`Annotation.textselections`.
+#      
+#       Parameters
+#       ------------
 
-    def related_text(self, operator: TextSelectionOperator, referenceselections: List[TextSelection], **kwargs) -> TextSelections:
-        """
-        Applies a :class:`TextSelectionOperator` to find all other
-        text selections who are in a specific relation with the ones from `referenceselections`.
-        Returns all matching :class:`TextSelection` instances in a collection :class:`TextSelections`.
+#       operator: TextSelectionOperator
+#           The operator to apply when comparing text selections
+#       referenceselections: List[TextSelection]
+#           Text selections to use as reference
+#
 
-        Text selections will be returned in textual order. They may be filtered via keyword arguments. See :meth:`Annotation.textselections`.
-       
-        Parameters
-        ------------
-
-        operator: TextSelectionOperator
-            The operator to apply when comparing text selections
-        referenceselections: List[TextSelection]
-            Text selections to use as reference
- 
-
-        See :meth:`Annotation.related_text` for allowed keyword arguments.
-        """
+#       See :meth:`Annotation.related_text` for allowed keyword arguments.
+#       """
 
 class TextSelection:
     """

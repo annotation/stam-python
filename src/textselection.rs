@@ -2,13 +2,15 @@ use pyo3::exceptions::{PyIndexError, PyRuntimeError};
 use pyo3::prelude::*;
 use pyo3::pyclass::CompareOp;
 use pyo3::types::*;
+use std::borrow::Cow;
 use std::hash::{Hash, Hasher};
 use std::ops::FnOnce;
 use std::sync::{Arc, RwLock};
 
 use crate::annotation::PyAnnotations;
+use crate::annotationdata::PyData;
 use crate::error::PyStamError;
-use crate::iterparams::IterParams;
+use crate::iterparams::*;
 use crate::resources::{PyOffset, PyTextResource};
 use crate::textselection::TextSelectionHandle;
 use stam::*;
@@ -294,48 +296,98 @@ impl PyTextSelection {
         })
     }
 
-    #[pyo3(signature = (**kwargs))]
-    fn annotations(&self, kwargs: Option<&PyDict>) -> PyResult<PyAnnotations> {
-        let iterparams = IterParams::new(kwargs)?;
-        self.map(|textselection| {
-            let iter = textselection.annotations();
-            iterparams.evaluate_to_pyannotations(iter, textselection.rootstore(), &self.store)
-        })
+    #[pyo3(signature = (*args, **kwargs))]
+    fn annotations(&self, args: &PyList, kwargs: Option<&PyDict>) -> PyResult<PyAnnotations> {
+        let limit = get_limit(kwargs);
+        if !has_filters(args, kwargs) {
+            self.map(|textselection| {
+                Ok(PyAnnotations::from_iter(
+                    textselection.annotations().limit(limit),
+                    &self.store,
+                ))
+            })
+        } else {
+            self.map_with_query(
+                Type::Annotation,
+                Constraint::TextVariable("main"),
+                args,
+                kwargs,
+                |textselection, query| {
+                    Ok(PyAnnotations::from_query(
+                        query,
+                        textselection.rootstore(),
+                        &self.store,
+                        limit,
+                    ))
+                },
+            )
+        }
     }
 
-    #[pyo3(signature = (**kwargs))]
-    fn test_annotations(&self, kwargs: Option<&PyDict>) -> PyResult<bool> {
-        let iterparams = IterParams::new(kwargs)?;
-        self.map(|textselection| {
-            let iter = textselection.annotations();
-            Ok(iterparams
-                .evaluate_annotations(iter, textselection.rootstore())?
-                .test())
-        })
+    #[pyo3(signature = (*args, **kwargs))]
+    fn test_annotations(&self, args: &PyList, kwargs: Option<&PyDict>) -> PyResult<bool> {
+        if !has_filters(args, kwargs) {
+            self.map(|textselection| Ok(textselection.annotations().test()))
+        } else {
+            self.map_with_query(
+                Type::Annotation,
+                Constraint::TextVariable("main"),
+                args,
+                kwargs,
+                |textselection, query| Ok(textselection.rootstore().query(query).test()),
+            )
+        }
     }
 
-    #[pyo3(signature = (**kwargs))]
-    fn test_data(&self, kwargs: Option<&PyDict>) -> PyResult<bool> {
-        let iterparams = IterParams::new(kwargs)?;
-        self.map(|textselection| {
-            let iter = textselection.annotations().data_unchecked();
-            Ok(iterparams
-                .evaluate_data(iter, textselection.rootstore())?
-                .test())
-        })
+    #[pyo3(signature = (*args, **kwargs))]
+    fn test_data(&self, args: &PyList, kwargs: Option<&PyDict>) -> PyResult<bool> {
+        if !has_filters(args, kwargs) {
+            self.map(|textselection| Ok(textselection.annotations().data().test()))
+        } else {
+            self.map_with_query(
+                Type::AnnotationData,
+                Constraint::TextVariable("main"),
+                args,
+                kwargs,
+                |textselection, query| Ok(textselection.rootstore().query(query).test()),
+            )
+        }
     }
 
-    #[pyo3(signature = (operator, **kwargs))]
+    #[pyo3(signature = (operator, *args, **kwargs))]
     fn related_text(
         &self,
         operator: PyTextSelectionOperator,
+        args: &PyList,
         kwargs: Option<&PyDict>,
     ) -> PyResult<PyTextSelections> {
-        let iterparams = IterParams::new(kwargs)?;
-        self.map(|textselection| {
-            let iter = textselection.related_text(operator.operator);
-            iterparams.evaluate_to_pytextselections(iter, textselection.rootstore(), &self.store)
-        })
+        let limit = get_limit(kwargs);
+        if !has_filters(args, kwargs) {
+            self.map(|textselection| {
+                Ok(PyTextSelections::from_iter(
+                    textselection.related_text(operator.operator).limit(limit),
+                    &self.store,
+                ))
+            })
+        } else {
+            self.map_with_query(
+                Type::TextSelection,
+                Constraint::TextRelation {
+                    var: "main",
+                    operator: operator.operator, //MAYBE TODO: check if we need to invert an operator here?
+                },
+                args,
+                kwargs,
+                |textselection, query| {
+                    Ok(PyTextSelections::from_query(
+                        query,
+                        textselection.rootstore(),
+                        &self.store,
+                        limit,
+                    ))
+                },
+            )
+        }
     }
 
     fn annotations_len(&self) -> usize {
@@ -428,6 +480,41 @@ impl PyTextSelection {
             ))
         }
     }
+
+    fn map_with_query<'a, T, F>(
+        &'a self,
+        resulttype: Type,
+        constraint: Constraint<'a>,
+        args: &PyList,
+        kwargs: Option<&PyDict>,
+        f: F,
+    ) -> Result<T, PyErr>
+    where
+        F: FnOnce(ResultTextSelection<'a>, Query<'a>) -> Result<T, StamError>,
+    {
+        self.map(|textselection| {
+            let query = Query::new(QueryType::Select, Some(Type::TextSelection), Some("main"))
+                .with_constraint(Constraint::Handle(Filter::TextSelection(
+                    textselection.resource().handle(),
+                    textselection
+                        .handle()
+                        .expect("textselection must have handle"),
+                )))
+                .with_subquery(
+                    build_query(
+                        Query::new(QueryType::Select, Some(resulttype), Some("sub"))
+                            .with_constraint(constraint),
+                        args,
+                        kwargs,
+                        textselection.rootstore(),
+                    )
+                    .map_err(|e| {
+                        StamError::QuerySyntaxError(format!("{}", e), "(python to query)")
+                    })?,
+                );
+            f(textselection, query)
+        })
+    }
 }
 
 impl From<PyTextSelection> for TextSelection {
@@ -453,21 +540,19 @@ impl PyTextSelections {
     fn __next__(mut pyself: PyRefMut<'_, Self>) -> Option<PyTextSelection> {
         pyself.cursor += 1; //increment first (prevent exclusive mutability issues)
         pyself
-            .map(
-                |textselections: &Vec<(TextResourceHandle, TextSelectionHandle)>, store| {
-                    //index is one ahead, prevents exclusive lock issues
-                    if let Some((res_handle, handle)) = textselections.get(pyself.cursor - 1) {
-                        let resource = store.get(*res_handle)?;
-                        let textselection = resource.get(*handle)?;
-                        return Ok(PyTextSelection::new(
-                            textselection.clone(),
-                            *res_handle,
-                            &pyself.store,
-                        ));
-                    }
-                    Err(StamError::HandleError("a handle did not resolve"))
-                },
-            )
+            .map(|textselections, store| {
+                //index is one ahead, prevents exclusive lock issues
+                if let Some((res_handle, handle)) = textselections.get(pyself.cursor - 1) {
+                    let resource = store.get(res_handle)?;
+                    let textselection = resource.get(handle)?;
+                    return Ok(PyTextSelection::new(
+                        textselection.clone(),
+                        res_handle,
+                        &pyself.store,
+                    ));
+                }
+                Err(StamError::HandleError("a handle did not resolve"))
+            })
             .ok()
     }
 
@@ -503,81 +588,153 @@ impl PyTextSelections {
     }
 
     fn text_join(pyself: PyRef<'_, Self>, delimiter: &str) -> PyResult<String> {
-        pyself.map(|textselections, store| {
-            let iter = stam::TextSelectionsIter::from_handles(
-                textselections.iter().copied().collect(), //MAYBE TODO: work away the extra copy
-                store,
-            );
-            Ok(iter.text_join(delimiter))
+        pyself.map(|textselections, _store| {
+            Ok(ResultTextSelections::new(textselections.items()).text_join(delimiter))
         })
     }
 
     fn text(pyself: PyRef<'_, Self>) -> PyResult<Vec<String>> {
-        pyself.map(|textselections, store| {
-            let iter = stam::TextSelectionsIter::from_handles(
-                textselections.iter().copied().collect(), //MAYBE TODO: work away the extra copy
-                store,
-            );
-            let v: Vec<String> = iter.text().map(|s| s.to_string()).collect();
+        pyself.map(|textselections, _store| {
+            let v: Vec<String> = ResultTextSelections::new(textselections.items())
+                .text()
+                .map(|s| s.to_string())
+                .collect();
             Ok(v)
         })
     }
 
-    #[pyo3(signature = (**kwargs))]
-    fn annotations(&self, kwargs: Option<&PyDict>) -> PyResult<PyAnnotations> {
-        let iterparams = IterParams::new(kwargs)?;
-        self.map(|textselections, store| {
-            let iter = stam::TextSelectionsIter::from_handles(
-                textselections.iter().copied().collect(), //MAYBE TODO: work away the extra copy
-                store,
+    #[pyo3(signature = (*args, **kwargs))]
+    fn annotations(&self, args: &PyList, kwargs: Option<&PyDict>) -> PyResult<PyAnnotations> {
+        let limit = get_limit(kwargs);
+        if !has_filters(args, kwargs) {
+            self.map(|textselections, store| {
+                Ok(PyAnnotations::from_iter(
+                    textselections
+                        .items()
+                        .map(|x| x.as_resulttextselection())
+                        .annotations()
+                        .limit(limit),
+                    &self.store,
+                ))
+            })
+        } else {
+            self.map_with_query(
+                Type::Annotation,
+                Constraint::TextVariable("main"),
+                args,
+                kwargs,
+                |query, store| Ok(PyAnnotations::from_query(query, store, &self.store, limit)),
             )
-            .annotations();
-            iterparams.evaluate_to_pyannotations(iter, store, &self.store)
-        })
+        }
     }
 
-    #[pyo3(signature = (**kwargs))]
-    fn test_annotations(&self, kwargs: Option<&PyDict>) -> PyResult<bool> {
-        let iterparams = IterParams::new(kwargs)?;
-        self.map(|textselections, store| {
-            let iter = stam::TextSelectionsIter::from_handles(
-                textselections.iter().copied().collect(), //MAYBE TODO: work away the extra copy
-                store,
+    #[pyo3(signature = (*args, **kwargs))]
+    fn test_annotations(&self, args: &PyList, kwargs: Option<&PyDict>) -> PyResult<bool> {
+        if !has_filters(args, kwargs) {
+            self.map(|annotations, _| {
+                Ok(annotations
+                    .items()
+                    .map(|x| x.as_resulttextselection())
+                    .annotations()
+                    .test())
+            })
+        } else {
+            self.map_with_query(
+                Type::Annotation,
+                Constraint::TextVariable("main"),
+                args,
+                kwargs,
+                |query, store| Ok(store.query(query).test()),
             )
-            .annotations();
-            Ok(iterparams.evaluate_annotations(iter, store)?.test())
-        })
+        }
     }
 
-    #[pyo3(signature = (**kwargs))]
-    fn test_data(&self, kwargs: Option<&PyDict>) -> PyResult<bool> {
-        let iterparams = IterParams::new(kwargs)?;
-        self.map(|textselections, store| {
-            let iter = stam::TextSelectionsIter::from_handles(
-                textselections.iter().copied().collect(), //MAYBE TODO: work away the extra copy
-                store,
+    #[pyo3(signature = (*args, **kwargs))]
+    fn data(&self, args: &PyList, kwargs: Option<&PyDict>) -> PyResult<PyData> {
+        let limit = get_limit(kwargs);
+        if !has_filters(args, kwargs) {
+            self.map(|textselections, store| {
+                Ok(PyData::from_iter(
+                    textselections
+                        .items()
+                        .map(|x| x.as_resulttextselection())
+                        .annotations()
+                        .data()
+                        .limit(limit),
+                    &self.store,
+                ))
+            })
+        } else {
+            self.map_with_query(
+                Type::AnnotationData,
+                Constraint::TextVariable("main"),
+                args,
+                kwargs,
+                |query, store| Ok(PyData::from_query(query, store, &self.store, limit)),
             )
-            .annotations_unchecked()
-            .data_unchecked();
-            Ok(iterparams.evaluate_data(iter, store)?.test())
-        })
+        }
     }
 
-    #[pyo3(signature = (operator, **kwargs))]
+    #[pyo3(signature = (*args, **kwargs))]
+    fn test_data(&self, args: &PyList, kwargs: Option<&PyDict>) -> PyResult<bool> {
+        if !has_filters(args, kwargs) {
+            self.map(|textselections, _| {
+                Ok(textselections
+                    .items()
+                    .map(|x| x.as_resulttextselection())
+                    .annotations()
+                    .data()
+                    .test())
+            })
+        } else {
+            self.map_with_query(
+                Type::AnnotationData,
+                Constraint::TextVariable("main"),
+                args,
+                kwargs,
+                |query, store| Ok(store.query(query).test()),
+            )
+        }
+    }
+
+    #[pyo3(signature = (operator, *args, **kwargs))]
     fn related_text(
         &self,
         operator: PyTextSelectionOperator,
+        args: &PyList,
         kwargs: Option<&PyDict>,
     ) -> PyResult<PyTextSelections> {
-        let iterparams = IterParams::new(kwargs)?;
-        self.map(|textselections, store| {
-            let iter = stam::TextSelectionsIter::from_handles(
-                textselections.iter().copied().collect(), //MAYBE TODO: work away the extra copy
-                store,
+        let limit = get_limit(kwargs);
+        if !has_filters(args, kwargs) {
+            self.map(|textselections, store| {
+                Ok(PyTextSelections::from_iter(
+                    textselections
+                        .items()
+                        .map(|x| x.as_resulttextselection())
+                        .related_text(operator.operator)
+                        .limit(limit),
+                    &self.store,
+                ))
+            })
+        } else {
+            self.map_with_query(
+                Type::TextSelection,
+                Constraint::TextRelation {
+                    var: "main",
+                    operator: operator.operator, //MAYBE TODO: check if we need to invert an operator here?
+                },
+                args,
+                kwargs,
+                |query, store| {
+                    Ok(PyTextSelections::from_query(
+                        query,
+                        store,
+                        &self.store,
+                        limit,
+                    ))
+                },
             )
-            .related_text(operator.operator);
-            iterparams.evaluate_to_pytextselections(iter, store, &self.store)
-        })
+        }
     }
 
     fn textual_order(mut pyself: PyRefMut<'_, Self>) -> PyRefMut<'_, Self> {
@@ -608,15 +765,61 @@ impl PyTextSelections {
 }
 
 impl PyTextSelections {
-    fn map<T, F>(&self, f: F) -> Result<T, PyErr>
+    pub(crate) fn from_iter<'store>(
+        iter: impl Iterator<Item = ResultTextSelection<'store>>,
+        wrappedstore: &Arc<RwLock<AnnotationStore>>,
+    ) -> Self {
+        Self {
+            textselections: iter
+                .map(|textselection| {
+                    (
+                        textselection.resource().handle(),
+                        textselection.handle().expect("textselection must be bound"),
+                    )
+                })
+                .collect(),
+            store: wrappedstore.clone(),
+            cursor: 0,
+        }
+    }
+
+    pub(crate) fn from_query<'store>(
+        query: Query<'store>,
+        store: &'store AnnotationStore,
+        wrappedstore: &Arc<RwLock<AnnotationStore>>,
+        limit: Option<usize>,
+    ) -> Self {
+        assert!(query.resulttype() == Some(Type::Annotation));
+        Self {
+            textselections: store
+                .query(query)
+                .limit(limit)
+                .map(|resultitems| {
+                    //we use the deepest item if there are multiple
+                    if let Some(QueryResultItem::TextSelection(textselection)) =
+                        resultitems.pop_last()
+                    {
+                        (
+                            textselection.resource().handle(),
+                            textselection.handle().expect("textselection must be bound"),
+                        )
+                    } else {
+                        unreachable!("Unexpected QueryResultItem");
+                    }
+                })
+                .collect(),
+            store: wrappedstore.clone(),
+            cursor: 0,
+        }
+    }
+
+    fn map<'store, T, F>(&self, f: F) -> Result<T, PyErr>
     where
-        F: FnOnce(
-            &Vec<(TextResourceHandle, TextSelectionHandle)>,
-            &AnnotationStore,
-        ) -> Result<T, StamError>,
+        F: FnOnce(TextSelections<'store>, &'store AnnotationStore) -> Result<T, StamError>,
     {
         if let Ok(store) = self.store.read() {
-            f(&self.textselections, &store).map_err(|err| PyStamError::new_err(format!("{}", err)))
+            let handles = TextSelections::new(Cow::Borrowed(&self.textselections), false, &store);
+            f(handles, &store).map_err(|err| PyStamError::new_err(format!("{}", err)))
         } else {
             Err(PyRuntimeError::new_err(
                 "Unable to obtain store (should never happen)",
@@ -640,31 +843,35 @@ impl PyTextSelections {
             ))
         }
     }
-}
 
-impl<'py> IterParams<'py> {
-    pub(crate) fn evaluate_to_pytextselections<'store>(
-        self,
-        iter: TextSelectionsIter<'store>,
-        store: &'store AnnotationStore,
-        wrappedstore: &Arc<RwLock<AnnotationStore>>,
-    ) -> Result<PyTextSelections, StamError>
+    fn map_with_query<'a, T, F>(
+        &'a self,
+        resulttype: Type,
+        constraint: Constraint<'a>,
+        args: &PyList,
+        kwargs: Option<&PyDict>,
+        f: F,
+    ) -> Result<T, PyErr>
     where
-        'py: 'store,
+        F: FnOnce(Query<'a>, &'a AnnotationStore) -> Result<T, StamError>,
     {
-        let limit = self.limit();
-        match self.evaluate_textselections(iter, store) {
-            Ok(iter) => Ok(PyTextSelections {
-                textselections: if let Some(limit) = limit {
-                    iter.to_handles_limit(limit)
-                } else {
-                    iter.to_handles()
-                },
-                store: wrappedstore.clone(),
-                cursor: 0,
-            }),
-            Err(e) => Err(e.into()),
-        }
+        self.map(|textselections, store| {
+            let query = Query::new(QueryType::Select, Some(Type::Annotation), Some("main"))
+                .with_constraint(Constraint::Handle(Filter::TextSelections(textselections)))
+                .with_subquery(
+                    build_query(
+                        Query::new(QueryType::Select, Some(resulttype), Some("sub"))
+                            .with_constraint(constraint),
+                        args,
+                        kwargs,
+                        store,
+                    )
+                    .map_err(|e| {
+                        StamError::QuerySyntaxError(format!("{}", e), "(python to query)")
+                    })?,
+                );
+            f(query, store)
+        })
     }
 }
 

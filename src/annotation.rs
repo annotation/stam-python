@@ -10,7 +10,7 @@ use crate::annotationdata::{PyAnnotationData, PyData};
 use crate::annotationdataset::PyAnnotationDataSet;
 use crate::annotationstore::MapStore;
 use crate::error::PyStamError;
-use crate::iterparams::IterParams;
+use crate::iterparams::*;
 use crate::resources::{PyOffset, PyTextResource};
 use crate::selector::{PySelector, PySelectorKind};
 use crate::textselection::{PyTextSelectionOperator, PyTextSelections};
@@ -128,9 +128,9 @@ impl PyAnnotation {
 
     /// Returns the text of the annotation.
     /// If the annotation references multiple text slices, they will be concatenated with a space as a delimiter,
-    /// but note that in reality the different parts may be non-contingent!
+    /// but note that in reality the different parts may be non-contingent or non-delimited!
     ///
-    /// Use `text()` instead to retrieve a list of texts
+    /// Use `text()` instead to retrieve a list of texts, which you can subsequently concatenate as you please.
     fn __str__(&self) -> PyResult<String> {
         self.map(|annotation| {
             let elements: Vec<&str> = annotation.text().collect();
@@ -142,52 +142,144 @@ impl PyAnnotation {
     /// Returns a list of all textselections of the annotation.
     /// Note that this will always return a list (even it if only contains a single element),
     /// as an annotation may reference multiple text selections.
-    #[pyo3(signature = (**kwargs))]
-    fn textselections(&self, kwargs: Option<&PyDict>) -> PyResult<PyTextSelections> {
-        let iterparams = IterParams::new(kwargs)?;
-        self.map(|annotation| {
-            let iter = annotation.textselections();
-            iterparams.evaluate_to_pytextselections(iter, annotation.store(), &self.store)
-        })
+    #[pyo3(signature = (*args, **kwargs))]
+    fn textselections(&self, args: &PyList, kwargs: Option<&PyDict>) -> PyResult<PyTextSelections> {
+        let limit = get_limit(kwargs);
+        if !has_filters(args, kwargs) {
+            self.map(|annotation| {
+                Ok(PyTextSelections::from_iter(
+                    annotation.textselections().limit(limit),
+                    &self.store,
+                ))
+            })
+        } else {
+            self.map_with_query(
+                Type::TextSelection,
+                Constraint::AnnotationVariable("main", AnnotationQualifier::None),
+                args,
+                kwargs,
+                |annotation, query| {
+                    Ok(PyTextSelections::from_query(
+                        query,
+                        annotation.store(),
+                        &self.store,
+                        limit,
+                    ))
+                },
+            )
+        }
     }
 
     /// Returns annotations this annotation refers to (i.e. using an AnnotationSelector)
-    #[pyo3(signature = (**kwargs))]
-    fn annotations_in_targets(&self, kwargs: Option<&PyDict>) -> PyResult<PyAnnotations> {
-        let iterparams = IterParams::new(kwargs)?;
-        let mut recursive: bool = false;
-        if let Some(kwargs) = kwargs {
-            if let Ok(Some(v)) = kwargs.get_item("recursive") {
-                if let Ok(v) = v.extract() {
-                    recursive = v;
-                }
-            }
+    #[pyo3(signature = (*args, **kwargs))]
+    fn annotations_in_targets(
+        &self,
+        args: &PyList,
+        kwargs: Option<&PyDict>,
+    ) -> PyResult<PyAnnotations> {
+        let limit = get_limit(kwargs);
+        let recursive = get_recursive(kwargs, false);
+        if !has_filters(args, kwargs) {
+            self.map(|annotation| {
+                Ok(PyAnnotations::from_iter(
+                    annotation.annotations_in_targets(recursive).limit(limit),
+                    &self.store,
+                ))
+            })
+        } else {
+            self.map_with_query(
+                Type::Annotation,
+                Constraint::AnnotationVariable(
+                    "main",
+                    if recursive {
+                        AnnotationQualifier::RecursiveTarget
+                    } else {
+                        AnnotationQualifier::Target
+                    },
+                ),
+                args,
+                kwargs,
+                |annotation, query| {
+                    Ok(PyAnnotations::from_query(
+                        query,
+                        annotation.store(),
+                        &self.store,
+                        limit,
+                    ))
+                },
+            )
         }
-        self.map(|annotation| {
-            let iter = annotation.annotations_in_targets(recursive);
-            iterparams.evaluate_to_pyannotations(iter, annotation.store(), &self.store)
-        })
     }
 
     /// Returns annotations that are referring to this annotation (i.e. others using an AnnotationSelector)
-    #[pyo3(signature = (**kwargs))]
-    fn annotations(&self, kwargs: Option<&PyDict>) -> PyResult<PyAnnotations> {
-        let iterparams = IterParams::new(kwargs)?;
-        self.map(|annotation| {
-            let iter = annotation.annotations();
-            iterparams.evaluate_to_pyannotations(iter, annotation.store(), &self.store)
-        })
+    #[pyo3(signature = (*args, **kwargs))]
+    fn annotations(&self, args: &PyList, kwargs: Option<&PyDict>) -> PyResult<PyAnnotations> {
+        let limit = get_limit(kwargs);
+        if !has_filters(args, kwargs) {
+            self.map(|annotation| {
+                Ok(PyAnnotations::from_iter(
+                    annotation.annotations().limit(limit),
+                    &self.store,
+                ))
+            })
+        } else {
+            self.map_with_query(
+                Type::Annotation,
+                Constraint::AnnotationVariable("main", AnnotationQualifier::None),
+                args,
+                kwargs,
+                |annotation, query| {
+                    Ok(PyAnnotations::from_query(
+                        query,
+                        annotation.store(),
+                        &self.store,
+                        limit,
+                    ))
+                },
+            )
+        }
     }
 
-    #[pyo3(signature = (**kwargs))]
-    fn test_annotations(&self, kwargs: Option<&PyDict>) -> PyResult<bool> {
-        let iterparams = IterParams::new(kwargs)?;
-        self.map(|annotation| {
-            let iter = annotation.annotations();
-            Ok(iterparams
-                .evaluate_annotations(iter, annotation.store())?
-                .test())
-        })
+    #[pyo3(signature = (*args, **kwargs))]
+    fn test_annotations(&self, args: &PyList, kwargs: Option<&PyDict>) -> PyResult<bool> {
+        if !has_filters(args, kwargs) {
+            self.map(|annotation| Ok(annotation.annotations().test()))
+        } else {
+            self.map_with_query(
+                Type::Annotation,
+                Constraint::AnnotationVariable("main", AnnotationQualifier::None),
+                args,
+                kwargs,
+                |annotation, query| Ok(annotation.store().query(query).test()),
+            )
+        }
+    }
+
+    #[pyo3(signature = (*args, **kwargs))]
+    fn test_annotations_in_targets(
+        &self,
+        args: &PyList,
+        kwargs: Option<&PyDict>,
+    ) -> PyResult<bool> {
+        let recursive = get_recursive(kwargs, false);
+        if !has_filters(args, kwargs) {
+            self.map(|annotation| Ok(annotation.annotations_in_targets(recursive).test()))
+        } else {
+            self.map_with_query(
+                Type::Annotation,
+                Constraint::AnnotationVariable(
+                    "main",
+                    if recursive {
+                        AnnotationQualifier::RecursiveTarget
+                    } else {
+                        AnnotationQualifier::Target
+                    },
+                ),
+                args,
+                kwargs,
+                |annotation, query| Ok(annotation.store().query(query).test()),
+            )
+        }
     }
 
     /// Returns a list of resources this annotation refers to
@@ -261,22 +353,47 @@ impl PyAnnotation {
     }
 
     /// Returns annotation data instances that pertain to this annotation.
-    #[pyo3(signature = (**kwargs))]
-    fn data(&self, kwargs: Option<&PyDict>) -> PyResult<PyData> {
-        let iterparams = IterParams::new(kwargs)?;
-        self.map(|annotation| {
-            let iter = annotation.data();
-            iterparams.evaluate_to_pydata(iter, annotation.store(), &self.store)
-        })
+    #[pyo3(signature = (*args, **kwargs))]
+    fn data(&self, args: &PyList, kwargs: Option<&PyDict>) -> PyResult<PyData> {
+        let limit = get_limit(kwargs);
+        if !has_filters(args, kwargs) {
+            self.map(|annotation| {
+                Ok(PyData::from_iter(
+                    annotation.data().limit(limit),
+                    &self.store,
+                ))
+            })
+        } else {
+            self.map_with_query(
+                Type::AnnotationData,
+                Constraint::AnnotationVariable("main", AnnotationQualifier::None),
+                args,
+                kwargs,
+                |annotation, query| {
+                    Ok(PyData::from_query(
+                        query,
+                        annotation.store(),
+                        &self.store,
+                        limit,
+                    ))
+                },
+            )
+        }
     }
 
-    #[pyo3(signature = (**kwargs))]
-    fn test_data(&self, kwargs: Option<&PyDict>) -> PyResult<bool> {
-        let iterparams = IterParams::new(kwargs)?;
-        self.map(|annotation| {
-            let iter = annotation.data();
-            Ok(iterparams.evaluate_data(iter, annotation.store())?.test())
-        })
+    #[pyo3(signature = (*args, **kwargs))]
+    fn test_data(&self, args: &PyList, kwargs: Option<&PyDict>) -> PyResult<bool> {
+        if !has_filters(args, kwargs) {
+            self.map(|annotation| Ok(annotation.data().test()))
+        } else {
+            self.map_with_query(
+                Type::AnnotationData,
+                Constraint::AnnotationVariable("main", AnnotationQualifier::None),
+                args,
+                kwargs,
+                |annotation, query| Ok(annotation.store().query(query).test()),
+            )
+        }
     }
 
     /// Returns the number of data items under this annotation
@@ -285,17 +402,40 @@ impl PyAnnotation {
             .unwrap()
     }
 
-    #[pyo3(signature = (operator, **kwargs))]
+    #[pyo3(signature = (operator, *args, **kwargs))]
     fn related_text(
         &self,
         operator: PyTextSelectionOperator,
+        args: &PyList,
         kwargs: Option<&PyDict>,
     ) -> PyResult<PyTextSelections> {
-        let iterparams = IterParams::new(kwargs)?;
-        self.map(|annotation| {
-            let iter = annotation.related_text(operator.operator);
-            iterparams.evaluate_to_pytextselections(iter, annotation.rootstore(), &self.store)
-        })
+        let limit = get_limit(kwargs);
+        if !has_filters(args, kwargs) {
+            self.map(|annotation| {
+                Ok(PyTextSelections::from_iter(
+                    annotation.related_text(operator.operator).limit(limit),
+                    &self.store,
+                ))
+            })
+        } else {
+            self.map_with_query(
+                Type::TextSelection,
+                Constraint::TextRelation {
+                    var: "main",
+                    operator: operator.operator, //MAYBE TODO: check if we need to invert an operator here?
+                },
+                args,
+                kwargs,
+                |annotation, query| {
+                    Ok(PyTextSelections::from_query(
+                        query,
+                        annotation.store(),
+                        &self.store,
+                        limit,
+                    ))
+                },
+            )
+        }
     }
 }
 
@@ -304,8 +444,6 @@ pub struct PyAnnotations {
     pub(crate) annotations: Vec<AnnotationHandle>,
     pub(crate) store: Arc<RwLock<AnnotationStore>>,
     pub(crate) cursor: usize,
-    /// Indicates whether the annotations are sorted chronologically (by handle)
-    pub(crate) sorted: bool,
 }
 
 #[pymethods]
@@ -344,87 +482,209 @@ impl PyAnnotations {
         !pyself.annotations.is_empty()
     }
 
-    fn is_sorted(pyself: PyRef<'_, Self>) -> bool {
-        pyself.sorted
-    }
-
     /// Returns annotation data instances used by the annotations in this collection.
-    #[pyo3(signature = (**kwargs))]
-    fn data(&self, kwargs: Option<&PyDict>) -> PyResult<PyData> {
-        let iterparams = IterParams::new(kwargs)?;
-        self.map(|annotations, store| {
-            let iter = Annotations::from_handles(Cow::Borrowed(annotations), self.sorted, store)
-                .iter()
-                .data();
-            iterparams.evaluate_to_pydata(iter, store, &self.store)
-        })
-    }
-
-    #[pyo3(signature = (**kwargs))]
-    fn test_data(&self, kwargs: Option<&PyDict>) -> PyResult<bool> {
-        let iterparams = IterParams::new(kwargs)?;
-        self.map(|annotations, store| {
-            let iter = Annotations::from_handles(Cow::Borrowed(annotations), self.sorted, store)
-                .iter()
-                .data();
-            Ok(iterparams.evaluate_data(iter, store)?.test())
-        })
-    }
-
-    #[pyo3(signature = (**kwargs))]
-    fn annotations(&self, kwargs: Option<&PyDict>) -> PyResult<PyAnnotations> {
-        let iterparams = IterParams::new(kwargs)?;
-        self.map(|annotations, store| {
-            let iter = Annotations::from_handles(Cow::Borrowed(annotations), self.sorted, store)
-                .iter()
-                .annotations();
-            iterparams.evaluate_to_pyannotations(iter, store, &self.store)
-        })
-    }
-
-    #[pyo3(signature = (**kwargs))]
-    fn annotations_in_targets(&self, kwargs: Option<&PyDict>) -> PyResult<PyAnnotations> {
-        let iterparams = IterParams::new(kwargs)?;
-        let mut recursive: bool = false;
-        if let Some(kwargs) = kwargs {
-            if let Ok(Some(v)) = kwargs.get_item("recursive") {
-                if let Ok(v) = v.extract() {
-                    recursive = v;
-                }
-            }
+    #[pyo3(signature = (*args, **kwargs))]
+    fn data(&self, args: &PyList, kwargs: Option<&PyDict>) -> PyResult<PyData> {
+        let limit = get_limit(kwargs);
+        if !has_filters(args, kwargs) {
+            self.map(|annotations, store| {
+                Ok(PyData::from_iter(
+                    annotations.items().data().limit(limit),
+                    &self.store,
+                ))
+            })
+        } else {
+            self.map_with_query(
+                Type::AnnotationData,
+                Constraint::AnnotationVariable("main", AnnotationQualifier::None),
+                args,
+                kwargs,
+                |query, store| Ok(PyData::from_query(query, store, &self.store, limit)),
+            )
         }
-        self.map(|annotations, store| {
-            let iter = Annotations::from_handles(Cow::Borrowed(annotations), self.sorted, store)
-                .iter()
-                .annotations_in_targets(recursive);
-            iterparams.evaluate_to_pyannotations(iter, store, &self.store)
-        })
     }
 
-    #[pyo3(signature = (**kwargs))]
-    fn textselections(&self, kwargs: Option<&PyDict>) -> PyResult<PyTextSelections> {
-        let iterparams = IterParams::new(kwargs)?;
-        self.map(|annotations, store| {
-            let iter = Annotations::from_handles(Cow::Borrowed(annotations), self.sorted, store)
-                .iter()
-                .textselections();
-            iterparams.evaluate_to_pytextselections(iter, store, &self.store)
-        })
+    #[pyo3(signature = (*args, **kwargs))]
+    fn test_data(&self, args: &PyList, kwargs: Option<&PyDict>) -> PyResult<bool> {
+        if !has_filters(args, kwargs) {
+            self.map(|annotations, _| Ok(annotations.items().data().test()))
+        } else {
+            self.map_with_query(
+                Type::AnnotationData,
+                Constraint::AnnotationVariable("main", AnnotationQualifier::None),
+                args,
+                kwargs,
+                |query, store| Ok(store.query(query).test()),
+            )
+        }
     }
 
-    #[pyo3(signature = (operator, **kwargs))]
+    #[pyo3(signature = (*args, **kwargs))]
+    fn annotations(&self, args: &PyList, kwargs: Option<&PyDict>) -> PyResult<PyAnnotations> {
+        let limit = get_limit(kwargs);
+        if !has_filters(args, kwargs) {
+            self.map(|annotations, store| {
+                Ok(PyAnnotations::from_iter(
+                    annotations.items().annotations().limit(limit),
+                    &self.store,
+                ))
+            })
+        } else {
+            self.map_with_query(
+                Type::Annotation,
+                Constraint::AnnotationVariable("main", AnnotationQualifier::None),
+                args,
+                kwargs,
+                |query, store| Ok(PyAnnotations::from_query(query, store, &self.store, limit)),
+            )
+        }
+    }
+
+    #[pyo3(signature = (*args, **kwargs))]
+    fn test_annotations(&self, args: &PyList, kwargs: Option<&PyDict>) -> PyResult<bool> {
+        if !has_filters(args, kwargs) {
+            self.map(|annotations, _| Ok(annotations.items().annotations().test()))
+        } else {
+            self.map_with_query(
+                Type::Annotation,
+                Constraint::AnnotationVariable("main", AnnotationQualifier::None),
+                args,
+                kwargs,
+                |query, store| Ok(store.query(query).test()),
+            )
+        }
+    }
+
+    #[pyo3(signature = (*args, **kwargs))]
+    fn annotations_in_targets(
+        &self,
+        args: &PyList,
+        kwargs: Option<&PyDict>,
+    ) -> PyResult<PyAnnotations> {
+        let limit = get_limit(kwargs);
+        let recursive = get_recursive(kwargs, false);
+        if !has_filters(args, kwargs) {
+            self.map(|annotations, store| {
+                Ok(PyAnnotations::from_iter(
+                    annotations
+                        .items()
+                        .annotations_in_targets(recursive)
+                        .limit(limit),
+                    &self.store,
+                ))
+            })
+        } else {
+            self.map_with_query(
+                Type::Annotation,
+                Constraint::AnnotationVariable(
+                    "main",
+                    if recursive {
+                        AnnotationQualifier::RecursiveTarget
+                    } else {
+                        AnnotationQualifier::Target
+                    },
+                ),
+                args,
+                kwargs,
+                |query, store| Ok(PyAnnotations::from_query(query, store, &self.store, limit)),
+            )
+        }
+    }
+
+    #[pyo3(signature = (*args, **kwargs))]
+    fn test_annotations_in_targets(
+        &self,
+        args: &PyList,
+        kwargs: Option<&PyDict>,
+    ) -> PyResult<bool> {
+        let recursive = get_recursive(kwargs, false);
+        if !has_filters(args, kwargs) {
+            self.map(|annotations, _| {
+                Ok(annotations.items().annotations_in_targets(recursive).test())
+            })
+        } else {
+            self.map_with_query(
+                Type::Annotation,
+                Constraint::AnnotationVariable(
+                    "main",
+                    if recursive {
+                        AnnotationQualifier::RecursiveTarget
+                    } else {
+                        AnnotationQualifier::Target
+                    },
+                ),
+                args,
+                kwargs,
+                |query, store| Ok(store.query(query).test()),
+            )
+        }
+    }
+
+    #[pyo3(signature = (*args,**kwargs))]
+    fn textselections(&self, args: &PyList, kwargs: Option<&PyDict>) -> PyResult<PyTextSelections> {
+        let limit = get_limit(kwargs);
+        if !has_filters(args, kwargs) {
+            self.map(|annotations, store| {
+                Ok(PyTextSelections::from_iter(
+                    annotations.items().textselections().limit(limit),
+                    &self.store,
+                ))
+            })
+        } else {
+            self.map_with_query(
+                Type::TextSelection,
+                Constraint::AnnotationVariable("main", AnnotationQualifier::None),
+                args,
+                kwargs,
+                |query, store| {
+                    Ok(PyTextSelections::from_query(
+                        query,
+                        store,
+                        &self.store,
+                        limit,
+                    ))
+                },
+            )
+        }
+    }
+
+    #[pyo3(signature = (operator, *args, **kwargs))]
     fn related_text(
         &self,
         operator: PyTextSelectionOperator,
+        args: &PyList,
         kwargs: Option<&PyDict>,
     ) -> PyResult<PyTextSelections> {
-        let iterparams = IterParams::new(kwargs)?;
-        self.map(|annotations, store| {
-            let iter = Annotations::from_handles(Cow::Borrowed(annotations), self.sorted, store)
-                .iter()
-                .related_text(operator.operator);
-            iterparams.evaluate_to_pytextselections(iter, store, &self.store)
-        })
+        let limit = get_limit(kwargs);
+        if !has_filters(args, kwargs) {
+            self.map(|annotations, store| {
+                Ok(PyTextSelections::from_iter(
+                    annotations
+                        .items()
+                        .related_text(operator.operator)
+                        .limit(limit),
+                    &self.store,
+                ))
+            })
+        } else {
+            self.map_with_query(
+                Type::TextSelection,
+                Constraint::TextRelation {
+                    var: "main",
+                    operator: operator.operator, //MAYBE TODO: check if we need to invert an operator here?
+                },
+                args,
+                kwargs,
+                |query, store| {
+                    Ok(PyTextSelections::from_query(
+                        query,
+                        store,
+                        &self.store,
+                        limit,
+                    ))
+                },
+            )
+        }
     }
 
     fn textual_order(mut pyself: PyRefMut<'_, Self>) -> PyRefMut<'_, Self> {
@@ -447,12 +707,49 @@ impl PyAnnotations {
 }
 
 impl PyAnnotations {
-    fn map<T, F>(&self, f: F) -> Result<T, PyErr>
+    pub(crate) fn from_iter<'store>(
+        iter: impl Iterator<Item = ResultItem<'store, Annotation>>,
+        wrappedstore: &Arc<RwLock<AnnotationStore>>,
+    ) -> Self {
+        Self {
+            annotations: iter.map(|x| x.handle()).collect(),
+            store: wrappedstore.clone(),
+            cursor: 0,
+        }
+    }
+
+    pub(crate) fn from_query<'store>(
+        query: Query<'store>,
+        store: &'store AnnotationStore,
+        wrappedstore: &Arc<RwLock<AnnotationStore>>,
+        limit: Option<usize>,
+    ) -> Self {
+        assert!(query.resulttype() == Some(Type::Annotation));
+        Self {
+            annotations: store
+                .query(query)
+                .limit(limit)
+                .map(|resultitems| {
+                    //we use the deepest item if there are multiple
+                    if let Some(QueryResultItem::Annotation(annotation)) = resultitems.pop_last() {
+                        annotation.handle()
+                    } else {
+                        unreachable!("Unexpected QueryResultItem");
+                    }
+                })
+                .collect(),
+            store: wrappedstore.clone(),
+            cursor: 0,
+        }
+    }
+
+    fn map<'store, T, F>(&self, f: F) -> Result<T, PyErr>
     where
-        F: FnOnce(&Vec<AnnotationHandle>, &AnnotationStore) -> Result<T, StamError>,
+        F: FnOnce(Handles<'store, Annotation>, &'store AnnotationStore) -> Result<T, StamError>,
     {
         if let Ok(store) = self.store.read() {
-            f(&self.annotations, &store).map_err(|err| PyStamError::new_err(format!("{}", err)))
+            let handles = Annotations::new(Cow::Borrowed(&self.annotations), false, &store);
+            f(handles, &store).map_err(|err| PyStamError::new_err(format!("{}", err)))
         } else {
             Err(PyRuntimeError::new_err(
                 "Unable to obtain store (should never happen)",
@@ -471,6 +768,39 @@ impl PyAnnotations {
                 "Unable to obtain store (should never happen)",
             ))
         }
+    }
+
+    fn map_with_query<'a, T, F>(
+        &'a self,
+        resulttype: Type,
+        constraint: Constraint<'a>,
+        args: &PyList,
+        kwargs: Option<&PyDict>,
+        f: F,
+    ) -> Result<T, PyErr>
+    where
+        F: FnOnce(Query<'a>, &'a AnnotationStore) -> Result<T, StamError>,
+    {
+        self.map(|annotations, store| {
+            let query = Query::new(QueryType::Select, Some(Type::Annotation), Some("main"))
+                .with_constraint(Constraint::Handle(Filter::Annotations(
+                    annotations,
+                    FilterMode::Any,
+                )))
+                .with_subquery(
+                    build_query(
+                        Query::new(QueryType::Select, Some(resulttype), Some("sub"))
+                            .with_constraint(constraint),
+                        args,
+                        kwargs,
+                        store,
+                    )
+                    .map_err(|e| {
+                        StamError::QuerySyntaxError(format!("{}", e), "(python to query)")
+                    })?,
+                );
+            f(query, store)
+        })
     }
 }
 
@@ -548,34 +878,34 @@ impl PyAnnotation {
             ))
         }
     }
-}
 
-impl<'py> IterParams<'py> {
-    pub(crate) fn evaluate_to_pyannotations<'store>(
-        self,
-        iter: AnnotationsIter<'store>,
-        store: &'store AnnotationStore,
-        wrappedstore: &Arc<RwLock<AnnotationStore>>,
-    ) -> Result<PyAnnotations, StamError>
+    fn map_with_query<'a, T, F>(
+        &'a self,
+        resulttype: Type,
+        constraint: Constraint<'a>,
+        args: &PyList,
+        kwargs: Option<&PyDict>,
+        f: F,
+    ) -> Result<T, PyErr>
     where
-        'py: 'store,
+        F: FnOnce(ResultItem<'a, Annotation>, Query<'a>) -> Result<T, StamError>,
     {
-        let limit = self.limit();
-        match self.evaluate_annotations(iter, store) {
-            Ok(iter) => {
-                let sorted = iter.returns_sorted();
-                Ok(PyAnnotations {
-                    annotations: if let Some(limit) = limit {
-                        iter.to_collection_limit(limit).take()
-                    } else {
-                        iter.to_collection().take()
-                    },
-                    store: wrappedstore.clone(),
-                    cursor: 0,
-                    sorted,
-                })
-            }
-            Err(e) => Err(e.into()),
-        }
+        self.map(|annotation| {
+            let query = Query::new(QueryType::Select, Some(Type::Annotation), Some("main"))
+                .with_constraint(Constraint::Handle(Filter::Annotation(annotation.handle())))
+                .with_subquery(
+                    build_query(
+                        Query::new(QueryType::Select, Some(resulttype), Some("sub"))
+                            .with_constraint(constraint),
+                        args,
+                        kwargs,
+                        annotation.store(),
+                    )
+                    .map_err(|e| {
+                        StamError::QuerySyntaxError(format!("{}", e), "(python to query)")
+                    })?,
+                );
+            f(annotation, query)
+        })
     }
 }

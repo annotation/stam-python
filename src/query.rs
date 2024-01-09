@@ -1,71 +1,180 @@
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 use pyo3::types::*;
-use std::borrow::Cow;
+use std::collections::HashSet;
 
 use crate::annotation::{PyAnnotation, PyAnnotations};
 use crate::annotationdata::{dataoperator_from_kwargs, PyAnnotationData, PyData, PyDataKey};
+use crate::annotationdataset::PyAnnotationDataSet;
 use crate::error::PyStamError;
 use crate::textselection::PyTextSelectionOperator;
 use stam::*;
 
-pub struct QueryBuilder<'a> {
-    filters: Vec<Filter<'a>>,
-    limit: Option<usize>,
+pub struct ContextVariables(Vec<String>);
+
+impl ContextVariables {
+    pub fn add(&mut self) -> &str {
+        let var = format!("v{}", self.0.len() + 1);
+        self.0.push(var);
+        self.last().expect("was just added")
+    }
+
+    pub fn last(&self) -> Option<&str> {
+        self.0.iter().last().map(|x| x.as_str())
+    }
 }
 
-fn add_filter<'a>(
-    query: &mut Query<'a>,
-    store: &'a AnnotationStore,
-    filter: &'a PyAny,
-    operator: &mut Option<DataOperator>,
-) -> PyResult<()> {
-    if filter.is_instance_of::<PyList>() {
+impl Default for ContextVariables {
+    fn default() -> Self {
+        Self(Vec::new())
+    }
+}
+
+fn add_filter<'store, 'py>(
+    query: &mut Query<'store>,
+    store: &'store AnnotationStore,
+    filter: &'py PyAny,
+    operator: Option<DataOperator<'store>>,
+    contextvariables: &mut ContextVariables,
+) -> PyResult<()>
+where
+    'py: 'store,
+{
+    if filter.is_instance_of::<PyDict>() {
+        let filter: &PyDict = filter.extract()?;
+        let operator = dataoperator_from_kwargs(filter)
+            .map_err(|err| PyValueError::new_err(format!("{}", err)))?
+            .or(operator);
+        let key = filter.get_item("key")?.expect("already checked");
+        if key.is_instance_of::<PyDataKey>() {
+            let key: PyRef<'py, PyDataKey> = filter.extract()?;
+            if let Some(key) = store.key(key.set, key.handle) {
+                let varname = contextvariables.add();
+                query.bind_keyvar(varname, key);
+                if let Some(operator) = operator {
+                    query.constrain(Constraint::KeyValueVariable(
+                        varname,
+                        operator,
+                        SelectionQualifier::Normal,
+                    ));
+                } else {
+                    query.constrain(Constraint::KeyVariable(varname, SelectionQualifier::Normal));
+                }
+            } else {
+                return Err(PyValueError::new_err(
+                    "Passed key instance is invalid (should not happen)",
+                ));
+            }
+        } else if filter.contains("set")? {
+            if key.is_instance_of::<PyString>() {
+                let key = key.downcast::<PyString>()?;
+                let set = filter.get_item("set")?.expect("already checked");
+                let key = if set.is_instance_of::<PyAnnotationDataSet>() {
+                    let set: PyRef<'py, PyAnnotationDataSet> = filter.extract()?;
+                    let key: &str = key.to_str()?;
+                    set.map(|set| Ok(set.key(key))).unwrap()
+                } else if set.is_instance_of::<PyString>() {
+                    let set = set.downcast::<PyString>()?;
+                    if let Some(set) = store.dataset(set.to_str()?) {
+                        set.key(key.to_str()?)
+                    } else {
+                        None
+                    }
+                } else {
+                    None
+                };
+                if let Some(key) = key {
+                    let varname = key.as_ref().temp_id().expect("temp id must work");
+                    query.bind_keyvar(varname.as_str(), key);
+                    if operator.is_some() {
+                        query.constrain(Constraint::KeyValueVariable(
+                            varname.as_str(),
+                            operator.take().unwrap(),
+                            SelectionQualifier::Normal,
+                        ));
+                    } else {
+                        query.constrain(Constraint::KeyVariable(
+                            varname.as_str(),
+                            SelectionQualifier::Normal,
+                        ));
+                    }
+                }
+            } else {
+                return Err(PyValueError::new_err(
+                    "'key' parameter in filter dictionary should be of type `str`",
+                ));
+            }
+        } else {
+            return Err(PyValueError::new_err(
+                    "'key' parameter in filter dictionary should be of type DataKey, it can also be `str` if you also provide `set` as well",
+            ));
+        }
+    } else if filter.is_instance_of::<PyList>() {
         let vec: Vec<&PyAny> = filter.extract()?;
         add_multi_filter(query, store, vec)?;
     } else if filter.is_instance_of::<PyTuple>() {
         let vec: Vec<&PyAny> = filter.extract()?;
         add_multi_filter(query, store, vec)?;
     } else if filter.is_instance_of::<PyAnnotationData>() {
-        let adata: PyRef<'_, PyAnnotationData> = filter.extract()?;
-        query.constrain(Constraint::Filter(Filter::AnnotationData(
-            adata.set,
-            adata.handle,
-        )));
-    } else if filter.is_instance_of::<PyDataKey>() {
-        let key: PyRef<'_, PyDataKey> = filter.extract()?;
+        let data: PyRef<'_, PyAnnotationData> = filter.extract()?;
         if operator.is_some() {
-            query.constrain(Constraint::Filter(Filter::DataKeyAndOperator(
-                key.set,
-                key.handle,
-                operator.take().unwrap(),
-            )));
-        } else {
-            query.constrain(Constraint::Filter(Filter::DataKey(key.set, key.handle)));
+            return Err(PyValueError::new_err(
+                    "'value' parameter can not be used in combination with an AnnotationData instance (it already restrains to a single value)",
+            ));
         }
+        data.map(|data| {
+            let varname = contextvariables.add();
+            query.bind_datavar(varname, data);
+            query.constrain(Constraint::DataVariable(
+                varname,
+                SelectionQualifier::Normal,
+            ));
+            Ok(())
+        });
+    } else if filter.is_instance_of::<PyDataKey>() {
+        let key: PyRef<'py, PyDataKey> = filter.extract()?;
+        key.map(|key| {
+            let varname = contextvariables.add();
+            query.bind_keyvar(varname, key);
+            if operator.is_some() {
+                query.constrain(Constraint::KeyValueVariable(
+                    varname,
+                    operator.take().unwrap(),
+                    SelectionQualifier::Normal,
+                ));
+            } else {
+                query.constrain(Constraint::KeyVariable(varname, SelectionQualifier::Normal));
+            }
+            Ok(())
+        });
     } else if filter.is_instance_of::<PyAnnotation>() {
-        let annotation: PyRef<'_, PyAnnotation> = filter.extract()?;
-        query.constrain(Constraint::Filter(Filter::Annotation(annotation.handle)));
-    } else if filter.is_instance_of::<PyTextSelectionOperator>() {
-        let operator: PyRef<'_, PyTextSelectionOperator> = filter.extract()?;
-        query.constrain(Constraint::Filter(Filter::TextSelectionOperator(
-            operator.operator,
-        )));
+        let annotation: PyRef<'py, PyAnnotation> = filter.extract()?;
+        annotation.map(|annotation| {
+            let varname = annotation.as_ref().temp_id()?;
+            query.bind_annotationvar(varname.as_str(), annotation);
+            query.constrain(Constraint::AnnotationVariable(
+                varname.as_str(),
+                SelectionQualifier::Normal,
+                AnnotationDepth::One,
+            ));
+            Ok(())
+        });
     } else if filter.is_instance_of::<PyAnnotations>() {
-        let annotations: PyRef<'a, PyAnnotations> = filter.extract()?;
-        query.constrain(Constraint::Filter(Filter::Annotations(Handles::from_iter(
-            annotations.annotations.iter().copied(),
-            store,
-        ))));
+        let annotations: PyRef<'py, PyAnnotations> = filter.extract()?;
+        query.constrain(Constraint::Annotations(
+            Handles::from_iter(annotations.annotations.iter().copied(), store),
+            SelectionQualifier::Normal,
+            AnnotationDepth::One,
+        ));
     } else if filter.is_instance_of::<PyData>() {
-        let data: PyRef<'_, PyData> = filter.extract()?;
-        query.constrain(Constraint::Filter(Filter::Data(
+        let data: PyRef<'py, PyData> = filter.extract()?;
+        query.constrain(Constraint::Data(
             Handles::from_iter(data.data.iter().copied(), store),
-            FilterMode::Any,
-        )));
+            SelectionQualifier::Normal,
+        ));
     } else {
         return Err(PyValueError::new_err(
-            "Got argument of unexpected type for filter=/filters=",
+            "Got filter argument of unexpected type",
         ));
     }
     Ok(())
@@ -77,18 +186,22 @@ fn add_multi_filter<'a>(
     filter: Vec<&PyAny>,
 ) -> PyResult<()> {
     if filter.iter().all(|x| x.is_instance_of::<PyAnnotation>()) {
-        query.constrain(Constraint::Filter(Filter::Annotations(Handles::from_iter(
-            filter.iter().map(|x| {
-                let annotation: PyRef<'_, PyAnnotation> = x.extract().unwrap();
-                annotation.handle
-            }),
-            store,
-        ))));
+        query.constrain(Constraint::Annotations(
+            Handles::from_iter(
+                filter.iter().map(|x| {
+                    let annotation: PyRef<'_, PyAnnotation> = x.extract().unwrap();
+                    annotation.handle
+                }),
+                store,
+            ),
+            SelectionQualifier::Normal,
+            AnnotationDepth::One,
+        ));
     } else if filter
         .iter()
         .all(|x| x.is_instance_of::<PyAnnotationData>())
     {
-        query.constrain(Constraint::Filter(Filter::Data(
+        query.constrain(Constraint::Data(
             Handles::from_iter(
                 filter.iter().map(|x| {
                     let adata: PyRef<'_, PyAnnotationData> = x.extract().unwrap();
@@ -96,78 +209,45 @@ fn add_multi_filter<'a>(
                 }),
                 store,
             ),
-            FilterMode::Any,
-        )));
+            SelectionQualifier::Normal,
+        ));
     }
     Ok(())
 }
 
-pub(crate) fn build_query<'py>(
-    mut query: Query<'py>,
+pub(crate) fn build_query<'store, 'py>(
+    mut query: Query<'store>,
     args: &'py PyList, //TODO: implement!
     kwargs: Option<&'py PyDict>,
-    store: &'py AnnotationStore,
-) -> PyResult<Query<'py>> {
+    store: &'store AnnotationStore,
+) -> PyResult<(Query<'store>, ContextVariables)> {
+    let mut contextvariables = ContextVariables::default();
+    let operator = if let Some(kwargs) = kwargs {
+        dataoperator_from_kwargs(kwargs).map_err(|e| PyStamError::new_err(format!("{}", e)))?
+    } else {
+        None
+    };
+    for filter in args {
+        add_filter(&mut query, store, filter, operator, &mut contextvariables)?;
+    }
     if let Some(kwargs) = kwargs {
-        let mut operator =
-            dataoperator_from_kwargs(kwargs).map_err(|e| PyStamError::new_err(format!("{}", e)))?;
         if let Ok(Some(filter)) = kwargs.get_item("filter") {
-            add_filter(&mut query, store, filter, &mut operator)?;
+            add_filter(&mut query, store, filter, operator, &mut contextvariables)?;
         } else if let Ok(Some(filter)) = kwargs.get_item("filters") {
             if filter.is_instance_of::<PyList>() {
                 let vec = filter.downcast::<PyList>()?;
                 for filter in vec {
-                    add_filter(&mut query, store, filter, &mut operator)?;
+                    add_filter(&mut query, store, filter, operator, &mut contextvariables)?;
                 }
             } else if filter.is_instance_of::<PyTuple>() {
                 let vec = filter.downcast::<PyTuple>()?;
                 for filter in vec {
-                    add_filter(&mut query, store, filter, &mut operator)?;
+                    add_filter(&mut query, store, filter, operator, &mut contextvariables)?;
                 }
             }
         }
-        //if the operator has not been consumed yet in an earlier add_filter step, add a constraint for it now:
-        if let Some(operator) = operator {
-            query.constrain(Constraint::Filter(Filter::DataOperator(operator)));
-        }
     }
-    Ok(query)
-}
-
-impl<'py> QueryBuilder<'py> {
-    pub fn new(
-        resulttype: Type,
-        store: &'py AnnotationStore,
-        kwargs: Option<&'py PyDict>,
-        name: Option<&'py str>,
-    ) -> PyResult<Query<'py>> {
-        let mut query = Query::new(QueryType::Select, Some(resulttype), name);
-
-        if let Some(kwargs) = kwargs {
-            let mut operator = dataoperator_from_kwargs(kwargs)
-                .map_err(|e| PyStamError::new_err(format!("{}", e)))?;
-            if let Ok(Some(filter)) = kwargs.get_item("filter") {
-                add_filter(&mut query, store, filter, &mut operator)?;
-            } else if let Ok(Some(filter)) = kwargs.get_item("filters") {
-                if filter.is_instance_of::<PyList>() {
-                    let vec = filter.downcast::<PyList>()?;
-                    for filter in vec {
-                        add_filter(&mut query, store, filter, &mut operator)?;
-                    }
-                } else if filter.is_instance_of::<PyTuple>() {
-                    let vec = filter.downcast::<PyTuple>()?;
-                    for filter in vec {
-                        add_filter(&mut query, store, filter, &mut operator)?;
-                    }
-                }
-            }
-            //if the operator has not been consumed yet in an earlier add_filter step, add a constraint for it now:
-            if let Some(operator) = operator {
-                query.constrain(Constraint::Filter(Filter::DataOperator(operator)));
-            }
-        }
-        Ok(query)
-    }
+    Ok((query, contextvariables))
 }
 
 pub(crate) fn has_filters(args: &PyList, kwargs: Option<&PyDict>) -> bool {
@@ -186,11 +266,15 @@ pub(crate) fn has_filters(args: &PyList, kwargs: Option<&PyDict>) -> bool {
     false
 }
 
-pub(crate) fn get_recursive(kwargs: Option<&PyDict>, default: bool) -> bool {
+pub(crate) fn get_recursive(kwargs: Option<&PyDict>, default: AnnotationDepth) -> AnnotationDepth {
     if let Some(kwargs) = kwargs {
         if let Ok(Some(v)) = kwargs.get_item("recursive") {
             if let Ok(v) = v.extract::<bool>() {
-                return v;
+                if v {
+                    return AnnotationDepth::Max;
+                } else {
+                    return AnnotationDepth::One;
+                }
             }
         }
     }

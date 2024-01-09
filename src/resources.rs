@@ -310,12 +310,10 @@ impl PyTextResource {
 
     fn textselections(&self) -> PyResult<PyTextSelections> {
         self.map(|resource| {
-            let iter = resource.textselections();
-            Ok(PyTextSelections {
-                textselections: iter.to_handles(),
-                store: self.store.clone(),
-                cursor: 0,
-            })
+            Ok(PyTextSelections::from_iter(
+                resource.textselections(),
+                &self.store.clone(),
+            ))
         })
     }
 
@@ -514,32 +512,28 @@ impl PyTextResource {
         }
     }
 
-    fn map_with_query<'a, T, F>(
-        &'a self,
+    fn map_with_query<T, F>(
+        &self,
         resulttype: Type,
-        constraint: Constraint<'a>,
+        constraint: Constraint,
         args: &PyList,
         kwargs: Option<&PyDict>,
         f: F,
     ) -> Result<T, PyErr>
     where
-        F: FnOnce(ResultItem<'a, TextResource>, Query<'a>) -> Result<T, StamError>,
+        F: FnOnce(ResultItem<TextResource>, Query) -> Result<T, StamError>,
     {
         self.map(|resource| {
-            let query = Query::new(QueryType::Select, Some(Type::TextResource), Some("main"))
-                .with_constraint(Constraint::Handle(Filter::TextResource(resource.handle())))
-                .with_subquery(
-                    build_query(
-                        Query::new(QueryType::Select, Some(resulttype), Some("sub"))
-                            .with_constraint(constraint),
-                        args,
-                        kwargs,
-                        resource.store(),
-                    )
-                    .map_err(|e| {
-                        StamError::QuerySyntaxError(format!("{}", e), "(python to query)")
-                    })?,
-                );
+            let query = build_query(
+                Query::new(QueryType::Select, Some(resulttype), Some("result"))
+                    .with_constraint(constraint),
+                args,
+                kwargs,
+                resource.store(),
+            )
+            .map_err(|e| StamError::QuerySyntaxError(format!("{}", e), "(python to query)"))?
+            .0
+            .with_resourcevar("main", resource.clone());
             f(resource, query)
         })
     }

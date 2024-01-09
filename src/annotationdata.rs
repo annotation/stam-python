@@ -157,7 +157,7 @@ impl MapStore for PyDataKey {
 }
 
 impl PyDataKey {
-    fn map<T, F>(&self, f: F) -> Result<T, PyErr>
+    pub(crate) fn map<T, F>(&self, f: F) -> Result<T, PyErr>
     where
         F: FnOnce(ResultItem<DataKey>) -> Result<T, StamError>,
     {
@@ -176,35 +176,28 @@ impl PyDataKey {
         }
     }
 
-    fn map_with_query<'a, T, F>(
-        &'a self,
+    fn map_with_query<T, F>(
+        &self,
         resulttype: Type,
         args: &PyList,
         kwargs: Option<&PyDict>,
         f: F,
     ) -> Result<T, PyErr>
     where
-        F: FnOnce(ResultItem<'a, DataKey>, Query<'a>) -> Result<T, StamError>,
+        F: FnOnce(ResultItem<DataKey>, Query) -> Result<T, StamError>,
     {
-        self.map(|data| {
-            let query = Query::new(QueryType::Select, Some(Type::DataKey), Some("main"))
-                .with_constraint(Constraint::Handle(Filter::DataKey(
-                    data.set().handle(),
-                    data.handle(),
-                )))
-                .with_subquery(
-                    build_query(
-                        Query::new(QueryType::Select, Some(resulttype), Some("sub"))
-                            .with_constraint(Constraint::DataKeyVariable("main")),
-                        args,
-                        kwargs,
-                        data.rootstore(),
-                    )
-                    .map_err(|e| {
-                        StamError::QuerySyntaxError(format!("{}", e), "(python to query)")
-                    })?,
-                );
-            f(data, query)
+        self.map(|key| {
+            let query = build_query(
+                Query::new(QueryType::Select, Some(resulttype), Some("result"))
+                    .with_constraint(Constraint::KeyVariable("main", SelectionQualifier::Normal)),
+                args,
+                kwargs,
+                key.rootstore(),
+            )
+            .map_err(|e| StamError::QuerySyntaxError(format!("{}", e), "(python to query)"))?
+            .0
+            .with_keyvar("main", key.clone());
+            f(key, query)
         })
     }
 }
@@ -499,7 +492,7 @@ impl MapStore for PyAnnotationData {
 }
 
 impl PyAnnotationData {
-    fn map<T, F>(&self, f: F) -> Result<T, PyErr>
+    pub(crate) fn map<T, F>(&self, f: F) -> Result<T, PyErr>
     where
         F: FnOnce(ResultItem<AnnotationData>) -> Result<T, StamError>,
     {
@@ -518,34 +511,27 @@ impl PyAnnotationData {
         }
     }
 
-    fn map_with_query<'a, T, F>(
-        &'a self,
+    fn map_with_query<T, F>(
+        &self,
         resulttype: Type,
         args: &PyList,
         kwargs: Option<&PyDict>,
         f: F,
     ) -> Result<T, PyErr>
     where
-        F: FnOnce(ResultItem<'a, AnnotationData>, Query<'a>) -> Result<T, StamError>,
+        F: FnOnce(ResultItem<AnnotationData>, Query) -> Result<T, StamError>,
     {
         self.map(|data| {
-            let query = Query::new(QueryType::Select, Some(Type::AnnotationData), Some("main"))
-                .with_constraint(Constraint::Handle(Filter::AnnotationData(
-                    data.set().handle(),
-                    data.handle(),
-                )))
-                .with_subquery(
-                    build_query(
-                        Query::new(QueryType::Select, Some(resulttype), Some("sub"))
-                            .with_constraint(Constraint::DataVariable("main")),
-                        args,
-                        kwargs,
-                        data.rootstore(),
-                    )
-                    .map_err(|e| {
-                        StamError::QuerySyntaxError(format!("{}", e), "(python to query)")
-                    })?,
-                );
+            let query = build_query(
+                Query::new(QueryType::Select, Some(resulttype), Some("result"))
+                    .with_constraint(Constraint::DataVariable("main", SelectionQualifier::Normal)),
+                args,
+                kwargs,
+                data.rootstore(),
+            )
+            .map_err(|e| StamError::QuerySyntaxError(format!("{}", e), "(python to query)"))?
+            .0
+            .with_datavar("main", data.clone());
             f(data, query)
         })
     }
@@ -608,12 +594,7 @@ pub(crate) fn annotationdata_builder<'a>(data: &'a PyAny) -> PyResult<Annotation
     }
 }
 
-pub(crate) fn dataoperator_from_kwargs<'a, 'py>(
-    kwargs: &'py PyDict,
-) -> Result<Option<DataOperator<'a>>, StamError>
-where
-    'py: 'a,
-{
+pub(crate) fn dataoperator_from_kwargs(kwargs: &PyDict) -> Result<Option<DataOperator>, StamError> {
     if let Ok(Some(value)) = kwargs.get_item("value") {
         Ok(Some(dataoperator_from_py(value)?))
     } else if let Ok(Some(value)) = kwargs.get_item("value_not") {
@@ -937,7 +918,7 @@ impl PyData {
             data: store
                 .query(query)
                 .limit(limit)
-                .map(|resultitems| {
+                .map(|mut resultitems| {
                     //we use the deepest item if there are multiple
                     if let Some(QueryResultItem::AnnotationData(data)) = resultitems.pop_last() {
                         (data.set().handle(), data.handle())
@@ -951,9 +932,9 @@ impl PyData {
         }
     }
 
-    fn map<'store, T, F>(&self, f: F) -> Result<T, PyErr>
+    fn map<T, F>(&self, f: F) -> Result<T, PyErr>
     where
-        F: FnOnce(Handles<'store, AnnotationData>, &'store AnnotationStore) -> Result<T, StamError>,
+        F: FnOnce(Handles<AnnotationData>, &AnnotationStore) -> Result<T, StamError>,
     {
         if let Ok(store) = self.store.read() {
             let handles = Data::new(Cow::Borrowed(&self.data), false, &store);
@@ -965,30 +946,34 @@ impl PyData {
         }
     }
 
-    fn map_with_query<'a, T, F>(
-        &'a self,
+    fn map_with_query<T, F>(
+        &self,
         resulttype: Type,
         args: &PyList,
         kwargs: Option<&PyDict>,
         f: F,
     ) -> Result<T, PyErr>
     where
-        F: FnOnce(Query<'a>, &'a AnnotationStore) -> Result<T, StamError>,
+        F: FnOnce(Query, &AnnotationStore) -> Result<T, StamError>,
     {
         self.map(|data, store| {
             let query = Query::new(QueryType::Select, Some(Type::AnnotationData), Some("main"))
-                .with_constraint(Constraint::Handle(Filter::Data(data, FilterMode::Any)))
+                .with_constraint(Constraint::Data(data, SelectionQualifier::Normal))
                 .with_subquery(
                     build_query(
                         Query::new(QueryType::Select, Some(resulttype), Some("sub"))
-                            .with_constraint(Constraint::DataVariable("main")),
+                            .with_constraint(Constraint::DataVariable(
+                                "main",
+                                SelectionQualifier::Normal,
+                            )),
                         args,
                         kwargs,
                         store,
                     )
                     .map_err(|e| {
                         StamError::QuerySyntaxError(format!("{}", e), "(python to query)")
-                    })?,
+                    })?
+                    .0,
                 );
             f(query, store)
         })

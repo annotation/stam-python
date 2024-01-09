@@ -178,14 +178,20 @@ impl PyAnnotationDataSet {
         if !has_filters(args, kwargs) {
             self.map(|dataset| Ok(PyData::from_iter(dataset.data().limit(limit), &self.store)))
         } else {
-            self.map_with_query(Type::AnnotationData, args, kwargs, |dataset, query| {
-                Ok(PyData::from_query(
-                    query,
-                    dataset.store(),
-                    &self.store,
-                    limit,
-                ))
-            })
+            self.map_with_query(
+                Type::AnnotationData,
+                Constraint::DataSetVariable("main", SelectionQualifier::Normal),
+                args,
+                kwargs,
+                |dataset, query| {
+                    Ok(PyData::from_query(
+                        query,
+                        dataset.store(),
+                        &self.store,
+                        limit,
+                    ))
+                },
+            )
         }
     }
 
@@ -194,9 +200,13 @@ impl PyAnnotationDataSet {
         if !has_filters(args, kwargs) {
             self.map(|dataset| Ok(dataset.data().test()))
         } else {
-            self.map_with_query(Type::AnnotationData, args, kwargs, |dataset, query| {
-                Ok(dataset.store().query(query).test())
-            })
+            self.map_with_query(
+                Type::AnnotationData,
+                Constraint::DataSetVariable("main", SelectionQualifier::Normal),
+                args,
+                kwargs,
+                |dataset, query| Ok(dataset.store().query(query).test()),
+            )
         }
     }
 
@@ -252,36 +262,28 @@ impl PyAnnotationDataSet {
         }
     }
 
-    fn map_with_query<'a, T, F>(
-        &'a self,
+    fn map_with_query<T, F>(
+        &self,
         resulttype: Type,
+        constraint: Constraint,
         args: &PyList,
         kwargs: Option<&PyDict>,
         f: F,
     ) -> Result<T, PyErr>
     where
-        F: FnOnce(ResultItem<'a, AnnotationDataSet>, Query<'a>) -> Result<T, StamError>,
+        F: FnOnce(ResultItem<AnnotationDataSet>, Query) -> Result<T, StamError>,
     {
         self.map(|dataset| {
-            let query = Query::new(
-                QueryType::Select,
-                Some(Type::AnnotationDataSet),
-                Some("main"),
+            let query = build_query(
+                Query::new(QueryType::Select, Some(resulttype), Some("result"))
+                    .with_constraint(constraint),
+                args,
+                kwargs,
+                dataset.store(),
             )
-            .with_constraint(Constraint::Handle(Filter::AnnotationDataSet(
-                dataset.handle(),
-            )))
-            .with_subquery(
-                build_query(
-                    Query::new(QueryType::Select, Some(resulttype), Some("sub")).with_constraint(
-                        Constraint::AnnotationVariable("main", AnnotationQualifier::None),
-                    ),
-                    args,
-                    kwargs,
-                    dataset.store(),
-                )
-                .map_err(|e| StamError::QuerySyntaxError(format!("{}", e), "(python to query)"))?,
-            );
+            .map_err(|e| StamError::QuerySyntaxError(format!("{}", e), "(python to query)"))?
+            .0
+            .with_datasetvar("main", dataset.clone());
             f(dataset, query)
         })
     }

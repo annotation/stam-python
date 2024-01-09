@@ -481,37 +481,27 @@ impl PyTextSelection {
         }
     }
 
-    fn map_with_query<'a, T, F>(
-        &'a self,
+    fn map_with_query<T, F>(
+        &self,
         resulttype: Type,
-        constraint: Constraint<'a>,
+        constraint: Constraint,
         args: &PyList,
         kwargs: Option<&PyDict>,
         f: F,
     ) -> Result<T, PyErr>
     where
-        F: FnOnce(ResultTextSelection<'a>, Query<'a>) -> Result<T, StamError>,
+        F: FnOnce(ResultTextSelection, Query) -> Result<T, StamError>,
     {
         self.map(|textselection| {
-            let query = Query::new(QueryType::Select, Some(Type::TextSelection), Some("main"))
-                .with_constraint(Constraint::Handle(Filter::TextSelection(
-                    textselection.resource().handle(),
-                    textselection
-                        .handle()
-                        .expect("textselection must have handle"),
-                )))
-                .with_subquery(
-                    build_query(
-                        Query::new(QueryType::Select, Some(resulttype), Some("sub"))
-                            .with_constraint(constraint),
-                        args,
-                        kwargs,
-                        textselection.rootstore(),
-                    )
-                    .map_err(|e| {
-                        StamError::QuerySyntaxError(format!("{}", e), "(python to query)")
-                    })?,
-                );
+            let query = build_query(
+                Query::new(QueryType::Select, Some(resulttype), Some("result"))
+                    .with_constraint(constraint),
+                args,
+                kwargs,
+                textselection.rootstore(),
+            )
+            .map_err(|e| StamError::QuerySyntaxError(format!("{}", e), "(python to query)"))?
+            .with_textvar("main", textselection.clone());
             f(textselection, query)
         })
     }
@@ -794,7 +784,7 @@ impl PyTextSelections {
             textselections: store
                 .query(query)
                 .limit(limit)
-                .map(|resultitems| {
+                .map(|mut resultitems| {
                     //we use the deepest item if there are multiple
                     if let Some(QueryResultItem::TextSelection(textselection)) =
                         resultitems.pop_last()
@@ -813,9 +803,9 @@ impl PyTextSelections {
         }
     }
 
-    fn map<'store, T, F>(&self, f: F) -> Result<T, PyErr>
+    fn map<T, F>(&self, f: F) -> Result<T, PyErr>
     where
-        F: FnOnce(TextSelections<'store>, &'store AnnotationStore) -> Result<T, StamError>,
+        F: FnOnce(TextSelections, &AnnotationStore) -> Result<T, StamError>,
     {
         if let Ok(store) = self.store.read() {
             let handles = TextSelections::new(Cow::Borrowed(&self.textselections), false, &store);
@@ -844,20 +834,23 @@ impl PyTextSelections {
         }
     }
 
-    fn map_with_query<'a, T, F>(
-        &'a self,
+    fn map_with_query<T, F>(
+        &self,
         resulttype: Type,
-        constraint: Constraint<'a>,
+        constraint: Constraint,
         args: &PyList,
         kwargs: Option<&PyDict>,
         f: F,
     ) -> Result<T, PyErr>
     where
-        F: FnOnce(Query<'a>, &'a AnnotationStore) -> Result<T, StamError>,
+        F: FnOnce(Query, &AnnotationStore) -> Result<T, StamError>,
     {
         self.map(|textselections, store| {
             let query = Query::new(QueryType::Select, Some(Type::Annotation), Some("main"))
-                .with_constraint(Constraint::Handle(Filter::TextSelections(textselections)))
+                .with_constraint(Constraint::TextSelections(
+                    textselections,
+                    SelectionQualifier::Normal,
+                ))
                 .with_subquery(
                     build_query(
                         Query::new(QueryType::Select, Some(resulttype), Some("sub"))

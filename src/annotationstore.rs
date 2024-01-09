@@ -369,15 +369,15 @@ impl PyAnnotationStore {
         self.map_store_mut(f)
     }
 
-    fn map_with_query<'a, T, F>(
-        &'a self,
+    fn map_with_query<T, F>(
+        &self,
         resulttype: Type,
         args: &PyList,
         kwargs: Option<&PyDict>,
         f: F,
     ) -> Result<T, PyErr>
     where
-        F: FnOnce(Query<'a>, &'a AnnotationStore) -> Result<T, StamError>,
+        F: FnOnce(Query, &AnnotationStore) -> Result<T, StamError>,
     {
         self.map_store(|store| {
             let query = build_query(

@@ -155,8 +155,23 @@ class AnnotationStore:
     def annotations(self, *args, **kwargs) -> Annotations:
         """Returns an iterator over all annotations (:class:`Annotation`) in this store.
 
-        Filtering can be applied using keyword arguments. It is recommended to only use this method if you apply further filtering, otherwise the memory overhead may be very large if you have many annotations.
+        Filtering can be applied using positional arguments and/or keyword arguments. It is recommended to only use this method if you apply further filtering, otherwise the memory overhead may be very large if you have many annotations.
         Otherwise you can fall back to a more low-level iterator, :meth:`__iter__` instead
+
+        Positional Arguments
+        -------------------
+
+        Positional arguments can be of the following types:
+
+            * :class:`AnnotationData` - Returns only annotations that have this exact data  (you can only pass this once).
+            * a tuple/list of :class:`AnnotationData` - Returns only annotations with data that matches one of the items in the tuple/list.
+            * :class:`DataKey` - Returns annotations with data matching this key (you can only pass this once).
+            * a tuple/list of :class:`DataKey`
+            * :class:`Annotations` - Returns only annotations that are already in the provided :obj:`Annotations` collection (intersection)
+            * :class:`Data` - Returns only annotations with data that is in the provided :obj:`Data` collection.
+            * :class:`TextSelectionOperator` - Returns only annotations that are in a particular textual relationship with the current one (e.g. overlap,embedding,adjacency,etc).
+            * a dictionary:
+
 
         Keyword Arguments
         -------------------

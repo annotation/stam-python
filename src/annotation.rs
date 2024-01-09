@@ -155,7 +155,11 @@ impl PyAnnotation {
         } else {
             self.map_with_query(
                 Type::TextSelection,
-                Constraint::AnnotationVariable("main", AnnotationQualifier::None),
+                Constraint::AnnotationVariable(
+                    "main",
+                    SelectionQualifier::Normal,
+                    AnnotationDepth::One,
+                ),
                 args,
                 kwargs,
                 |annotation, query| {
@@ -178,7 +182,7 @@ impl PyAnnotation {
         kwargs: Option<&PyDict>,
     ) -> PyResult<PyAnnotations> {
         let limit = get_limit(kwargs);
-        let recursive = get_recursive(kwargs, false);
+        let recursive = get_recursive(kwargs, AnnotationDepth::One);
         if !has_filters(args, kwargs) {
             self.map(|annotation| {
                 Ok(PyAnnotations::from_iter(
@@ -189,14 +193,7 @@ impl PyAnnotation {
         } else {
             self.map_with_query(
                 Type::Annotation,
-                Constraint::AnnotationVariable(
-                    "main",
-                    if recursive {
-                        AnnotationQualifier::RecursiveTarget
-                    } else {
-                        AnnotationQualifier::Target
-                    },
-                ),
+                Constraint::AnnotationVariable("main", SelectionQualifier::Metadata, recursive),
                 args,
                 kwargs,
                 |annotation, query| {
@@ -225,7 +222,11 @@ impl PyAnnotation {
         } else {
             self.map_with_query(
                 Type::Annotation,
-                Constraint::AnnotationVariable("main", AnnotationQualifier::None),
+                Constraint::AnnotationVariable(
+                    "main",
+                    SelectionQualifier::Normal,
+                    AnnotationDepth::One,
+                ),
                 args,
                 kwargs,
                 |annotation, query| {
@@ -247,7 +248,11 @@ impl PyAnnotation {
         } else {
             self.map_with_query(
                 Type::Annotation,
-                Constraint::AnnotationVariable("main", AnnotationQualifier::None),
+                Constraint::AnnotationVariable(
+                    "main",
+                    SelectionQualifier::Normal,
+                    AnnotationDepth::One,
+                ),
                 args,
                 kwargs,
                 |annotation, query| Ok(annotation.store().query(query).test()),
@@ -261,20 +266,13 @@ impl PyAnnotation {
         args: &PyList,
         kwargs: Option<&PyDict>,
     ) -> PyResult<bool> {
-        let recursive = get_recursive(kwargs, false);
+        let recursive = get_recursive(kwargs, AnnotationDepth::One);
         if !has_filters(args, kwargs) {
             self.map(|annotation| Ok(annotation.annotations_in_targets(recursive).test()))
         } else {
             self.map_with_query(
                 Type::Annotation,
-                Constraint::AnnotationVariable(
-                    "main",
-                    if recursive {
-                        AnnotationQualifier::RecursiveTarget
-                    } else {
-                        AnnotationQualifier::Target
-                    },
-                ),
+                Constraint::AnnotationVariable("main", SelectionQualifier::Metadata, recursive),
                 args,
                 kwargs,
                 |annotation, query| Ok(annotation.store().query(query).test()),
@@ -366,7 +364,11 @@ impl PyAnnotation {
         } else {
             self.map_with_query(
                 Type::AnnotationData,
-                Constraint::AnnotationVariable("main", AnnotationQualifier::None),
+                Constraint::AnnotationVariable(
+                    "main",
+                    SelectionQualifier::Normal,
+                    AnnotationDepth::One,
+                ),
                 args,
                 kwargs,
                 |annotation, query| {
@@ -388,7 +390,11 @@ impl PyAnnotation {
         } else {
             self.map_with_query(
                 Type::AnnotationData,
-                Constraint::AnnotationVariable("main", AnnotationQualifier::None),
+                Constraint::AnnotationVariable(
+                    "main",
+                    SelectionQualifier::Normal,
+                    AnnotationDepth::One,
+                ),
                 args,
                 kwargs,
                 |annotation, query| Ok(annotation.store().query(query).test()),
@@ -496,7 +502,11 @@ impl PyAnnotations {
         } else {
             self.map_with_query(
                 Type::AnnotationData,
-                Constraint::AnnotationVariable("main", AnnotationQualifier::None),
+                Constraint::AnnotationVariable(
+                    "main",
+                    SelectionQualifier::Normal,
+                    AnnotationDepth::One,
+                ),
                 args,
                 kwargs,
                 |query, store| Ok(PyData::from_query(query, store, &self.store, limit)),
@@ -511,7 +521,11 @@ impl PyAnnotations {
         } else {
             self.map_with_query(
                 Type::AnnotationData,
-                Constraint::AnnotationVariable("main", AnnotationQualifier::None),
+                Constraint::AnnotationVariable(
+                    "main",
+                    SelectionQualifier::Normal,
+                    AnnotationDepth::One,
+                ),
                 args,
                 kwargs,
                 |query, store| Ok(store.query(query).test()),
@@ -532,7 +546,11 @@ impl PyAnnotations {
         } else {
             self.map_with_query(
                 Type::Annotation,
-                Constraint::AnnotationVariable("main", AnnotationQualifier::None),
+                Constraint::AnnotationVariable(
+                    "main",
+                    SelectionQualifier::Normal,
+                    AnnotationDepth::One,
+                ),
                 args,
                 kwargs,
                 |query, store| Ok(PyAnnotations::from_query(query, store, &self.store, limit)),
@@ -547,7 +565,11 @@ impl PyAnnotations {
         } else {
             self.map_with_query(
                 Type::Annotation,
-                Constraint::AnnotationVariable("main", AnnotationQualifier::None),
+                Constraint::AnnotationVariable(
+                    "main",
+                    SelectionQualifier::Normal,
+                    AnnotationDepth::One,
+                ),
                 args,
                 kwargs,
                 |query, store| Ok(store.query(query).test()),
@@ -562,7 +584,7 @@ impl PyAnnotations {
         kwargs: Option<&PyDict>,
     ) -> PyResult<PyAnnotations> {
         let limit = get_limit(kwargs);
-        let recursive = get_recursive(kwargs, false);
+        let recursive = get_recursive(kwargs, AnnotationDepth::One);
         if !has_filters(args, kwargs) {
             self.map(|annotations, store| {
                 Ok(PyAnnotations::from_iter(
@@ -576,14 +598,7 @@ impl PyAnnotations {
         } else {
             self.map_with_query(
                 Type::Annotation,
-                Constraint::AnnotationVariable(
-                    "main",
-                    if recursive {
-                        AnnotationQualifier::RecursiveTarget
-                    } else {
-                        AnnotationQualifier::Target
-                    },
-                ),
+                Constraint::AnnotationVariable("main", SelectionQualifier::Normal, recursive),
                 args,
                 kwargs,
                 |query, store| Ok(PyAnnotations::from_query(query, store, &self.store, limit)),
@@ -597,7 +612,7 @@ impl PyAnnotations {
         args: &PyList,
         kwargs: Option<&PyDict>,
     ) -> PyResult<bool> {
-        let recursive = get_recursive(kwargs, false);
+        let recursive = get_recursive(kwargs, AnnotationDepth::One);
         if !has_filters(args, kwargs) {
             self.map(|annotations, _| {
                 Ok(annotations.items().annotations_in_targets(recursive).test())
@@ -605,14 +620,7 @@ impl PyAnnotations {
         } else {
             self.map_with_query(
                 Type::Annotation,
-                Constraint::AnnotationVariable(
-                    "main",
-                    if recursive {
-                        AnnotationQualifier::RecursiveTarget
-                    } else {
-                        AnnotationQualifier::Target
-                    },
-                ),
+                Constraint::AnnotationVariable("main", SelectionQualifier::Normal, recursive),
                 args,
                 kwargs,
                 |query, store| Ok(store.query(query).test()),
@@ -633,7 +641,11 @@ impl PyAnnotations {
         } else {
             self.map_with_query(
                 Type::TextSelection,
-                Constraint::AnnotationVariable("main", AnnotationQualifier::None),
+                Constraint::AnnotationVariable(
+                    "main",
+                    SelectionQualifier::Normal,
+                    AnnotationDepth::One,
+                ),
                 args,
                 kwargs,
                 |query, store| {
@@ -729,7 +741,7 @@ impl PyAnnotations {
             annotations: store
                 .query(query)
                 .limit(limit)
-                .map(|resultitems| {
+                .map(|mut resultitems| {
                     //we use the deepest item if there are multiple
                     if let Some(QueryResultItem::Annotation(annotation)) = resultitems.pop_last() {
                         annotation.handle()
@@ -743,9 +755,9 @@ impl PyAnnotations {
         }
     }
 
-    fn map<'store, T, F>(&self, f: F) -> Result<T, PyErr>
+    fn map<T, F>(&self, f: F) -> Result<T, PyErr>
     where
-        F: FnOnce(Handles<'store, Annotation>, &'store AnnotationStore) -> Result<T, StamError>,
+        F: FnOnce(Handles<Annotation>, &AnnotationStore) -> Result<T, StamError>,
     {
         if let Ok(store) = self.store.read() {
             let handles = Annotations::new(Cow::Borrowed(&self.annotations), false, &store);
@@ -770,23 +782,24 @@ impl PyAnnotations {
         }
     }
 
-    fn map_with_query<'a, T, F>(
-        &'a self,
+    fn map_with_query<T, F>(
+        &self,
         resulttype: Type,
-        constraint: Constraint<'a>,
+        constraint: Constraint,
         args: &PyList,
         kwargs: Option<&PyDict>,
         f: F,
     ) -> Result<T, PyErr>
     where
-        F: FnOnce(Query<'a>, &'a AnnotationStore) -> Result<T, StamError>,
+        F: FnOnce(Query, &AnnotationStore) -> Result<T, StamError>,
     {
         self.map(|annotations, store| {
             let query = Query::new(QueryType::Select, Some(Type::Annotation), Some("main"))
-                .with_constraint(Constraint::Handle(Filter::Annotations(
+                .with_constraint(Constraint::Annotations(
                     annotations,
-                    FilterMode::Any,
-                )))
+                    SelectionQualifier::Normal,
+                    AnnotationDepth::One,
+                ))
                 .with_subquery(
                     build_query(
                         Query::new(QueryType::Select, Some(resulttype), Some("sub"))
@@ -863,7 +876,7 @@ impl MapStore for PyAnnotation {
 
 impl PyAnnotation {
     /// Map function to act on the actual underlying store, helps reduce boilerplate
-    fn map<T, F>(&self, f: F) -> Result<T, PyErr>
+    pub(crate) fn map<T, F>(&self, f: F) -> Result<T, PyErr>
     where
         F: FnOnce(ResultItem<'_, Annotation>) -> Result<T, StamError>,
     {
@@ -879,32 +892,27 @@ impl PyAnnotation {
         }
     }
 
-    fn map_with_query<'a, T, F>(
-        &'a self,
+    fn map_with_query<T, F>(
+        &self,
         resulttype: Type,
-        constraint: Constraint<'a>,
+        constraint: Constraint,
         args: &PyList,
         kwargs: Option<&PyDict>,
         f: F,
     ) -> Result<T, PyErr>
     where
-        F: FnOnce(ResultItem<'a, Annotation>, Query<'a>) -> Result<T, StamError>,
+        F: FnOnce(ResultItem<Annotation>, Query) -> Result<T, StamError>,
     {
         self.map(|annotation| {
-            let query = Query::new(QueryType::Select, Some(Type::Annotation), Some("main"))
-                .with_constraint(Constraint::Handle(Filter::Annotation(annotation.handle())))
-                .with_subquery(
-                    build_query(
-                        Query::new(QueryType::Select, Some(resulttype), Some("sub"))
-                            .with_constraint(constraint),
-                        args,
-                        kwargs,
-                        annotation.store(),
-                    )
-                    .map_err(|e| {
-                        StamError::QuerySyntaxError(format!("{}", e), "(python to query)")
-                    })?,
-                );
+            let query = build_query(
+                Query::new(QueryType::Select, Some(resulttype), Some("result"))
+                    .with_constraint(constraint),
+                args,
+                kwargs,
+                annotation.store(),
+            )
+            .map_err(|e| StamError::QuerySyntaxError(format!("{}", e), "(python to query)"))?
+            .with_annotationvar("main", annotation.clone());
             f(annotation, query)
         })
     }

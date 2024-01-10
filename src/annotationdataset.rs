@@ -220,6 +220,8 @@ impl PyAnnotationDataSet {
                 dataset: Some(dataset.handle()),
                 annotation: None,
                 resource: None,
+                key: None,
+                data: None,
                 offset: None,
                 subselectors: Vec::new(),
             })

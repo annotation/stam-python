@@ -257,6 +257,14 @@ class Test1(unittest.TestCase):
         results = dataset.data(dataset.key("pos"),value="non-existent")
         self.assertFalse(results) #empty evaluates to False
 
+    def test_query(self):
+        """Find annotationdata by value"""
+        results = self.store.query("SELECT ANNOTATION ?a WHERE DATA \"testdataset\" \"pos\" = \"noun\";")
+        self.assertIsInstance(results, list)
+        self.assertEqual(len(results), 1)
+        self.assertIsInstance(results[0], dict)
+        self.assertIsInstance(results[0]["a"], Annotation)
+        self.assertEqual(str(results[0]["a"]), "world")
 
 
 class Test2(unittest.TestCase):

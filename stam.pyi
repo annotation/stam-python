@@ -248,6 +248,22 @@ class AnnotationStore:
             Must be a numeric 2-tuple with min and max (inclusive) values
         """
 
+    def query(self, query: str) -> list:
+        """
+        Query the data using STAMQL.
+
+        Parameters
+        --------------
+
+        query: str
+            Query in `STAMQL <https://github.com/annotation/stam/tree/master/extensions/stam-query>_`.
+
+        Return Value
+        ------------
+
+        Returns a list consisting of dictionaries, each corresponding one result row. The keys in the dictionaries correspond to the variable names in the STAMQL query, the values are instances of whatever type the query returns, i.e. Annotation, AnnotationData, TextResource, TextSelection, AnnotationDataSet.
+        """
+
 #   def find_data(self,  **kwargs) -> Data:
 #       """
 #       Find annotation data by set, key and value.

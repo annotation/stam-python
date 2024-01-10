@@ -235,7 +235,7 @@ class Test1(unittest.TestCase):
     def test_find_data(self):
         """Find annotationdata by value"""
         dataset = self.store.dataset("testdataset")
-        results = dataset.data(filter=dataset.key("pos"), value="noun")
+        results = dataset.data(dataset.key("pos"), value="noun")
         self.assertIsInstance(results, Data)
         self.assertEqual(len(results), 1)
         self.assertIsInstance(results[0], AnnotationData)
@@ -254,7 +254,7 @@ class Test1(unittest.TestCase):
     def test_find_data_missing(self):
         """Find annotationdata by value, test mismatches"""
         dataset = self.store.dataset("testdataset")
-        results = dataset.data(filter=dataset.key("pos"),value="non-existent")
+        results = dataset.data(dataset.key("pos"),value="non-existent")
         self.assertFalse(results) #empty evaluates to False
 
 

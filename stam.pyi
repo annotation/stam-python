@@ -163,35 +163,22 @@ class AnnotationStore:
 
         Positional arguments can be of the following types:
 
-            * :class:`AnnotationData` - Returns only annotations that have this exact data  (you can only pass this once).
-            * a tuple/list of :class:`AnnotationData` - Returns only annotations with data that matches one of the items in the tuple/list.
-            * :class:`DataKey` - Returns annotations with data matching this key (you can only pass this once).
-            * a tuple/list of :class:`DataKey`
-            * :class:`Annotations` - Returns only annotations that are already in the provided :obj:`Annotations` collection (intersection)
-            * :class:`Data` - Returns only annotations with data that is in the provided :obj:`Data` collection.
-            * :class:`TextSelectionOperator` - Returns only annotations that are in a particular textual relationship with the current one (e.g. overlap,embedding,adjacency,etc).
-            * a dictionary:
-
+        * :class:`DataKey` - Returns annotations with data matching this key
+        * :class:`AnnotationData` - Returns only annotations that have this exact data
+        * :class:`Annotations` or  a tuple/list of :class:`Annotation`- Returns only annotations that are already in the provided :obj:`Annotations` collection (intersection)
+        * :class:`Data` a tuple/list of :class:`AnnotationData `- Returns only annotations with data that is in the provided  collection.
+        * a dictionary:
+            * `set` - An ID of an dataset (or a :class:`DataAnnotationSet` instance), only needed when specifying `key` as a string (see below)
+            * `key` - An key, either an instance of :class:`DataKey` or a string, in the latter case you need to specify `set` as well.
+            * `value` (see keyword arguments below)
 
         Keyword Arguments
         -------------------
 
         limit: Optional[int] = None
             The maximum number of results to return (default: unlimited)
-        filter: Union[AnnotationData,Tuple[AnnotationData],List[AnnotationData],DataKey,Annotations,Data,TextSelectionOperator]
-            If you want to add multiple different filters, use `filters` instead.
-            Filter annotations based on:
-
-            * :class:`AnnotationData` - Returns only annotations that have this exact data  (you can only pass this once).
-            * a tuple/list of :class:`AnnotationData` - Returns only annotations with data that matches one of the items in the tuple/list.
-            * :class:`DataKey` - Returns annotations with data matching this key (you can only pass this once).
-            * a tuple/list of :class:`DataKey`
-            * :class:`Annotations` - Returns only annotations that are already in the provided :obj:`Annotations` collection (intersection)
-            * :class:`Data` - Returns only annotations with data that is in the provided :obj:`Data` collection.
-            * :class:`TextSelectionOperator` - Returns only annotations that are in a particular textual relationship with the current one (e.g. overlap,embedding,adjacency,etc).
-        filters: List[Union[AnnotationData,DataKey,Annotations,Data]]
         value: Optional[Union[str,int,float,bool]]
-            Constrain the search to annotations with data of a certain value. This can only be used with `filter=DataKey`.
+            Constrain the search to annotations with data of a certain value. This can only be used when you also pass a :class:`DataKey` as filter.
             This holds the exact value to search for, there are other variants of this keyword available, see :meth:`data` for a full list. 
         """
 
@@ -216,26 +203,30 @@ class AnnotationStore:
         """Reallocates internal data structures to tight fits to conserve memory space (if necessary). You can use this after having added lots of annotations to possibly reduce the memory consumption."""
 
     def data(self, *args, **kwargs) -> Data:
-        """Returns an iterator over all annotations (:class:`Annotation`) in this store.
+        """Returns an iterator over all data (:class:`AnnotationData`) in this store.
 
-        Filtering can be applied using keyword arguments. It is recommended to only use this method if you apply further filtering, otherwise the memory overhead may be very large if you have a lot of data.
+        Filtering can be applied using positional arguments and/or keyword arguments. It is recommended to only use this method if you apply further filtering, otherwise the memory overhead may be very large if you have a lot of data.
+
+        Positional Arguments
+        -------------------
+
+        Positional arguments can be of the following types:
+
+        * :class:`DataKey` - Returns data matching this key
+        * :class:`Annotation` - Returns data referenced by the mentioned annotation 
+        * :class:`AnnotationData` - Returns only this exact data. Not very useful, use :meth:`test_data` instead.
+        * :class:`Annotations` or  a tuple/list of :class:`Annotation` - Returns data references by annotations in the provided  collection.
+        * :class:`Data` a tuple/list of :class:`AnnotationData `-  Returns only data that is in the provided :obj:`Data` collection (intersection)
+        * a dictionary:
+            * `set` - An ID of an dataset (or a :class:`DataAnnotationSet` instance), only needed when specifying `key` as a string (see below)
+            * `key` - An key, either an instance of :class:`DataKey` or a string, in the latter case you need to specify `set` as well.
+            * `value` or variants (see keyword arguments below)
 
         Keyword Arguments
         -------------------
 
         limit: Optional[int] = None
             The maximum number of results to return (default: unlimited)
-        filter: Union[AnnotationData,Tuple[AnnotationData],List[AnnotationData],DataKey,Annotations,Data]
-            If you want to add multiple different filters, use `filters` instead.
-            Filter annotations based on:
-
-            * :class:`AnnotationData` - Returns only this exact data  (you can only pass this once). Use :meth:`test_data` instead.
-            * a tuple/list of :class:`AnnotationData` - Returns only annotations with data that matches one of the items in the tuple/list.
-            * :class:`DataKey` - Returns data matching this key (you can only pass this once).
-            * a tuple/list of :class:`DataKey`
-            * :class:`Annotations` - Returns data that is used by by annotations in the provided :obj:`Annotations` collection.
-            * :class:`Data` - Returns only data that is in the provided :obj:`Data` collection.
-        filters: List[Union[AnnotationData,DataKey,Annotations,Data]]
         value: Optional[Union[str,int,float,bool,List[Union[str,int,float,bool]]]]
             Search for data matching a specific value.
             This holds exact value to search for. Further variants of this keyword are listed below:
@@ -315,7 +306,7 @@ class AnnotationStore:
 class Annotation:
     """
     `Annotation` represents a particular *instance of annotation* and is the central
-    concept of the model. They can be considered the primary nodes of the graph model. The
+    concept of the model. Annotations can be considered the primary nodes of the graph model. The
     instance of annotation is strictly decoupled from the *data* or key/value of the
     annotation (:class:`AnnotationData`). After all, multiple instances can be annotated
     with the same label (multiple annotations may share the same annotation data).
@@ -366,33 +357,36 @@ class Annotation:
 
         Text selections will be returned in textual order, except if a DirectionalSelector was used.
 
-        Text selections may be filtered using the following keyword arguments:
+        Text selections may be filtered using the following positionl and/or keyword arguments:
+
+        Positional Arguments
+        -------------------
+
+        Positional arguments can be of the following types:
+
+        * :class:`DataKey` - Returns text selections referenced by annotations with data matching this key
+        * :class:`AnnotationData` - Returns text selections referenced by annotations that have this exact data
+        * :class:`Annotations` or  a tuple/list of :class:`Annotation`- Returns text selections referenced by any annotations that are already in the provided :obj:`Annotations` collection (intersection)
+        * :class:`Data` a tuple/list of :class:`AnnotationData `- Returns only textselections referenced by annotations with data that is in the provided  collection.
+        * a dictionary:
+            * `set` - An ID of an dataset (or a :class:`DataAnnotationSet` instance), only needed when specifying `key` as a string (see below)
+            * `key` - An key, either an instance of :class:`DataKey` or a string, in the latter case you need to specify `set` as well.
+            * `value` (see keyword arguments below)
 
         Keyword Arguments
         -------------------
 
         limit: Optional[int] = None
             The maximum number of results to return (default: unlimited)
-        filter: Union[AnnotationData,Tuple[AnnotationData],List[AnnotationData],DataKey,Annotations,Data,TextSelectionOperator]
-            If you want to add multiple different filters, use `filters` instead.
-            Filter annotations based on:
-
-            * :class:`AnnotationData` - Returns only text selections referenced by annotations that have this exact data  (you can only pass this once).
-            * a tuple/list of :class:`AnnotationData` - Returns only text selections referenced by annotations with data that matches one of the items in the tuple/list.
-            * :class:`DataKey` - Returns text selections referenced by annotations with data matching this key (you can only pass this once).
-            * a tuple/list of :class:`DataKey`
-            * :class:`Annotations` - Returns only text selections referenced by annotations that are already in the provided :obj:`Annotations` collection (intersection)
-            * :class:`Data` - Returns only text selections referenced by annotations with data that is in the provided :obj:`Data` collection.
-        filters: List[Union[AnnotationData,DataKey,Annotations,Data]]
         value: Optional[Union[str,int,float,bool]]
-            Constrain the search to text selections referenced by annotations with data of a certain value. This can only be used with `filter=DataKey`.
+            Constrain the search to text selections referenced by annotations with data of a certain value. This is usually used together with passing a :obj:`DataKey` as filter in the positional arguments.
             This holds the exact value to search for, there are other variants of this keyword available, see :meth:`data` for a full list. 
         """
 
-    def annotations_in_targets(self, recursive= False, limit: Optional[int] = None) -> Annotations:
+    def annotations_in_targets(self, *args, **kwargs) -> Annotations:
         """Returns annotations (:class:`Annotations` containing :class:`Annotation`) this annotation refers to (i.e. using an *AnnotationSelector*)
 
-        The annotations can be filtered using keyword arguments; see :meth:`annotations`. One extra keyword argument is available for this method (see below).
+        The annotations can be filtered using positional and/or keyword arguments; see :meth:`annotations`. One extra keyword argument is available for this method (see below).
 
         Annotations will returned be in textual order unless recursive is set or a DirectionalSelector is involved.
 
@@ -403,32 +397,34 @@ class Annotation:
             Follow AnnotationSelectors recursively (default False)
         """
 
-    def annotations(self, **kwargs) -> Annotations:
+    def annotations(self, *args, **kwargs) -> Annotations:
         """
         Returns annotations (:class:`Annotations` containing :class:`Annotation`) that are referring to this annotation (i.e. others using an AnnotationSelector).
 
-        The annotations can be filtered using keyword arguments.
+        The annotations can be filtered using positional and/or keyword arguments.
+
+        Positional Arguments
+        -------------------
+
+        Positional arguments can be of the following types:
+
+        * :class:`DataKey` - Returns annotations with data matching this key
+        * :class:`AnnotationData` - Returns only annotations that have this exact data
+        * :class:`Annotations` or  a tuple/list of :class:`Annotation`- Returns only annotations that are already in the provided :obj:`Annotations` collection (intersection)
+        * :class:`Data` a tuple/list of :class:`AnnotationData `- Returns only annotations with data that is in the provided  collection.
+        * a dictionary:
+            * `set` - An ID of an dataset (or a :class:`DataAnnotationSet` instance), only needed when specifying `key` as a string (see below)
+            * `key` - An key, either an instance of :class:`DataKey` or a string, in the latter case you need to specify `set` as well.
+            * `value` or variants (see keyword arguments below)
 
         Keyword Arguments
         -------------------
 
         limit: Optional[int] = None
             The maximum number of results to return (default: unlimited)
-        filter: Union[AnnotationData,Tuple[AnnotationData],List[AnnotationData],DataKey,Annotations,Data]
-            If you want to add multiple different filters, use `filters` instead.
-            Filter annotations based on:
-
-            * :class:`AnnotationData` - Returns only annotations that have this exact data  (you can only pass this once).
-            * a tuple/list of :class:`AnnotationData` - Returns only annotations with data that matches one of the items in the tuple/list.
-            * :class:`DataKey` - Returns annotations with data matching this key (you can only pass this once).
-            * a tuple/list of :class:`DataKey`
-            * :class:`Annotations` - Returns only annotations that are already in the provided :obj:`Annotations` collection (intersection)
-            * :class:`Data` - Returns only annotations with data that is in the provided :obj:`Data` collection.
-        filters: List[Union[AnnotationData,DataKey,Annotations,Data]]
         value: Optional[Union[str,int,float,bool]]
-            Constrain the search to annotations with data of a certain value. This can only be used with `filter=DataKey`.
+            Constrain the search to annotations with data of a certain value. This is usually used together with passing a :obj:`DataKey` as filter in the positional arguments.
             This holds the exact value to search for, there are other variants of this keyword available, see :meth:`data` for a full list. 
-
 
         Example
         ---------
@@ -436,17 +432,16 @@ class Annotation:
         Filter by data key and value::
 
             key = store.dataset("linguistic-set").key("part-of-speech")
-            for annotation in store.annotations(filter=key, value="noun"):
+            for annotation in store.annotations(key, value="noun"):
                  ...
 
         But if you already have the key, like in the example above, you may just as well do (more efficient)::
 
             for annotation in key.annotations(value="noun"):
                  ...
-
         """
 
-    def test_annotations(self, **kwargs) -> bool:
+    def test_annotations(self, *args, **kwargs) -> bool:
         """
         Tests whwther there are annotations (:class:`Annotations` containing :class:`Annotation`) that are referring to this annotation (i.e. others using an AnnotationSelector).
         This method is like :meth:`annotations`, but only tests and does not return the annotations, as such it is more performant.
@@ -493,7 +488,7 @@ class Annotation:
     def selector_kind(self) -> SelectorKind:
         """Returns the type of the selector of this annotation"""
 
-    def data(self, **kwargs) -> Data:
+    def data(self, *args, **kwargs) -> Data:
         """
         Returns annotation data (:class:`Data` containing :class:`AnnotationData`) used by this annotation.
 
@@ -501,22 +496,26 @@ class Annotation:
         the data, then just iterating over the annotation directly (:meth:`__iter__`) will be more efficient. Do note that implementing
         any filtering yourself in Python is much less performant than letting this data method do it for you.
 
+        Positional Arguments
+        -------------------------
+
+        Positional arguments can be of the following types:
+
+        * :class:`DataKey` - Returns data matching this key
+        * :class:`Annotation` - Returns data referenced by the mentioned annotation 
+        * :class:`AnnotationData` - Returns only this exact data. Not very useful, use :meth:`test_data` instead.
+        * :class:`Annotations` or  a tuple/list of :class:`Annotation` - Returns data references by annotations in the provided  collection.
+        * :class:`Data` a tuple/list of :class:`AnnotationData `-  Returns only data that is in the provided :obj:`Data` collection (intersection)
+        * a dictionary:
+            * `set` - An ID of an dataset (or a :class:`DataAnnotationSet` instance), only needed when specifying `key` as a string (see below)
+            * `key` - An key, either an instance of :class:`DataKey` or a string, in the latter case you need to specify `set` as well.
+            * `value` or variants (see keyword arguments below)
+
         Keyword Arguments
         -------------------
 
         limit: Optional[int] = None
             The maximum number of results to return (default: unlimited)
-        filter: Union[AnnotationData,Tuple[AnnotationData],List[AnnotationData],DataKey,Annotations,Data]
-            If you want to add multiple different filters, use `filters` instead.
-            Filter annotations based on:
-
-            * :class:`AnnotationData` - Returns only this exact data  (you can only pass this once). Use :meth:`test_data` instead.
-            * a tuple/list of :class:`AnnotationData` - Returns only annotations with data that matches one of the items in the tuple/list.
-            * :class:`DataKey` - Returns data matching this key (you can only pass this once).
-            * a tuple/list of :class:`DataKey`
-            * :class:`Annotations` - Returns data that is used by by annotations in the provided :obj:`Annotations` collection.
-            * :class:`Data` - Returns only data that is in the provided :obj:`Data` collection.
-        filters: List[Union[AnnotationData,DataKey,Annotations,Data]]
         value: Optional[Union[str,int,float,bool,List[Union[str,int,float,bool]]]]
             Search for data matching a specific value.
             This holds exact value to search for. Further variants of this keyword are listed below:
@@ -549,20 +548,20 @@ class Annotation:
 
         """
 
-    def test_data(self, **kwargs) -> bool:
+    def test_data(self, *args, **kwargs) -> bool:
         """
         Tests whether certain annotation data is used by this annotation.
-        The data can be filtered using keyword arguments. See :meth:`data`.
+        The data can be filtered using positional and/or keyword arguments. See :meth:`data`.
         Unlike :meth:`data`, this method merely tests without returning the data, and as such is more performant.
         """
 
-    def related_text(self, operator: TextSelectionOperator, **kwargs) -> TextSelections:
+    def related_text(self, operator: TextSelectionOperator, *args, **kwargs) -> TextSelections:
         """
         Applies a :class:`TextSelectionOperator` to find all other
         text selections who are in a specific relation with the ones from the current annotation. 
         Returns a collection :class:`TextSelections` containing all matching :class:`TextSelection` instances.
 
-        Text selections will be returned in textual order. They may be filtered via keyword arguments. See :meth:`Annotation.textselections`.
+        Text selections will be returned in textual order. They may be filtered via positional and/or keyword arguments. See :meth:`Annotation.textselections`.
        
         If you are interested in the annotations associated with the found text selections, then
         add `.annotations()` to the result.
@@ -628,26 +627,26 @@ class Annotations:
     def is_sorted(self) -> bool:
         """Returns a boolean indicating whether the annotations in this collection are sorted chronologically (earlier annotations before later once). Note that this is distinct from any textual ordering."""
 
-    def data(self, **kwargs) -> Data:
+    def data(self, *args, **kwargs) -> Data:
         """
         Returns annotation data (:class:`Data` containing :class:`AnnotationData`) used by annotations in this collection.
 
-        The data can be filtered using keyword arguments; see :meth:`Annotation.data`.
+        The data can be filtered using positional and/or keyword arguments; see :meth:`Annotation.data`.
         If no filters are set (default), all data from all annotations are returned (without duplicates).
         """
 
-    def test_data(self, **kwargs) -> bool:
+    def test_data(self, *args, **kwargs) -> bool:
         """
         Tests whether certain annotation data is used by any annotation in this collection.
         The data can be filtered using keyword arguments. See :meth:`data`.
         Unlike :meth:`data`, this method merely tests without returning the data, and as such is more performant.
         """
 
-    def annotations(self, **kwargs) -> Annotations:
+    def annotations(self, *args, **kwargs) -> Annotations:
         """
         Returns annotations (:class:`Annotations` containing :class:`Annotation`) that reference annotations in the current collection (e.g. annotations that target of the current any annotations using an AnnotationSelector).
 
-        The annotations can be filtered using keyword arguments; see :meth:`Annotation.annotations`.
+        The annotations can be filtered using positional and/or keyword arguments; see :meth:`Annotation.annotations`.
         If no filters are set (default), all annotations are returned (without duplicates) in chronological order.
 
         Example
@@ -661,11 +660,11 @@ class Annotations:
                 ...
         """
 
-    def annotations_in_targets(self, **kwargs) -> Annotations:
+    def annotations_in_targets(self, *args, **kwargs) -> Annotations:
         """
         Returns annotations (:class:`Annotations` containing :class:`Annotation`) that are being referenced by annotations in the current collection (e.g. annotations we target using an AnnotationSelector).
 
-        The annotations can be filtered using keyword arguments; see :meth:`Annotation.annotations`. One extra keyword argument is available and explained below.
+        The annotations can be filtered using positional and/or keyword arguments; see :meth:`Annotation.annotations`. One extra keyword argument is available and explained below.
         If no filters are set (default), all annotations are returned (without duplicates). 
         Annotations are returned in chronological order.
 
@@ -676,17 +675,17 @@ class Annotations:
             Follow AnnotationSelectors recursively (default False)
         """
 
-    def test_annotation(self, **kwargs) -> bool:
+    def test_annotation(self, *args, **kwargs) -> bool:
         """
         Tests whether certain annotations reference any annotation in this collection.
-        The annotation can be filtered using keyword arguments. See :meth:`annotations`.
+        The annotation can be filtered using positional and/or keyword arguments. See :meth:`annotations`.
         Unlike :meth:`annotations`, this method merely tests without returning the data, and as such is more performant.
         """
 
-    def test_annotations_in_targets(self, **kwargs) -> Annotations:
+    def test_annotations_in_targets(self, *args, **kwargs) -> Annotations:
         """
         Tests whether annotations in this collection targets the specified annotation.
-        The annotation can be filtered using keyword arguments. See :meth:`annotations`.
+        The annotation can be filtered using positional and/or keyword arguments. See :meth:`annotations`.
         Unlike :meth:`annotations_in_targets`, this method merely tests without returning the data, and as such is more performant.
         """
 
@@ -757,18 +756,18 @@ class AnnotationDataSet:
     def __iter__(self) -> Iterator[AnnotationData]:
         """Returns an iterator over all :class:`AnnotationData` in the dataset. If you want to do any filtering, use :meth:`data` instead."""
 
-    def data(self, **kwargs) -> Data:
+    def data(self, *args, **kwargs) -> Data:
         """
         Returns annotation data (:class:`Data` containing :class:`AnnotationData`) used by this key.
 
-        The data can be filtered using keyword arguments. See :meth:`Annotation.data`. 
+        The data can be filtered using positional and/or keyword arguments. See :meth:`Annotation.data`. 
         If you don't intend to do any filtering at all, then just using :meth:`__iter__` may be faster.
         """
 
-    def test_data(self, **kwargs) -> bool:
+    def test_data(self, *args, **kwargs) -> bool:
         """
         Tests whether certain annotation data exists in this set.
-        The data can be filtered using keyword arguments. See :meth:`Annotation.data`.
+        The data can be filtered using positional and/or keyword arguments. See :meth:`Annotation.data`.
         This method is like :meth:`data`, but merely tests without returning the data, and as such is more performant.
         """
 
@@ -793,11 +792,11 @@ class DataKey:
     def dataset(self) -> AnnotationDataSet:
         """Returns the :class:`AnnotationDataSet` this key is part of"""
 
-    def data(self, **kwargs) -> Data:
+    def data(self, *args, **kwargs) -> Data:
         """
         Returns annotation data (:class:`Data` containing :class:`AnnotationData`) used by this key.
 
-        The data can be filtered using keyword arguments. See :meth:`Annotation.data`. Note that only a subset makes sense in this context, set and key are already fixed.
+        The data can be filtered using positional and/or keyword arguments. See :meth:`Annotation.data`. Note that only a subset makes sense in this context, set and key are already fixed.
 
         Example
         --------
@@ -808,7 +807,7 @@ class DataKey:
                 # returns only one
         """
 
-    def test_data(self, **kwargs) -> bool:
+    def test_data(self, *args, **kwargs) -> bool:
         """
         Tests whether certain annotation data exists for this key
         The data can be filtered using keyword arguments. See :meth:`Annotation.data`. Note that only a subset makes sense in this context, set and key are already fixed.
@@ -825,7 +824,7 @@ class DataKey:
                 ...
         """
 
-    def annotations(self, **kwargs) -> Annotations:
+    def annotations(self, *args, **kwargs) -> Annotations:
         """
         Returns annotations (:class:`Annotations` containing :class:`Annotation`) that make use of this key.
 
@@ -840,7 +839,7 @@ class DataKey:
                  ...
         """
 
-    def test_annotations(self, **kwargs) -> bool:
+    def test_annotations(self, *args, **kwargs) -> bool:
         """
         Tests whether there are any annotations that make use of this key.
         This method is like :meth:`annotations`, but only tests and does not return the annotations, as such it is more performant.
@@ -921,33 +920,37 @@ class AnnotationData:
     def dataset(self) -> AnnotationDataSet:
         """Returns the :class:`AnnotationDataSet` this data is part of"""
 
-    def annotations(self, **kwargs) -> Annotations:
+    def annotations(self, *args, **kwargs) -> Annotations:
         """
         Returns annotations (:class:`Annotations` containing :class:`Annotation`) that make use of this data.
 
-        The annotations can be filtered using keyword arguments.
+        The annotations can be filtered using positional and/or keyword arguments.
+
+        Positional Arguments
+        -------------------
+
+        Positional arguments can be of the following types:
+
+        * :class:`DataKey` - Returns annotations with data matching this key
+        * :class:`AnnotationData` - Returns only annotations that have this exact data
+        * :class:`Annotations` or  a tuple/list of :class:`Annotation`- Returns only annotations that are already in the provided :obj:`Annotations` collection (intersection)
+        * :class:`Data` a tuple/list of :class:`AnnotationData `- Returns only annotations with data that is in the provided  collection.
+        * a dictionary:
+            * `set` - An ID of an dataset (or a :class:`DataAnnotationSet` instance), only needed when specifying `key` as a string (see below)
+            * `key` - An key, either an instance of :class:`DataKey` or a string, in the latter case you need to specify `set` as well.
+            * `value` (see keyword arguments below)
 
         Keyword Arguments
         -------------------
 
         limit: Optional[int] = None
             The maximum number of results to return (default: unlimited)
-        filter: Union[AnnotationData,Tuple[AnnotationData],List[AnnotationData],DataKey,Annotations,Data]
-            If you want to add multiple different filters, use `filters` instead.
-            Filter annotations based on:
-
-            * :class:`AnnotationData` - Returns only annotations that have this exact data  (you can only pass this once).
-            * a tuple/list of :class:`AnnotationData` - Returns only annotations with data that matches one of the items in the tuple/list.
-            * :class:`DataKey` - Returns annotations with data matching this key (you can only pass this once).
-            * :class:`Annotations` - Returns only annotations that are already in the provided :obj:`Annotations` collection (intersection)
-            * :class:`Data` - Returns only annotations with data that is in the provided :obj:`Data` collection.
-        filters: List[Union[AnnotationData,DataKey,Annotations,Data]]
         value: Optional[Union[str,int,float,bool]]
-            Constrain the search to annotations with data of a certain value. This can only be used with `filter=DataKey`.
+            Constrain the search to annotations with data of a certain value.
             This holds the exact value to search for, there are other variants of this keyword available, see :meth:`data` for a full list. 
         """
 
-    def test_annotations(self, **kwargs) -> bool:
+    def test_annotations(self, *args, **kwargs) -> bool:
         """
         Tests whether there are any annotations that make use of this data.
         This method is like :meth:`annotations`, but only tests and does not return the annotations, as such it is more performant.
@@ -984,19 +987,19 @@ class Data:
     def __getitem__(self, int) -> AnnotationData:
         """Returns data in the collection by index"""
 
-    def annotations(self, **kwargs) -> Annotations:
+    def annotations(self, *args, **kwargs) -> Annotations:
         """
         Returns annotations (:class:`Annotations` containing :class:`Annotation`) that are make use of any of the data in this collection
 
-        The annotations can be filtered using keyword arguments. See :meth:`Annotation.annotations`.
+        The annotations can be filtered using positional and/or keyword arguments. See :meth:`Annotation.annotations`.
        """
 
-    def test_annotations(self, **kwargs) -> bool:
+    def test_annotations(self, *args, **kwargs) -> bool:
         """
         Tests whether there are any annotations that make use of any of the data in this collection
         This method is like :meth:`annotations`, but does only tests and does not return the annotations, as such it is more performant.
 
-        The annotations can be filtered using keyword arguments. See :meth:`Annotation.annotations`.
+        The annotations can be filtered using positional and/or keyword arguments. See :meth:`Annotation.annotations`.
        """
 
 class TextSelections:
@@ -1026,11 +1029,11 @@ class TextSelections:
     def text(self, delimiter: str) -> List[str]:
         """Returns the text of all textselections in a list"""
 
-    def annotations(self, **kwargs) -> Annotations:
+    def annotations(self, *args, **kwargs) -> Annotations:
         """
         Returns annotations (:class:`Annotations` containing :class:`Annotation`) that refer to any of the text selections in this collection
 
-        The annotations can be filtered using keyword arguments. See :meth:`Annotation.annotations`.
+        The annotations can be filtered using positional and/or keyword arguments. See :meth:`Annotation.annotations`.
        """
 
     def test_annotations(self, **kwargs) -> bool:
@@ -1039,32 +1042,32 @@ class TextSelections:
 
         This method is like :meth:`annotations`, but only tests and does not return the annotations, as such it is more performant.
 
-        The annotations can be filtered using keyword arguments. See :meth:`Annotation.annotations`.
+        The annotations can be filtered using positional and/or keyword arguments. See :meth:`Annotation.annotations`.
        """
 
-    def data(self, **kwargs) -> Data:
+    def data(self, *args, **kwargs) -> Data:
         """
         Returns annotation data (:class:`Data` containing :class:`AnnotationData`) used by annotations referring to the text selections in this collection.
 
-        The data can be filtered using keyword arguments; see :meth:`Annotation.data`.
+        The data can be filtered using positional and/or keyword arguments; see :meth:`Annotation.data`.
         If no filters are set (default), all data from all annotations on all text selections are returned (without duplicates).
         """
 
-    def test_data(self, **kwargs) -> bool:
+    def test_data(self, *args, **kwargs) -> bool:
         """
         Tests whether there are any annotations that reference any of the text selections in the iterator, with data that passes the provided filters.
         The result is functionally equivalent to doing `.annotations().test_data()`, but this shortcut method is implemented much more efficiently and therefore recommended.
 
-        The data can be filtered using keyword arguments. See :meth:`Annotations.data`.
+        The data can be filtered using positional and/or keyword arguments. See :meth:`Annotations.data`.
         """
 
-    def related_text(self, operator: TextSelectionOperator, **kwargs) -> TextSelections:
+    def related_text(self, operator: TextSelectionOperator, *args, **kwargs) -> TextSelections:
         """
         Applies a :class:`TextSelectionOperator` to find all other
         text selections who are in a specific relation with the ones from the current collections. 
         Returns a collection of all matching :class:`TextSelection` instances.
 
-        Text selections will be returned in textual order. They may be filtered via keyword arguments. See :meth:`Annotation.textselections`.
+        Text selections will be returned in textual order. They may be filtered via positional and/or keyword arguments. See :meth:`Annotation.textselections`.
        
         If you are interested in the annotations associated with the found text selections, then
         add `.annotations()` to the result.
@@ -1254,6 +1257,8 @@ class SelectorKind:
     ANNOTATIONSELECTOR: SelectorKind
     TEXTSELECTOR: SelectorKind
     DATASETSELECTOR: SelectorKind
+    DATAKEYSELECTOR: SelectorKind
+    ANNOTATIONDATASELECTOR: SelectorKind
     MULTISELECTOR: SelectorKind
     COMPOSITESELECTOR: SelectorKind
     DIRECTIONALSELECTOR: SelectorKind
@@ -1430,37 +1435,37 @@ class TextResource:
         The parameter value must be 0 or negative.
         """
 
-    def annotations(self, **kwargs) -> Annotations:
+    def annotations(self, *args, **kwargs) -> Annotations:
         """Returns a collection of annotations (:class:`Annotation`) that reference this resource via a *TextSelector* (if any).
         Does *NOT* include those that use a ResourceSelector, use :meth:`annotations_metadata` instead for those instead.
 
-        The annotations can be filtered using keyword arguments. See :meth:`Annotation.annotations`.
+        The annotations can be filtered using positional and/or keyword arguments. See :meth:`Annotation.annotations`.
         """
 
 
-    def annotations_as_metadata(self, **kwargs) -> Annotations:
+    def annotations_as_metadata(self, *args, **kwargs) -> Annotations:
         """Returns a collection of annotations (:class:`Annotation`) that reference this resource via a *ResourceSelector* (if any).
         Does *NOT* include those that use a TextSelector, use :meth:`annotations` instead for those instead.
 
-        The annotations can be filtered using keyword arguments. See :meth:`Annotation.annotations`.
+        The annotations can be filtered using positional and/or keyword arguments. See :meth:`Annotation.annotations`.
         """
 
-    def test_annotations(self, **kwargs) -> bool:
+    def test_annotations(self,*args,  **kwargs) -> bool:
         """
         Tests whether there are any annotations that reference the text of this resource (via a TextSelector). 
 
         This method is like :meth:`annotations`, but only tests and does not return the annotations, as such it is more performant.
 
-        The annotations can be filtered using keyword arguments. See :meth:`Annotation.annotations`.
+        The annotations can be filtered using positional and/or keyword arguments. See :meth:`Annotation.annotations`.
        """
 
-    def test_annotations_as_metadata(self, **kwargs) -> bool:
+    def test_annotations_as_metadata(self, *args, **kwargs) -> bool:
         """
         Tests whether there are any annotations that reference this resource as metadata (via a ResourceSelector). 
 
         This method is like :meth:`annotations_as_metadata`, but only tests and does not return the annotations, as such it is more performant.
 
-        The annotations can be filtered using keyword arguments. See :meth:`Annotation.annotations`.
+        The annotations can be filtered using positional and/or keyword arguments. See :meth:`Annotation.annotations`.
        """
 
 

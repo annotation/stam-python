@@ -173,7 +173,7 @@ impl PyAnnotationDataSet {
     }
 
     #[pyo3(signature = (*args, **kwargs))]
-    fn data(&self, args: &PyList, kwargs: Option<&PyDict>) -> PyResult<PyData> {
+    fn data(&self, args: &PyTuple, kwargs: Option<&PyDict>) -> PyResult<PyData> {
         let limit = get_limit(kwargs);
         if !has_filters(args, kwargs) {
             self.map(|dataset| Ok(PyData::from_iter(dataset.data().limit(limit), &self.store)))
@@ -196,7 +196,7 @@ impl PyAnnotationDataSet {
     }
 
     #[pyo3(signature = (*args, **kwargs))]
-    fn test_data(&self, args: &PyList, kwargs: Option<&PyDict>) -> PyResult<bool> {
+    fn test_data(&self, args: &PyTuple, kwargs: Option<&PyDict>) -> PyResult<bool> {
         if !has_filters(args, kwargs) {
             self.map(|dataset| Ok(dataset.data().test()))
         } else {
@@ -268,7 +268,7 @@ impl PyAnnotationDataSet {
         &self,
         resulttype: Type,
         constraint: Constraint,
-        args: &PyList,
+        args: &PyTuple,
         kwargs: Option<&PyDict>,
         f: F,
     ) -> Result<T, PyErr>

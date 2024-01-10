@@ -145,7 +145,11 @@ impl PyAnnotation {
     /// Note that this will always return a list (even it if only contains a single element),
     /// as an annotation may reference multiple text selections.
     #[pyo3(signature = (*args, **kwargs))]
-    fn textselections(&self, args: &PyList, kwargs: Option<&PyDict>) -> PyResult<PyTextSelections> {
+    fn textselections(
+        &self,
+        args: &PyTuple,
+        kwargs: Option<&PyDict>,
+    ) -> PyResult<PyTextSelections> {
         let limit = get_limit(kwargs);
         if !has_filters(args, kwargs) {
             self.map(|annotation| {
@@ -180,7 +184,7 @@ impl PyAnnotation {
     #[pyo3(signature = (*args, **kwargs))]
     fn annotations_in_targets(
         &self,
-        args: &PyList,
+        args: &PyTuple,
         kwargs: Option<&PyDict>,
     ) -> PyResult<PyAnnotations> {
         let limit = get_limit(kwargs);
@@ -212,7 +216,7 @@ impl PyAnnotation {
 
     /// Returns annotations that are referring to this annotation (i.e. others using an AnnotationSelector)
     #[pyo3(signature = (*args, **kwargs))]
-    fn annotations(&self, args: &PyList, kwargs: Option<&PyDict>) -> PyResult<PyAnnotations> {
+    fn annotations(&self, args: &PyTuple, kwargs: Option<&PyDict>) -> PyResult<PyAnnotations> {
         let limit = get_limit(kwargs);
         if !has_filters(args, kwargs) {
             self.map(|annotation| {
@@ -244,7 +248,7 @@ impl PyAnnotation {
     }
 
     #[pyo3(signature = (*args, **kwargs))]
-    fn test_annotations(&self, args: &PyList, kwargs: Option<&PyDict>) -> PyResult<bool> {
+    fn test_annotations(&self, args: &PyTuple, kwargs: Option<&PyDict>) -> PyResult<bool> {
         if !has_filters(args, kwargs) {
             self.map(|annotation| Ok(annotation.annotations().test()))
         } else {
@@ -265,7 +269,7 @@ impl PyAnnotation {
     #[pyo3(signature = (*args, **kwargs))]
     fn test_annotations_in_targets(
         &self,
-        args: &PyList,
+        args: &PyTuple,
         kwargs: Option<&PyDict>,
     ) -> PyResult<bool> {
         let recursive = get_recursive(kwargs, AnnotationDepth::One);
@@ -354,7 +358,7 @@ impl PyAnnotation {
 
     /// Returns annotation data instances that pertain to this annotation.
     #[pyo3(signature = (*args, **kwargs))]
-    fn data(&self, args: &PyList, kwargs: Option<&PyDict>) -> PyResult<PyData> {
+    fn data(&self, args: &PyTuple, kwargs: Option<&PyDict>) -> PyResult<PyData> {
         let limit = get_limit(kwargs);
         if !has_filters(args, kwargs) {
             self.map(|annotation| {
@@ -386,7 +390,7 @@ impl PyAnnotation {
     }
 
     #[pyo3(signature = (*args, **kwargs))]
-    fn test_data(&self, args: &PyList, kwargs: Option<&PyDict>) -> PyResult<bool> {
+    fn test_data(&self, args: &PyTuple, kwargs: Option<&PyDict>) -> PyResult<bool> {
         if !has_filters(args, kwargs) {
             self.map(|annotation| Ok(annotation.data().test()))
         } else {
@@ -414,7 +418,7 @@ impl PyAnnotation {
     fn related_text(
         &self,
         operator: PyTextSelectionOperator,
-        args: &PyList,
+        args: &PyTuple,
         kwargs: Option<&PyDict>,
     ) -> PyResult<PyTextSelections> {
         let limit = get_limit(kwargs);
@@ -492,7 +496,7 @@ impl PyAnnotations {
 
     /// Returns annotation data instances used by the annotations in this collection.
     #[pyo3(signature = (*args, **kwargs))]
-    fn data(&self, args: &PyList, kwargs: Option<&PyDict>) -> PyResult<PyData> {
+    fn data(&self, args: &PyTuple, kwargs: Option<&PyDict>) -> PyResult<PyData> {
         let limit = get_limit(kwargs);
         if !has_filters(args, kwargs) {
             self.map(|annotations, store| {
@@ -517,7 +521,7 @@ impl PyAnnotations {
     }
 
     #[pyo3(signature = (*args, **kwargs))]
-    fn test_data(&self, args: &PyList, kwargs: Option<&PyDict>) -> PyResult<bool> {
+    fn test_data(&self, args: &PyTuple, kwargs: Option<&PyDict>) -> PyResult<bool> {
         if !has_filters(args, kwargs) {
             self.map(|annotations, _| Ok(annotations.items().data().test()))
         } else {
@@ -536,7 +540,7 @@ impl PyAnnotations {
     }
 
     #[pyo3(signature = (*args, **kwargs))]
-    fn annotations(&self, args: &PyList, kwargs: Option<&PyDict>) -> PyResult<PyAnnotations> {
+    fn annotations(&self, args: &PyTuple, kwargs: Option<&PyDict>) -> PyResult<PyAnnotations> {
         let limit = get_limit(kwargs);
         if !has_filters(args, kwargs) {
             self.map(|annotations, store| {
@@ -561,7 +565,7 @@ impl PyAnnotations {
     }
 
     #[pyo3(signature = (*args, **kwargs))]
-    fn test_annotations(&self, args: &PyList, kwargs: Option<&PyDict>) -> PyResult<bool> {
+    fn test_annotations(&self, args: &PyTuple, kwargs: Option<&PyDict>) -> PyResult<bool> {
         if !has_filters(args, kwargs) {
             self.map(|annotations, _| Ok(annotations.items().annotations().test()))
         } else {
@@ -582,7 +586,7 @@ impl PyAnnotations {
     #[pyo3(signature = (*args, **kwargs))]
     fn annotations_in_targets(
         &self,
-        args: &PyList,
+        args: &PyTuple,
         kwargs: Option<&PyDict>,
     ) -> PyResult<PyAnnotations> {
         let limit = get_limit(kwargs);
@@ -611,7 +615,7 @@ impl PyAnnotations {
     #[pyo3(signature = (*args, **kwargs))]
     fn test_annotations_in_targets(
         &self,
-        args: &PyList,
+        args: &PyTuple,
         kwargs: Option<&PyDict>,
     ) -> PyResult<bool> {
         let recursive = get_recursive(kwargs, AnnotationDepth::One);
@@ -631,7 +635,11 @@ impl PyAnnotations {
     }
 
     #[pyo3(signature = (*args,**kwargs))]
-    fn textselections(&self, args: &PyList, kwargs: Option<&PyDict>) -> PyResult<PyTextSelections> {
+    fn textselections(
+        &self,
+        args: &PyTuple,
+        kwargs: Option<&PyDict>,
+    ) -> PyResult<PyTextSelections> {
         let limit = get_limit(kwargs);
         if !has_filters(args, kwargs) {
             self.map(|annotations, store| {
@@ -666,7 +674,7 @@ impl PyAnnotations {
     fn related_text(
         &self,
         operator: PyTextSelectionOperator,
-        args: &PyList,
+        args: &PyTuple,
         kwargs: Option<&PyDict>,
     ) -> PyResult<PyTextSelections> {
         let limit = get_limit(kwargs);
@@ -788,7 +796,7 @@ impl PyAnnotations {
         &self,
         resulttype: Type,
         constraint: Constraint,
-        args: &PyList,
+        args: &PyTuple,
         kwargs: Option<&PyDict>,
         f: F,
     ) -> Result<T, PyErr>
@@ -898,7 +906,7 @@ impl PyAnnotation {
         &self,
         resulttype: Type,
         constraint: Constraint,
-        args: &PyList,
+        args: &PyTuple,
         kwargs: Option<&PyDict>,
         f: F,
     ) -> Result<T, PyErr>

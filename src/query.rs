@@ -7,7 +7,6 @@ use crate::annotation::{PyAnnotation, PyAnnotations};
 use crate::annotationdata::{dataoperator_from_kwargs, PyAnnotationData, PyData, PyDataKey};
 use crate::annotationdataset::PyAnnotationDataSet;
 use crate::error::PyStamError;
-use crate::textselection::PyTextSelectionOperator;
 use stam::*;
 
 const CONTEXTVARNAMES: [&str; 25] = [
@@ -40,58 +39,13 @@ where
         let operator = dataoperator_from_kwargs(filter)
             .map_err(|err| PyValueError::new_err(format!("{}", err)))?
             .or(operator);
-        let key = filter.get_item("key")?.expect("already checked");
-        if key.is_instance_of::<PyDataKey>() {
-            let key: PyRef<'py, PyDataKey> = filter.extract()?;
-            if let Some(key) = store.key(key.set, key.handle) {
-                let varname = new_contextvar(&mut used_contextvarnames);
-                query.bind_keyvar(varname, key);
-                if let Some(operator) = operator {
-                    query.constrain(Constraint::KeyValueVariable(
-                        varname,
-                        operator,
-                        SelectionQualifier::Normal,
-                    ));
-                } else {
-                    query.constrain(Constraint::KeyVariable(varname, SelectionQualifier::Normal));
-                }
-            } else {
-                return Err(PyValueError::new_err(
-                    "Passed DataKey instance is invalid (should never happen)",
-                ));
-            }
-        } else if filter.contains("set")? {
-            if key.is_instance_of::<PyString>() {
-                let key = key.downcast::<PyString>()?;
-                let set = filter.get_item("set")?.expect("already checked");
-                let key = if set.is_instance_of::<PyAnnotationDataSet>() {
-                    let set: PyRef<'py, PyAnnotationDataSet> = filter.extract()?;
-                    if let Some(dataset) = store.dataset(set.handle) {
-                        if let Some(key) = dataset.key(key.to_str()?) {
-                            Some(key)
-                        } else {
-                            return Err(PyValueError::new_err("specified key not found in set"));
-                        }
-                    } else {
-                        return Err(PyValueError::new_err(
-                            "Passed AnnotationDataSet instance is invalid (should never happen)",
-                        ));
-                    }
-                } else if set.is_instance_of::<PyString>() {
-                    let set = set.downcast::<PyString>()?;
-                    if let Some(dataset) = store.dataset(set.to_str()?) {
-                        if let Some(key) = dataset.key(key.to_str()?) {
-                            Some(key)
-                        } else {
-                            return Err(PyValueError::new_err("specified key not found in set"));
-                        }
-                    } else {
-                        return Err(PyValueError::new_err("specified dataset not found"));
-                    }
-                } else {
-                    None
-                };
-                if let Some(key) = key {
+        if filter.contains("key")? {
+            let key = filter
+                .get_item("key")?
+                .expect("key field was checked to exist in filter");
+            if key.is_instance_of::<PyDataKey>() {
+                let key: PyRef<'py, PyDataKey> = filter.extract()?;
+                if let Some(key) = store.key(key.set, key.handle) {
                     let varname = new_contextvar(&mut used_contextvarnames);
                     query.bind_keyvar(varname, key);
                     if let Some(operator) = operator {
@@ -106,23 +60,78 @@ where
                             SelectionQualifier::Normal,
                         ));
                     }
+                } else {
+                    return Err(PyValueError::new_err(
+                        "Passed DataKey instance is invalid (should never happen)",
+                    ));
                 }
-            } else {
-                return Err(PyValueError::new_err(
-                    "'key' parameter in filter dictionary should be of type `str`",
-                ));
+            } else if filter.contains("set")? {
+                if key.is_instance_of::<PyString>() {
+                    let key = key.downcast::<PyString>()?;
+                    let set = filter.get_item("set")?.expect("already checked");
+                    let key = if set.is_instance_of::<PyAnnotationDataSet>() {
+                        let set: PyRef<'py, PyAnnotationDataSet> = filter.extract()?;
+                        if let Some(dataset) = store.dataset(set.handle) {
+                            if let Some(key) = dataset.key(key.to_str()?) {
+                                Some(key)
+                            } else {
+                                return Err(PyValueError::new_err(
+                                    "specified key not found in set",
+                                ));
+                            }
+                        } else {
+                            return Err(PyValueError::new_err(
+                                "Passed AnnotationDataSet instance is invalid (should never happen)",
+                            ));
+                        }
+                    } else if set.is_instance_of::<PyString>() {
+                        let set = set.downcast::<PyString>()?;
+                        if let Some(dataset) = store.dataset(set.to_str()?) {
+                            if let Some(key) = dataset.key(key.to_str()?) {
+                                Some(key)
+                            } else {
+                                return Err(PyValueError::new_err(
+                                    "specified key not found in set",
+                                ));
+                            }
+                        } else {
+                            return Err(PyValueError::new_err("specified dataset not found"));
+                        }
+                    } else {
+                        None
+                    };
+                    if let Some(key) = key {
+                        let varname = new_contextvar(&mut used_contextvarnames);
+                        query.bind_keyvar(varname, key);
+                        if let Some(operator) = operator {
+                            query.constrain(Constraint::KeyValueVariable(
+                                varname,
+                                operator,
+                                SelectionQualifier::Normal,
+                            ));
+                        } else {
+                            query.constrain(Constraint::KeyVariable(
+                                varname,
+                                SelectionQualifier::Normal,
+                            ));
+                        }
+                    }
+                } else {
+                    return Err(PyValueError::new_err(
+                        "'key' parameter in filter dictionary should be of type `str`",
+                    ));
+                }
             }
-        } else {
-            return Err(PyValueError::new_err(
-                    "'key' parameter in filter dictionary should be of type DataKey, it can also be `str` if you also provide `set` as well",
-            ));
+        } else if let Some(operator) = operator {
+            //no key specified but we do have an operator
+            query.constrain(Constraint::Value(operator, SelectionQualifier::Normal));
         }
     } else if filter.is_instance_of::<PyList>() {
         let vec: Vec<&PyAny> = filter.extract()?;
-        add_multi_filter(query, store, vec)?;
+        used_contextvarnames = add_multi_filter(query, store, vec, used_contextvarnames)?;
     } else if filter.is_instance_of::<PyTuple>() {
         let vec: Vec<&PyAny> = filter.extract()?;
-        add_multi_filter(query, store, vec)?;
+        used_contextvarnames = add_multi_filter(query, store, vec, used_contextvarnames)?;
     } else if filter.is_instance_of::<PyAnnotationData>() {
         let data: PyRef<'_, PyAnnotationData> = filter.extract()?;
         if operator.is_some() {
@@ -196,8 +205,9 @@ where
 fn add_multi_filter<'a>(
     query: &mut Query<'a>,
     store: &'a AnnotationStore,
-    filter: Vec<&PyAny>,
-) -> PyResult<()> {
+    filter: Vec<&'a PyAny>,
+    mut used_contextvarnames: usize,
+) -> PyResult<usize> {
     if filter.iter().all(|x| x.is_instance_of::<PyAnnotation>()) {
         query.constrain(Constraint::Annotations(
             Handles::from_iter(
@@ -224,13 +234,17 @@ fn add_multi_filter<'a>(
             ),
             SelectionQualifier::Normal,
         ));
+    } else {
+        for item in filter.iter() {
+            used_contextvarnames = add_filter(query, store, item, None, used_contextvarnames)?;
+        }
     }
-    Ok(())
+    Ok(used_contextvarnames)
 }
 
 pub(crate) fn build_query<'store, 'py>(
     mut query: Query<'store>,
-    args: &'py PyList,
+    args: &'py PyTuple,
     kwargs: Option<&'py PyDict>,
     store: &'store AnnotationStore,
 ) -> PyResult<Query<'store>>
@@ -243,7 +257,9 @@ where
     } else {
         None
     };
+    let mut has_args = false;
     for filter in args {
+        has_args = true;
         used_contextvarnames = add_filter(
             &mut query,
             store,
@@ -254,8 +270,10 @@ where
     }
     if let Some(kwargs) = kwargs {
         if let Ok(Some(filter)) = kwargs.get_item("filter") {
+            //backwards compatibility
             add_filter(&mut query, store, filter, operator, used_contextvarnames)?;
         } else if let Ok(Some(filter)) = kwargs.get_item("filters") {
+            //backwards compatibility
             if filter.is_instance_of::<PyList>() {
                 let vec = filter.downcast::<PyList>()?;
                 for filter in vec {
@@ -279,12 +297,13 @@ where
                     )?;
                 }
             }
-        } else {
+        } else if !has_args {
+            //we have no args, handle kwargs standalone
             add_filter(
                 &mut query,
                 store,
                 kwargs.as_ref(),
-                operator,
+                None,
                 used_contextvarnames,
             )?;
         }
@@ -292,7 +311,7 @@ where
     Ok(query)
 }
 
-pub(crate) fn has_filters(args: &PyList, kwargs: Option<&PyDict>) -> bool {
+pub(crate) fn has_filters(args: &PyTuple, kwargs: Option<&PyDict>) -> bool {
     if !args.is_empty() {
         return true;
     }

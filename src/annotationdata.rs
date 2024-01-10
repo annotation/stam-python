@@ -83,7 +83,7 @@ impl PyDataKey {
     }
 
     #[pyo3(signature = (*args, **kwargs))]
-    fn data(&self, args: &PyList, kwargs: Option<&PyDict>) -> PyResult<PyData> {
+    fn data(&self, args: &PyTuple, kwargs: Option<&PyDict>) -> PyResult<PyData> {
         let limit = get_limit(kwargs);
         if !has_filters(args, kwargs) {
             self.map(|key| Ok(PyData::from_iter(key.data().limit(limit), &self.store)))
@@ -100,7 +100,7 @@ impl PyDataKey {
     }
 
     #[pyo3(signature = (*args, **kwargs))]
-    fn test_data(&self, args: &PyList, kwargs: Option<&PyDict>) -> PyResult<bool> {
+    fn test_data(&self, args: &PyTuple, kwargs: Option<&PyDict>) -> PyResult<bool> {
         if !has_filters(args, kwargs) {
             self.map(|key| Ok(key.data().test()))
         } else {
@@ -111,7 +111,7 @@ impl PyDataKey {
     }
 
     #[pyo3(signature = (*args, **kwargs))]
-    fn annotations(&self, args: &PyList, kwargs: Option<&PyDict>) -> PyResult<PyAnnotations> {
+    fn annotations(&self, args: &PyTuple, kwargs: Option<&PyDict>) -> PyResult<PyAnnotations> {
         let limit = get_limit(kwargs);
         if !has_filters(args, kwargs) {
             self.map(|key| {
@@ -133,7 +133,7 @@ impl PyDataKey {
     }
 
     #[pyo3(signature = (*args, **kwargs))]
-    fn test_annotations(&self, args: &PyList, kwargs: Option<&PyDict>) -> PyResult<bool> {
+    fn test_annotations(&self, args: &PyTuple, kwargs: Option<&PyDict>) -> PyResult<bool> {
         if !has_filters(args, kwargs) {
             self.map(|key| Ok(key.annotations().test()))
         } else {
@@ -198,7 +198,7 @@ impl PyDataKey {
     fn map_with_query<T, F>(
         &self,
         resulttype: Type,
-        args: &PyList,
+        args: &PyTuple,
         kwargs: Option<&PyDict>,
         f: F,
     ) -> Result<T, PyErr>
@@ -463,7 +463,7 @@ impl PyAnnotationData {
     }
 
     #[pyo3(signature = (*args, **kwargs))]
-    fn annotations(&self, args: &PyList, kwargs: Option<&PyDict>) -> PyResult<PyAnnotations> {
+    fn annotations(&self, args: &PyTuple, kwargs: Option<&PyDict>) -> PyResult<PyAnnotations> {
         let limit = get_limit(kwargs);
         if !has_filters(args, kwargs) {
             self.map(|data| {
@@ -485,7 +485,7 @@ impl PyAnnotationData {
     }
 
     #[pyo3(signature = (*args, **kwargs))]
-    fn test_annotations(&self, args: &PyList, kwargs: Option<&PyDict>) -> PyResult<bool> {
+    fn test_annotations(&self, args: &PyTuple, kwargs: Option<&PyDict>) -> PyResult<bool> {
         if !has_filters(args, kwargs) {
             self.map(|key| Ok(key.annotations().test()))
         } else {
@@ -550,7 +550,7 @@ impl PyAnnotationData {
     fn map_with_query<T, F>(
         &self,
         resulttype: Type,
-        args: &PyList,
+        args: &PyTuple,
         kwargs: Option<&PyDict>,
         f: F,
     ) -> Result<T, PyErr>
@@ -900,7 +900,7 @@ impl PyData {
     }
 
     #[pyo3(signature = (*args, **kwargs))]
-    fn annotations(&self, args: &PyList, kwargs: Option<&PyDict>) -> PyResult<PyAnnotations> {
+    fn annotations(&self, args: &PyTuple, kwargs: Option<&PyDict>) -> PyResult<PyAnnotations> {
         let limit = get_limit(kwargs);
         if !has_filters(args, kwargs) {
             self.map(|data, store| {
@@ -917,7 +917,7 @@ impl PyData {
     }
 
     #[pyo3(signature = (*args, **kwargs))]
-    fn test_annotations(&self, args: &PyList, kwargs: Option<&PyDict>) -> PyResult<bool> {
+    fn test_annotations(&self, args: &PyTuple, kwargs: Option<&PyDict>) -> PyResult<bool> {
         if !has_filters(args, kwargs) {
             self.map(|data, _| Ok(data.items().annotations().test()))
         } else {
@@ -948,7 +948,7 @@ impl PyData {
         wrappedstore: &Arc<RwLock<AnnotationStore>>,
         limit: Option<usize>,
     ) -> Self {
-        assert!(query.resulttype() == Some(Type::Annotation));
+        assert!(query.resulttype() == Some(Type::AnnotationData));
         Self {
             data: store
                 .query(query)
@@ -984,7 +984,7 @@ impl PyData {
     fn map_with_query<T, F>(
         &self,
         resulttype: Type,
-        args: &PyList,
+        args: &PyTuple,
         kwargs: Option<&PyDict>,
         f: F,
     ) -> Result<T, PyErr>

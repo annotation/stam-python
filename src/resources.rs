@@ -381,7 +381,7 @@ impl PyTextResource {
 
     /// Returns annotations that are referring to this resource via a TextSelector
     #[pyo3(signature = (*args, **kwargs))]
-    fn annotations(&self, args: &PyList, kwargs: Option<&PyDict>) -> PyResult<PyAnnotations> {
+    fn annotations(&self, args: &PyTuple, kwargs: Option<&PyDict>) -> PyResult<PyAnnotations> {
         let limit = get_limit(kwargs);
         if !has_filters(args, kwargs) {
             self.map(|resource| {
@@ -411,7 +411,7 @@ impl PyTextResource {
     #[pyo3(signature = (*args, **kwargs))]
     fn annotations_as_metadata(
         &self,
-        args: &PyList,
+        args: &PyTuple,
         kwargs: Option<&PyDict>,
     ) -> PyResult<PyAnnotations> {
         let limit = get_limit(kwargs);
@@ -441,7 +441,7 @@ impl PyTextResource {
     }
 
     #[pyo3(signature = (*args, **kwargs))]
-    fn test_annotations(&self, args: &PyList, kwargs: Option<&PyDict>) -> PyResult<bool> {
+    fn test_annotations(&self, args: &PyTuple, kwargs: Option<&PyDict>) -> PyResult<bool> {
         if !has_filters(args, kwargs) {
             self.map(|resource| Ok(resource.annotations().test()))
         } else {
@@ -458,7 +458,7 @@ impl PyTextResource {
     #[pyo3(signature = (*args, **kwargs))]
     fn test_annotations_as_metadata(
         &self,
-        args: &PyList,
+        args: &PyTuple,
         kwargs: Option<&PyDict>,
     ) -> PyResult<bool> {
         if !has_filters(args, kwargs) {
@@ -518,7 +518,7 @@ impl PyTextResource {
         &self,
         resulttype: Type,
         constraint: Constraint,
-        args: &PyList,
+        args: &PyTuple,
         kwargs: Option<&PyDict>,
         f: F,
     ) -> Result<T, PyErr>

@@ -10,24 +10,18 @@ use crate::error::PyStamError;
 use crate::textselection::PyTextSelectionOperator;
 use stam::*;
 
-pub struct ContextVariables(Vec<String>);
+const CONTEXTVARNAMES: [&str; 25] = [
+    "v1", "v2", "v3", "v4", "v5", "v6", "v7", "v8", "v9", "v10", "v11", "v12", "v13", "v14", "v15",
+    "v16", "v17", "v18", "v19", "v20", "v21", "v22", "v23", "v24", "v25",
+];
 
-impl ContextVariables {
-    pub fn add(&mut self) -> &str {
-        let var = format!("v{}", self.0.len() + 1);
-        self.0.push(var);
-        self.last().expect("was just added")
-    }
-
-    pub fn last(&self) -> Option<&str> {
-        self.0.iter().last().map(|x| x.as_str())
-    }
-}
-
-impl Default for ContextVariables {
-    fn default() -> Self {
-        Self(Vec::new())
-    }
+fn new_contextvar(used_contextvarnames: &mut usize) -> &'static str {
+    let varname = CONTEXTVARNAMES
+        .get(*used_contextvarnames)
+        .map(|x| *x)
+        .expect("no free context variables present");
+    *used_contextvarnames += 1;
+    varname
 }
 
 fn add_filter<'store, 'py, 'context>(
@@ -35,8 +29,8 @@ fn add_filter<'store, 'py, 'context>(
     store: &'store AnnotationStore,
     filter: &'py PyAny,
     operator: Option<DataOperator<'store>>,
-    contextvariables: &'context mut ContextVariables,
-) -> PyResult<()>
+    mut used_contextvarnames: usize,
+) -> PyResult<usize>
 where
     'py: 'store,
     'context: 'store,
@@ -50,7 +44,7 @@ where
         if key.is_instance_of::<PyDataKey>() {
             let key: PyRef<'py, PyDataKey> = filter.extract()?;
             if let Some(key) = store.key(key.set, key.handle) {
-                let varname = contextvariables.add();
+                let varname = new_contextvar(&mut used_contextvarnames);
                 query.bind_keyvar(varname, key);
                 if let Some(operator) = operator {
                     query.constrain(Constraint::KeyValueVariable(
@@ -98,12 +92,12 @@ where
                     None
                 };
                 if let Some(key) = key {
-                    let varname = contextvariables.add();
+                    let varname = new_contextvar(&mut used_contextvarnames);
                     query.bind_keyvar(varname, key);
-                    if operator.is_some() {
+                    if let Some(operator) = operator {
                         query.constrain(Constraint::KeyValueVariable(
                             varname,
-                            operator.take().unwrap(),
+                            operator,
                             SelectionQualifier::Normal,
                         ));
                     } else {
@@ -137,7 +131,7 @@ where
             ));
         }
         if let Some(data) = store.annotationdata(data.set, data.handle) {
-            let varname = contextvariables.add();
+            let varname = new_contextvar(&mut used_contextvarnames);
             query.bind_datavar(varname, data);
             query.constrain(Constraint::DataVariable(
                 varname,
@@ -147,7 +141,7 @@ where
     } else if filter.is_instance_of::<PyDataKey>() {
         let key: PyRef<'py, PyDataKey> = filter.extract()?;
         if let Some(key) = store.key(key.set, key.handle) {
-            let varname = contextvariables.add();
+            let varname = new_contextvar(&mut used_contextvarnames);
             query.bind_keyvar(varname, key);
             if let Some(operator) = operator {
                 query.constrain(Constraint::KeyValueVariable(
@@ -166,7 +160,7 @@ where
     } else if filter.is_instance_of::<PyAnnotation>() {
         let annotation: PyRef<'py, PyAnnotation> = filter.extract()?;
         if let Some(annotation) = store.annotation(annotation.handle) {
-            let varname = contextvariables.add();
+            let varname = new_contextvar(&mut used_contextvarnames);
             query.bind_annotationvar(varname, annotation);
             query.constrain(Constraint::AnnotationVariable(
                 varname,
@@ -196,7 +190,7 @@ where
             "Got filter argument of unexpected type",
         ));
     }
-    Ok(())
+    Ok(used_contextvarnames)
 }
 
 fn add_multi_filter<'a>(
@@ -236,40 +230,66 @@ fn add_multi_filter<'a>(
 
 pub(crate) fn build_query<'store, 'py>(
     mut query: Query<'store>,
-    args: &'py PyList, //TODO: implement!
+    args: &'py PyList,
     kwargs: Option<&'py PyDict>,
     store: &'store AnnotationStore,
-) -> PyResult<(Query<'store>, ContextVariables)>
+) -> PyResult<Query<'store>>
 where
     'py: 'store,
 {
-    let mut contextvariables = ContextVariables::default();
+    let mut used_contextvarnames: usize = 0;
     let operator = if let Some(kwargs) = kwargs {
         dataoperator_from_kwargs(kwargs).map_err(|e| PyStamError::new_err(format!("{}", e)))?
     } else {
         None
     };
     for filter in args {
-        add_filter(&mut query, store, filter, operator, &mut contextvariables)?;
+        used_contextvarnames = add_filter(
+            &mut query,
+            store,
+            filter,
+            operator.clone(),
+            used_contextvarnames,
+        )?;
     }
     if let Some(kwargs) = kwargs {
         if let Ok(Some(filter)) = kwargs.get_item("filter") {
-            add_filter(&mut query, store, filter, operator, &mut contextvariables)?;
+            add_filter(&mut query, store, filter, operator, used_contextvarnames)?;
         } else if let Ok(Some(filter)) = kwargs.get_item("filters") {
             if filter.is_instance_of::<PyList>() {
                 let vec = filter.downcast::<PyList>()?;
                 for filter in vec {
-                    add_filter(&mut query, store, filter, operator, &mut contextvariables)?;
+                    used_contextvarnames = add_filter(
+                        &mut query,
+                        store,
+                        filter,
+                        operator.clone(),
+                        used_contextvarnames,
+                    )?;
                 }
             } else if filter.is_instance_of::<PyTuple>() {
                 let vec = filter.downcast::<PyTuple>()?;
                 for filter in vec {
-                    add_filter(&mut query, store, filter, operator, &mut contextvariables)?;
+                    used_contextvarnames = add_filter(
+                        &mut query,
+                        store,
+                        filter,
+                        operator.clone(),
+                        used_contextvarnames,
+                    )?;
                 }
             }
+        } else {
+            add_filter(
+                &mut query,
+                store,
+                kwargs.as_ref(),
+                operator,
+                used_contextvarnames,
+            )?;
         }
     }
-    Ok((query, contextvariables))
+    Ok(query)
 }
 
 pub(crate) fn has_filters(args: &PyList, kwargs: Option<&PyDict>) -> bool {

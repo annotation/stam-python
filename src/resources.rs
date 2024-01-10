@@ -532,7 +532,6 @@ impl PyTextResource {
                 resource.store(),
             )
             .map_err(|e| StamError::QuerySyntaxError(format!("{}", e), "(python to query)"))?
-            .0
             .with_resourcevar("main", resource.clone());
             f(resource, query)
         })

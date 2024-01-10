@@ -282,7 +282,6 @@ impl PyAnnotationDataSet {
                 dataset.store(),
             )
             .map_err(|e| StamError::QuerySyntaxError(format!("{}", e), "(python to query)"))?
-            .0
             .with_datasetvar("main", dataset.clone());
             f(dataset, query)
         })

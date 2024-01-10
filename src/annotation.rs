@@ -810,8 +810,7 @@ impl PyAnnotations {
                     )
                     .map_err(|e| {
                         StamError::QuerySyntaxError(format!("{}", e), "(python to query)")
-                    })?
-                    .0,
+                    })?,
                 );
             f(query, store)
         })
@@ -913,7 +912,6 @@ impl PyAnnotation {
                 annotation.store(),
             )
             .map_err(|e| StamError::QuerySyntaxError(format!("{}", e), "(python to query)"))?
-            .0
             .with_annotationvar("main", annotation.clone());
             f(annotation, query)
         })

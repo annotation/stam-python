@@ -386,8 +386,7 @@ impl PyAnnotationStore {
                 kwargs,
                 store,
             )
-            .map_err(|e| StamError::QuerySyntaxError(format!("{}", e), "(python to query)"))?
-            .0;
+            .map_err(|e| StamError::QuerySyntaxError(format!("{}", e), "(python to query)"))?;
             f(query, store)
         })
     }

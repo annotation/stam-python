@@ -195,7 +195,6 @@ impl PyDataKey {
                 key.rootstore(),
             )
             .map_err(|e| StamError::QuerySyntaxError(format!("{}", e), "(python to query)"))?
-            .0
             .with_keyvar("main", key.clone());
             f(key, query)
         })
@@ -530,7 +529,6 @@ impl PyAnnotationData {
                 data.rootstore(),
             )
             .map_err(|e| StamError::QuerySyntaxError(format!("{}", e), "(python to query)"))?
-            .0
             .with_datavar("main", data.clone());
             f(data, query)
         })
@@ -972,8 +970,7 @@ impl PyData {
                     )
                     .map_err(|e| {
                         StamError::QuerySyntaxError(format!("{}", e), "(python to query)")
-                    })?
-                    .0,
+                    })?,
                 );
             f(query, store)
         })

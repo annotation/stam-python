@@ -302,6 +302,8 @@ impl PyTextResource {
                 resource: Some(resource.handle()),
                 annotation: None,
                 dataset: None,
+                key: None,
+                data: None,
                 offset: None,
                 subselectors: Vec::new(),
             })

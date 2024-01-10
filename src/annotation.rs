@@ -92,6 +92,8 @@ impl PyAnnotation {
                 annotation: Some(annotation.handle()),
                 resource: None,
                 dataset: None,
+                key: None,
+                data: None,
                 offset: if annotation
                     .as_ref()
                     .target()

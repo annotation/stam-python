@@ -3,6 +3,7 @@ use pyo3::prelude::*;
 use pyo3::pyclass::CompareOp;
 
 use crate::annotation::PyAnnotation;
+use crate::annotationdata::{PyAnnotationData, PyDataKey};
 use crate::annotationdataset::PyAnnotationDataSet;
 use crate::annotationstore::{MapStore, PyAnnotationStore};
 use crate::resources::{PyOffset, PyTextResource};
@@ -63,6 +64,8 @@ pub(crate) struct PySelector {
     pub(crate) resource: Option<TextResourceHandle>,
     pub(crate) annotation: Option<AnnotationHandle>,
     pub(crate) dataset: Option<AnnotationDataSetHandle>,
+    pub(crate) key: Option<(AnnotationDataSetHandle, DataKeyHandle)>,
+    pub(crate) data: Option<(AnnotationDataSetHandle, AnnotationDataHandle)>,
     pub(crate) offset: Option<PyOffset>,
     pub(crate) subselectors: Vec<PySelector>,
 }
@@ -93,6 +96,26 @@ impl PySelector {
                     .expect("pyselector of type datasetselector must have dataset, was checked on instantiation")
                     .into(),
             ),
+            SelectorKind::DataKeySelector => SelectorBuilder::DataKeySelector(
+                self.key
+                    .expect("pyselector of type datakeyselector must have key, was checked on instantiation")
+                    .0
+                    .into(),
+                self.key
+                    .expect("pyselector of type datakeyselector must have key, was checked on instantiation")
+                    .1
+                    .into(),
+            ),
+            SelectorKind::AnnotationDataSelector => SelectorBuilder::AnnotationDataSelector(
+                self.data
+                    .expect("pyselector of type annotationdataselector must have key, was checked on instantiation")
+                    .0
+                    .into(),
+                self.data
+                    .expect("pyselector of type annotationdataselector must have key, was checked on instantiation")
+                    .1
+                    .into(),
+            ),
             SelectorKind::MultiSelector => {
                 SelectorBuilder::MultiSelector(self.subselectors.iter().map(|subselector| subselector.build()).collect())
             }
@@ -110,12 +133,14 @@ impl PySelector {
 #[pymethods]
 impl PySelector {
     #[new]
-    #[pyo3(signature = (kind, resource=None, annotation=None, dataset=None, offset=None, subselectors=Vec::new()))]
+    #[pyo3(signature = (kind, resource=None, annotation=None, dataset=None, key=None, data=None, offset=None, subselectors=Vec::new()))]
     fn new(
         kind: &PySelectorKind,
         resource: Option<PyRef<PyTextResource>>,
         annotation: Option<PyRef<PyAnnotation>>,
         dataset: Option<PyRef<PyAnnotationDataSet>>,
+        key: Option<PyRef<PyDataKey>>,
+        data: Option<PyRef<PyAnnotationData>>,
         offset: Option<PyRef<PyOffset>>,
         subselectors: Vec<PyRef<PySelector>>,
     ) -> PyResult<Self> {
@@ -127,6 +152,8 @@ impl PySelector {
                         resource: Some(resource.handle),
                         annotation: None,
                         dataset: None,
+                        key: None,
+                        data: None,
                         offset: None,
                         subselectors: Vec::new(),
                     })
@@ -142,6 +169,8 @@ impl PySelector {
                             annotation: Some(annotation.handle),
                             resource: None,
                             dataset: None,
+                            key: None,
+                            data: None,
                             offset: Some(offset.clone()),
                             subselectors: Vec::new(),
                         })
@@ -151,6 +180,8 @@ impl PySelector {
                             annotation: Some(annotation.handle),
                             resource: None,
                             dataset: None,
+                            key: None,
+                            data: None,
                             offset: None,
                             subselectors: Vec::new(),
                         })
@@ -167,6 +198,8 @@ impl PySelector {
                             resource: Some(resource.handle),
                             annotation: None,
                             dataset: None,
+                            key: None,
+                            data: None,
                             offset: Some(offset.clone()),
                             subselectors: Vec::new(),
                         })
@@ -184,11 +217,45 @@ impl PySelector {
                         resource: None,
                         annotation: None,
                         dataset: Some(dataset.handle),
+                        key: None,
+                        data: None,
                         offset: None,
                         subselectors: Vec::new(),
                     })
                 } else {
                     Err(PyValueError::new_err("'dataset' keyword argument must be specified for DataSetSelector and point to an AnnotationDataSet instance"))
+                }
+            }
+            SelectorKind::DataKeySelector => {
+                if let Some(key) = key {
+                    Ok(PySelector {
+                        kind: kind.clone(),
+                        resource: None,
+                        annotation: None,
+                        dataset: None,
+                        key: Some((key.set, key.handle)),
+                        data: None,
+                        offset: None,
+                        subselectors: Vec::new(),
+                    })
+                } else {
+                    Err(PyValueError::new_err("'key' keyword argument must be specified for DataKeySelector and point to a DataKey instance"))
+                }
+            }
+            SelectorKind::AnnotationDataSelector => {
+                if let Some(data) = data {
+                    Ok(PySelector {
+                        kind: kind.clone(),
+                        resource: None,
+                        annotation: None,
+                        dataset: None,
+                        data: Some((data.set, data.handle)),
+                        key: None,
+                        offset: None,
+                        subselectors: Vec::new(),
+                    })
+                } else {
+                    Err(PyValueError::new_err("'key' keyword argument must be specified for DataKeySelector and point to a DataKey instance"))
                 }
             }
             SelectorKind::MultiSelector
@@ -202,6 +269,8 @@ impl PySelector {
                         resource: None,
                         annotation: None,
                         dataset: None,
+                        key: None,
+                        data: None,
                         offset: None,
                         subselectors: subselectors.into_iter().map(|sel| sel.clone()).collect(),
                     })
@@ -221,6 +290,8 @@ impl PySelector {
             Some(resource),
             None,
             None,
+            None,
+            None,
             Some(offset),
             Vec::new(),
         )
@@ -237,6 +308,8 @@ impl PySelector {
             None,
             Some(annotation),
             None,
+            None,
+            None,
             offset,
             Vec::new(),
         )
@@ -248,6 +321,8 @@ impl PySelector {
         PySelector::new(
             &PySelectorKind::RESOURCESELECTOR,
             Some(resource),
+            None,
+            None,
             None,
             None,
             None,
@@ -264,6 +339,8 @@ impl PySelector {
             None,
             Some(annotationset),
             None,
+            None,
+            None,
             Vec::new(),
         )
     }
@@ -274,6 +351,8 @@ impl PySelector {
     fn multiselector(subselectors: Vec<PyRef<PySelector>>) -> PyResult<Self> {
         PySelector::new(
             &PySelectorKind::MULTISELECTOR,
+            None,
+            None,
             None,
             None,
             None,
@@ -292,6 +371,8 @@ impl PySelector {
             None,
             None,
             None,
+            None,
+            None,
             subselectors,
         )
     }
@@ -302,6 +383,8 @@ impl PySelector {
     fn directionalselector(subselectors: Vec<PyRef<PySelector>>) -> PyResult<Self> {
         PySelector::new(
             &PySelectorKind::DIRECTIONALSELECTOR,
+            None,
+            None,
             None,
             None,
             None,
@@ -370,6 +453,28 @@ impl PySelector {
         })
     }
 
+    /// Returns the key this selector points at, if any.
+    /// Works only for DataKeySelector, returns None otherwise.
+    /// Requires to explicitly pass the store so the resource can be found.
+    fn key(&self, store: PyRef<PyAnnotationStore>) -> Option<PyDataKey> {
+        self.key.map(|(set_handle, key_handle)| PyDataKey {
+            set: set_handle,
+            handle: key_handle,
+            store: store.get_store().clone(),
+        })
+    }
+
+    /// Returns the annotationdata this selector points at, if any.
+    /// Works only for AnnotationDataSelector, returns None otherwise.
+    /// Requires to explicitly pass the store so the resource can be found.
+    fn annotationdata(&self, store: PyRef<PyAnnotationStore>) -> Option<PyAnnotationData> {
+        self.data.map(|(set_handle, data_handle)| PyAnnotationData {
+            set: set_handle,
+            handle: data_handle,
+            store: store.get_store().clone(),
+        })
+    }
+
     /// Returns the annotation this selector points at, if any.
     /// Works only for AnnotationSelector, returns None otherwise.
     /// Requires to explicitly pass the store so the resource can be found.
@@ -418,6 +523,14 @@ impl PySelector {
             },
             annotation: match selector {
                 Selector::AnnotationSelector(a_id, ..) => Some(*a_id),
+                _ => None,
+            },
+            key: match selector {
+                Selector::DataKeySelector(set_id, key_id) => Some((*set_id, *key_id)),
+                _ => None,
+            },
+            data: match selector {
+                Selector::AnnotationDataSelector(set_id, data_id) => Some((*set_id, *data_id)),
                 _ => None,
             },
             offset: selector.offset(store).map(|offset| PyOffset { offset }),

@@ -12,6 +12,7 @@ use crate::annotationdataset::PyAnnotationDataSet;
 use crate::annotationstore::MapStore;
 use crate::error::PyStamError;
 use crate::query::*;
+use crate::selector::{PySelector, PySelectorKind};
 use stam::*;
 
 #[pyclass(dict, module = "stam", name = "DataKey")]
@@ -144,6 +145,24 @@ impl PyDataKey {
 
     fn annotations_count(&self) -> usize {
         self.map(|key| Ok(key.annotations_count())).unwrap()
+    }
+
+    /// Returns a Selector (DataKeySelector) pointing to this DataKey
+    fn select(&self) -> PyResult<PySelector> {
+        self.map(|key| {
+            Ok(PySelector {
+                kind: PySelectorKind {
+                    kind: SelectorKind::DataKeySelector,
+                },
+                dataset: None,
+                annotation: None,
+                resource: None,
+                key: Some((key.set().handle(), key.handle())),
+                data: None,
+                offset: None,
+                subselectors: Vec::new(),
+            })
+        })
     }
 }
 
@@ -478,6 +497,24 @@ impl PyAnnotationData {
 
     fn annotations_len(&self) -> usize {
         self.map(|data| Ok(data.annotations_len())).unwrap()
+    }
+
+    /// Returns a Selector (AnnotationDataSelector) pointing to this AnnotationData
+    fn select(&self) -> PyResult<PySelector> {
+        self.map(|data| {
+            Ok(PySelector {
+                kind: PySelectorKind {
+                    kind: SelectorKind::AnnotationDataSelector,
+                },
+                dataset: None,
+                annotation: None,
+                resource: None,
+                data: Some((data.set().handle(), data.handle())),
+                key: None,
+                offset: None,
+                subselectors: Vec::new(),
+            })
+        })
     }
 }
 

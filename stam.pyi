@@ -868,6 +868,9 @@ class DataKey:
             The maximum number of results to return (default: unlimited)
         """
 
+    def select(self) -> Selector:
+        """Returns a selector pointing to this key (DataKeySelector)"""
+
 class DataValue:
     """Encapsulates a value and its type. Held by :class:`AnnotationData`. This type is not a reference but holds the actual value."""
 
@@ -962,6 +965,9 @@ class AnnotationData:
         limit: Optional[int] = None
             The maximum number of results to return (default: unlimited)
         """
+
+    def select(self) -> Selector:
+        """Returns a selector pointing to this data (AnnotationDataSelector)"""
 
 class Data:
     """

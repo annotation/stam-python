@@ -297,7 +297,7 @@ impl PyTextSelection {
     }
 
     #[pyo3(signature = (*args, **kwargs))]
-    fn annotations(&self, args: &PyList, kwargs: Option<&PyDict>) -> PyResult<PyAnnotations> {
+    fn annotations(&self, args: &PyTuple, kwargs: Option<&PyDict>) -> PyResult<PyAnnotations> {
         let limit = get_limit(kwargs);
         if !has_filters(args, kwargs) {
             self.map(|textselection| {
@@ -325,7 +325,7 @@ impl PyTextSelection {
     }
 
     #[pyo3(signature = (*args, **kwargs))]
-    fn test_annotations(&self, args: &PyList, kwargs: Option<&PyDict>) -> PyResult<bool> {
+    fn test_annotations(&self, args: &PyTuple, kwargs: Option<&PyDict>) -> PyResult<bool> {
         if !has_filters(args, kwargs) {
             self.map(|textselection| Ok(textselection.annotations().test()))
         } else {
@@ -340,7 +340,7 @@ impl PyTextSelection {
     }
 
     #[pyo3(signature = (*args, **kwargs))]
-    fn test_data(&self, args: &PyList, kwargs: Option<&PyDict>) -> PyResult<bool> {
+    fn test_data(&self, args: &PyTuple, kwargs: Option<&PyDict>) -> PyResult<bool> {
         if !has_filters(args, kwargs) {
             self.map(|textselection| Ok(textselection.annotations().data().test()))
         } else {
@@ -358,7 +358,7 @@ impl PyTextSelection {
     fn related_text(
         &self,
         operator: PyTextSelectionOperator,
-        args: &PyList,
+        args: &PyTuple,
         kwargs: Option<&PyDict>,
     ) -> PyResult<PyTextSelections> {
         let limit = get_limit(kwargs);
@@ -485,7 +485,7 @@ impl PyTextSelection {
         &self,
         resulttype: Type,
         constraint: Constraint,
-        args: &PyList,
+        args: &PyTuple,
         kwargs: Option<&PyDict>,
         f: F,
     ) -> Result<T, PyErr>
@@ -594,7 +594,7 @@ impl PyTextSelections {
     }
 
     #[pyo3(signature = (*args, **kwargs))]
-    fn annotations(&self, args: &PyList, kwargs: Option<&PyDict>) -> PyResult<PyAnnotations> {
+    fn annotations(&self, args: &PyTuple, kwargs: Option<&PyDict>) -> PyResult<PyAnnotations> {
         let limit = get_limit(kwargs);
         if !has_filters(args, kwargs) {
             self.map(|textselections, store| {
@@ -619,7 +619,7 @@ impl PyTextSelections {
     }
 
     #[pyo3(signature = (*args, **kwargs))]
-    fn test_annotations(&self, args: &PyList, kwargs: Option<&PyDict>) -> PyResult<bool> {
+    fn test_annotations(&self, args: &PyTuple, kwargs: Option<&PyDict>) -> PyResult<bool> {
         if !has_filters(args, kwargs) {
             self.map(|annotations, _| {
                 Ok(annotations
@@ -640,7 +640,7 @@ impl PyTextSelections {
     }
 
     #[pyo3(signature = (*args, **kwargs))]
-    fn data(&self, args: &PyList, kwargs: Option<&PyDict>) -> PyResult<PyData> {
+    fn data(&self, args: &PyTuple, kwargs: Option<&PyDict>) -> PyResult<PyData> {
         let limit = get_limit(kwargs);
         if !has_filters(args, kwargs) {
             self.map(|textselections, store| {
@@ -666,7 +666,7 @@ impl PyTextSelections {
     }
 
     #[pyo3(signature = (*args, **kwargs))]
-    fn test_data(&self, args: &PyList, kwargs: Option<&PyDict>) -> PyResult<bool> {
+    fn test_data(&self, args: &PyTuple, kwargs: Option<&PyDict>) -> PyResult<bool> {
         if !has_filters(args, kwargs) {
             self.map(|textselections, _| {
                 Ok(textselections
@@ -691,7 +691,7 @@ impl PyTextSelections {
     fn related_text(
         &self,
         operator: PyTextSelectionOperator,
-        args: &PyList,
+        args: &PyTuple,
         kwargs: Option<&PyDict>,
     ) -> PyResult<PyTextSelections> {
         let limit = get_limit(kwargs);
@@ -779,7 +779,7 @@ impl PyTextSelections {
         wrappedstore: &Arc<RwLock<AnnotationStore>>,
         limit: Option<usize>,
     ) -> Self {
-        assert!(query.resulttype() == Some(Type::Annotation));
+        assert!(query.resulttype() == Some(Type::TextSelection));
         Self {
             textselections: store
                 .query(query)
@@ -838,7 +838,7 @@ impl PyTextSelections {
         &self,
         resulttype: Type,
         constraint: Constraint,
-        args: &PyList,
+        args: &PyTuple,
         kwargs: Option<&PyDict>,
         f: F,
     ) -> Result<T, PyErr>

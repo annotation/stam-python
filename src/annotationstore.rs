@@ -247,7 +247,7 @@ impl PyAnnotationStore {
     }
 
     #[pyo3(signature = (*args, **kwargs))]
-    fn annotations(&self, args: &PyList, kwargs: Option<&PyDict>) -> PyResult<PyAnnotations> {
+    fn annotations(&self, args: &PyTuple, kwargs: Option<&PyDict>) -> PyResult<PyAnnotations> {
         let limit = get_limit(kwargs);
         if !has_filters(args, kwargs) {
             self.map(|store| {
@@ -300,7 +300,7 @@ impl PyAnnotationStore {
     }
 
     #[pyo3(signature = (*args, **kwargs))]
-    fn data(&self, args: &PyList, kwargs: Option<&PyDict>) -> PyResult<PyData> {
+    fn data(&self, args: &PyTuple, kwargs: Option<&PyDict>) -> PyResult<PyData> {
         let limit = get_limit(kwargs);
         if !has_filters(args, kwargs) {
             self.map(|store| Ok(PyData::from_iter(store.data().limit(limit), &self.store)))
@@ -372,7 +372,7 @@ impl PyAnnotationStore {
     fn map_with_query<T, F>(
         &self,
         resulttype: Type,
-        args: &PyList,
+        args: &PyTuple,
         kwargs: Option<&PyDict>,
         f: F,
     ) -> Result<T, PyErr>

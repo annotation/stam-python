@@ -30,15 +30,16 @@ impl Default for ContextVariables {
     }
 }
 
-fn add_filter<'store, 'py>(
+fn add_filter<'store, 'py, 'context>(
     query: &mut Query<'store>,
     store: &'store AnnotationStore,
     filter: &'py PyAny,
     operator: Option<DataOperator<'store>>,
-    contextvariables: &mut ContextVariables,
+    contextvariables: &'context mut ContextVariables,
 ) -> PyResult<()>
 where
     'py: 'store,
+    'context: 'store,
 {
     if filter.is_instance_of::<PyDict>() {
         let filter: &PyDict = filter.extract()?;
@@ -62,7 +63,7 @@ where
                 }
             } else {
                 return Err(PyValueError::new_err(
-                    "Passed key instance is invalid (should not happen)",
+                    "Passed DataKey instance is invalid (should never happen)",
                 ));
             }
         } else if filter.contains("set")? {
@@ -71,30 +72,43 @@ where
                 let set = filter.get_item("set")?.expect("already checked");
                 let key = if set.is_instance_of::<PyAnnotationDataSet>() {
                     let set: PyRef<'py, PyAnnotationDataSet> = filter.extract()?;
-                    let key: &str = key.to_str()?;
-                    set.map(|set| Ok(set.key(key))).unwrap()
+                    if let Some(dataset) = store.dataset(set.handle) {
+                        if let Some(key) = dataset.key(key.to_str()?) {
+                            Some(key)
+                        } else {
+                            return Err(PyValueError::new_err("specified key not found in set"));
+                        }
+                    } else {
+                        return Err(PyValueError::new_err(
+                            "Passed AnnotationDataSet instance is invalid (should never happen)",
+                        ));
+                    }
                 } else if set.is_instance_of::<PyString>() {
                     let set = set.downcast::<PyString>()?;
-                    if let Some(set) = store.dataset(set.to_str()?) {
-                        set.key(key.to_str()?)
+                    if let Some(dataset) = store.dataset(set.to_str()?) {
+                        if let Some(key) = dataset.key(key.to_str()?) {
+                            Some(key)
+                        } else {
+                            return Err(PyValueError::new_err("specified key not found in set"));
+                        }
                     } else {
-                        None
+                        return Err(PyValueError::new_err("specified dataset not found"));
                     }
                 } else {
                     None
                 };
                 if let Some(key) = key {
-                    let varname = key.as_ref().temp_id().expect("temp id must work");
-                    query.bind_keyvar(varname.as_str(), key);
+                    let varname = contextvariables.add();
+                    query.bind_keyvar(varname, key);
                     if operator.is_some() {
                         query.constrain(Constraint::KeyValueVariable(
-                            varname.as_str(),
+                            varname,
                             operator.take().unwrap(),
                             SelectionQualifier::Normal,
                         ));
                     } else {
                         query.constrain(Constraint::KeyVariable(
-                            varname.as_str(),
+                            varname,
                             SelectionQualifier::Normal,
                         ));
                     }
@@ -122,43 +136,48 @@ where
                     "'value' parameter can not be used in combination with an AnnotationData instance (it already restrains to a single value)",
             ));
         }
-        data.map(|data| {
+        if let Some(data) = store.annotationdata(data.set, data.handle) {
             let varname = contextvariables.add();
             query.bind_datavar(varname, data);
             query.constrain(Constraint::DataVariable(
                 varname,
                 SelectionQualifier::Normal,
             ));
-            Ok(())
-        });
+        }
     } else if filter.is_instance_of::<PyDataKey>() {
         let key: PyRef<'py, PyDataKey> = filter.extract()?;
-        key.map(|key| {
+        if let Some(key) = store.key(key.set, key.handle) {
             let varname = contextvariables.add();
             query.bind_keyvar(varname, key);
-            if operator.is_some() {
+            if let Some(operator) = operator {
                 query.constrain(Constraint::KeyValueVariable(
                     varname,
-                    operator.take().unwrap(),
+                    operator,
                     SelectionQualifier::Normal,
                 ));
             } else {
                 query.constrain(Constraint::KeyVariable(varname, SelectionQualifier::Normal));
             }
-            Ok(())
-        });
+        } else {
+            return Err(PyValueError::new_err(
+                "Passed DataKey instance is invalid (should never happen)",
+            ));
+        }
     } else if filter.is_instance_of::<PyAnnotation>() {
         let annotation: PyRef<'py, PyAnnotation> = filter.extract()?;
-        annotation.map(|annotation| {
-            let varname = annotation.as_ref().temp_id()?;
-            query.bind_annotationvar(varname.as_str(), annotation);
+        if let Some(annotation) = store.annotation(annotation.handle) {
+            let varname = contextvariables.add();
+            query.bind_annotationvar(varname, annotation);
             query.constrain(Constraint::AnnotationVariable(
-                varname.as_str(),
+                varname,
                 SelectionQualifier::Normal,
                 AnnotationDepth::One,
             ));
-            Ok(())
-        });
+        } else {
+            return Err(PyValueError::new_err(
+                "Passed DataKey instance is invalid (should never happen)",
+            ));
+        }
     } else if filter.is_instance_of::<PyAnnotations>() {
         let annotations: PyRef<'py, PyAnnotations> = filter.extract()?;
         query.constrain(Constraint::Annotations(
@@ -182,7 +201,7 @@ where
 
 fn add_multi_filter<'a>(
     query: &mut Query<'a>,
-    store: &AnnotationStore,
+    store: &'a AnnotationStore,
     filter: Vec<&PyAny>,
 ) -> PyResult<()> {
     if filter.iter().all(|x| x.is_instance_of::<PyAnnotation>()) {
@@ -220,7 +239,10 @@ pub(crate) fn build_query<'store, 'py>(
     args: &'py PyList, //TODO: implement!
     kwargs: Option<&'py PyDict>,
     store: &'store AnnotationStore,
-) -> PyResult<(Query<'store>, ContextVariables)> {
+) -> PyResult<(Query<'store>, ContextVariables)>
+where
+    'py: 'store,
+{
     let mut contextvariables = ContextVariables::default();
     let operator = if let Some(kwargs) = kwargs {
         dataoperator_from_kwargs(kwargs).map_err(|e| PyStamError::new_err(format!("{}", e)))?

@@ -1,12 +1,14 @@
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 use pyo3::types::*;
-use std::collections::HashSet;
+use std::sync::{Arc, RwLock};
 
 use crate::annotation::{PyAnnotation, PyAnnotations};
 use crate::annotationdata::{dataoperator_from_kwargs, PyAnnotationData, PyData, PyDataKey};
 use crate::annotationdataset::PyAnnotationDataSet;
 use crate::error::PyStamError;
+use crate::resources::PyTextResource;
+use crate::textselection::PyTextSelection;
 use stam::*;
 
 const CONTEXTVARNAMES: [&str; 25] = [
@@ -388,3 +390,87 @@ where
 }
 
 impl<I> LimitIterator for I where I: Iterator {}
+
+/// Converts a QueryIter to a Python list with dictionaries for each result, the dictionary keys correspond to the variable names from the query.
+pub(crate) fn query_to_python<'py>(
+    iter: QueryIter,
+    store: &Arc<RwLock<AnnotationStore>>,
+    py: Python<'py>,
+) -> Result<&'py PyList, StamError> {
+    let results = PyList::empty(py);
+    let names = iter.names();
+    for resultitems in iter {
+        let dict = PyDict::new(py);
+        for (result, name) in resultitems
+            .iter()
+            .zip(names.enumerate().iter().map(|x| x.1))
+        {
+            match result {
+                QueryResultItem::Annotation(annotation) => {
+                    dict.set_item(
+                        name,
+                        PyAnnotation::new(annotation.handle(), store)
+                            .into_py(py)
+                            .into_ref(py),
+                    )
+                    .unwrap();
+                }
+                QueryResultItem::AnnotationData(data) => {
+                    dict.set_item(
+                        name,
+                        PyAnnotationData::new(data.handle(), data.set().handle(), store)
+                            .into_py(py)
+                            .into_ref(py),
+                    )
+                    .unwrap();
+                }
+                QueryResultItem::DataKey(key) => {
+                    dict.set_item(
+                        name,
+                        PyDataKey::new(key.handle(), key.set().handle(), store)
+                            .into_py(py)
+                            .into_ref(py),
+                    )
+                    .unwrap();
+                }
+                QueryResultItem::TextResource(resource) => {
+                    dict.set_item(
+                        name,
+                        PyTextResource::new(resource.handle(), store)
+                            .into_py(py)
+                            .into_ref(py),
+                    )
+                    .unwrap();
+                }
+                QueryResultItem::AnnotationDataSet(dataset) => {
+                    dict.set_item(
+                        name,
+                        PyAnnotationDataSet::new(dataset.handle(), store)
+                            .into_py(py)
+                            .into_ref(py),
+                    )
+                    .unwrap();
+                }
+                QueryResultItem::TextSelection(textselection) => {
+                    dict.set_item(
+                        name,
+                        PyTextSelection::new(
+                            textselection
+                                .as_ref()
+                                .expect("textselection must be bound")
+                                .clone(),
+                            textselection.resource().handle(),
+                            store,
+                        )
+                        .into_py(py)
+                        .into_ref(py),
+                    )
+                    .unwrap();
+                }
+                QueryResultItem::None => {}
+            }
+        }
+        let _ = results.append(dict);
+    }
+    Ok(results)
+}

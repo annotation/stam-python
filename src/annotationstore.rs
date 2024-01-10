@@ -310,6 +310,14 @@ impl PyAnnotationStore {
             })
         }
     }
+
+    fn query<'py>(&self, querystring: &str, py: Python<'py>) -> PyResult<&'py PyList> {
+        self.map(|store| {
+            let (query, _) = Query::parse(querystring)?;
+            query_to_python(store.query(query), &self.store, py)
+        })
+        .map_err(|err| err.into())
+    }
 }
 
 pub(crate) trait MapStore {

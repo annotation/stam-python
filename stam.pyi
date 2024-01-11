@@ -270,7 +270,7 @@ class AnnotationStore:
         --------------
 
         query: str
-            Query in `STAMQL <https://github.com/annotation/stam/tree/master/extensions/stam-query>_`.
+            Query in `STAMQL <https://github.com/annotation/stam/tree/master/extensions/stam-query>_`. Note that you *MUST* specify a variable to bind to in your `SELECT` statement (this is normally optional but required for calling from Python).
 
         Keyword Parameters
         ---------------------

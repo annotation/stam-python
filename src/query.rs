@@ -123,6 +123,10 @@ where
                         "'key' parameter in filter dictionary should be of type `str`",
                     ));
                 }
+            } else {
+                return Err(PyValueError::new_err(
+                    "`key` provided but `set` is missing, this is only valid if key is a DataKey instance, not if it is a string. Pass a `set` as well",
+                ));
             }
         } else if let Some(operator) = operator {
             //no key specified but we do have an operator

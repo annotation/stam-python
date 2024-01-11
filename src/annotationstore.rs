@@ -5,13 +5,16 @@ use std::ops::FnOnce;
 use std::sync::{Arc, RwLock};
 
 use crate::annotation::{PyAnnotation, PyAnnotations};
-use crate::annotationdata::{annotationdata_builder, data_request_parser, PyData};
+use crate::annotationdata::{
+    annotationdata_builder, data_request_parser, PyAnnotationData, PyData, PyDataKey,
+};
 use crate::annotationdataset::PyAnnotationDataSet;
 use crate::config::get_config;
 use crate::error::PyStamError;
 use crate::query::*;
 use crate::resources::PyTextResource;
 use crate::selector::PySelector;
+use crate::textselection::PyTextSelection;
 use stam::*;
 
 #[pyclass(dict, module = "stam", name = "AnnotationStore")]
@@ -311,9 +314,80 @@ impl PyAnnotationStore {
         }
     }
 
-    fn query<'py>(&self, querystring: &str, py: Python<'py>) -> PyResult<&'py PyList> {
+    #[pyo3(signature = (querystring, **kwargs))]
+    fn query<'py>(
+        &self,
+        querystring: &str,
+        kwargs: Option<&'py PyDict>,
+        py: Python<'py>,
+    ) -> PyResult<&'py PyList> {
         self.map(|store| {
-            let (query, _) = Query::parse(querystring)?;
+            let (mut query, _) = Query::parse(querystring)?;
+            if let Some(kwargs) = kwargs {
+                //bind keyword arguments as variables in the query
+                for (varname, value) in kwargs.iter() {
+                    if let Ok(varname) = varname.downcast::<PyString>() {
+                        if let Ok(varname) = varname.to_str() {
+                            if value.is_instance_of::<PyAnnotation>() {
+                                let annotation: PyResult<PyRef<'py, PyAnnotation>> =
+                                    value.extract();
+                                if let Ok(annotation) = annotation {
+                                    let annotation =
+                                        store.annotation(annotation.handle).or_fail()?;
+                                    query.bind_annotationvar(varname, annotation);
+                                }
+                            } else if value.is_instance_of::<PyAnnotationData>() {
+                                let data: PyResult<PyRef<'py, PyAnnotationData>> =
+                                    value.extract();
+                                if let Ok(data) = data {
+                                    let data =
+                                        store.annotationdata(data.set, data.handle).or_fail()?;
+                                    query.bind_datavar(varname, data);
+                                }
+                            } else if value.is_instance_of::<PyDataKey>() {
+                                let key: PyResult<PyRef<'py, PyDataKey>> =
+                                    value.extract();
+                                if let Ok(key) = key {
+                                    let key =
+                                        store.key(key.set, key.handle).or_fail()?;
+                                    query.bind_keyvar(varname, key);
+                                }
+                            } else if value.is_instance_of::<PyTextResource>() {
+                                let resource: PyResult<PyRef<'py, PyTextResource>> =
+                                    value.extract();
+                                if let Ok(resource) = resource {
+                                    let resource =
+                                        store.resource(resource.handle).or_fail()?;
+                                    query.bind_resourcevar(varname, resource);
+                                }
+                            } else if value.is_instance_of::<PyAnnotationDataSet>() {
+                                let dataset: PyResult<PyRef<'py, PyAnnotationDataSet>> =
+                                    value.extract();
+                                if let Ok(dataset) = dataset {
+                                    let dataset =
+                                        store.dataset(dataset.handle).or_fail()?;
+                                    query.bind_datasetvar(varname, dataset);
+                                }
+                            } else if value.is_instance_of::<PyTextSelection>() {
+                                let textselection: PyResult<PyRef<'py, PyTextSelection>> =
+                                    value.extract();
+                                if let Ok(textselection) = textselection {
+                                    if let Some(handle) = textselection.textselection.handle() {
+                                        if let Some(textselection) =
+                                            store.textselection(textselection.resource_handle, handle) {
+                                            query.bind_textvar(varname, textselection);
+                                        }
+                                    }
+                                }
+                            } else {
+                                return Err(StamError::ValueError(format!("Keyword argument {} can not be bound to a variable because the value has an invalid type", varname),"stam-python"));
+                            }
+                        }
+                    }
+                }
+            }
+
+            //run the query and convert the output to a python structure (list of dicts)
             query_to_python(store.query(query), &self.store, py)
         })
         .map_err(|err| err.into())

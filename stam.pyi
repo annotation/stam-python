@@ -248,7 +248,7 @@ class AnnotationStore:
             Must be a numeric 2-tuple with min and max (inclusive) values
         """
 
-    def query(self, query: str) -> list:
+    def query(self, query: str, **kwargs) -> list:
         """
         Query the data using STAMQL.
 
@@ -257,6 +257,13 @@ class AnnotationStore:
 
         query: str
             Query in `STAMQL <https://github.com/annotation/stam/tree/master/extensions/stam-query>_`.
+
+        Keyword Parameters
+        ---------------------
+
+        You can bind extra context variables using keyword arguments. The keys correspond to the variable names
+        that these will be bound to and which you can subsequently use in the STAMQL query. The value must be
+        instances of STAM objects such as Annotation, AnnotationData, DataKey, TextSelection etc..
 
         Return Value
         ------------

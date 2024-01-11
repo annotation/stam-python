@@ -37,6 +37,16 @@ pub fn get_config(kwargs: &PyDict) -> Config {
                         config = config.with_annotation_annotation_map(value);
                     }
                 }
+                "datakey_annotation_metamap" => {
+                    if let Ok(Some(value)) = value.extract() {
+                        config = config.with_key_annotation_metamap(value);
+                    }
+                }
+                "data_annotation_metamap" => {
+                    if let Ok(Some(value)) = value.extract() {
+                        config = config.with_data_annotation_metamap(value);
+                    }
+                }
                 "generate_ids" => {
                     if let Ok(Some(value)) = value.extract() {
                         config = config.with_generate_ids(value);

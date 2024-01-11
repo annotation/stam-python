@@ -269,6 +269,16 @@ class AnnotationStore:
         ------------
 
         Returns a list consisting of dictionaries, each corresponding one result row. The keys in the dictionaries correspond to the variable names in the STAMQL query, the values are instances of whatever type the query returns, i.e. Annotation, AnnotationData, TextResource, TextSelection, AnnotationDataSet.
+
+        Examples
+        --------------
+
+        Query for annotations with certain kind of data::
+
+            for row in store.query('SELECT ANNOTATION ?a WHERE "some-set" "pos" = "noun";'):
+                for result in row:
+                    #just print out the text of the annotation
+                    print(str(result['a']))
         """
 
 #   def find_data(self,  **kwargs) -> Data:

@@ -109,6 +109,12 @@ class AnnotationStore:
     def resource(self, id: str) -> TextResource:
         """Basic retrieval method that returns a :class:`TextResource` by ID"""
 
+    def key(self, set_id: str, key_id: str) -> DataKey:
+        """Shortcut retrieval method that returns an :class:`DataKey` by ID"""
+
+    def annotationdata(self, set_id: str, data_id: str) -> AnnotationData:
+        """Shortcut retrieval method that returns an :class:`AnnotationData` by ID"""
+
     def add_resource(self, filename: Optional[str] = None, text: Optional[str] = None, id: Optional[str] = None) -> TextResource:
         """Create a new :class:`TextResource` and add it to the store. Returns the added instance."""
 

@@ -146,6 +146,30 @@ impl PyAnnotationStore {
         })
     }
 
+    /// Returns a key by ID
+    fn key(&self, set_id: &str, key_id: &str) -> PyResult<PyDataKey> {
+        self.map(|store| {
+            let key = store.key(set_id, key_id).or_fail()?;
+            Ok(PyDataKey::new(
+                key.handle(),
+                key.set().handle(),
+                &self.store,
+            ))
+        })
+    }
+
+    /// Returns data by ID
+    fn annotationdata(&self, set_id: &str, data_id: &str) -> PyResult<PyAnnotationData> {
+        self.map(|store| {
+            let data = store.annotationdata(set_id, data_id).or_fail()?;
+            Ok(PyAnnotationData::new(
+                data.handle(),
+                data.set().handle(),
+                &self.store,
+            ))
+        })
+    }
+
     /// Create a new TextResource and adds it to the store
     fn add_resource(
         &mut self,

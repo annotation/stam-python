@@ -174,8 +174,8 @@ class AnnotationStore:
         * :class:`Annotations` or  a tuple/list of :class:`Annotation`- Returns only annotations that are already in the provided :obj:`Annotations` collection (intersection)
         * :class:`Data` a tuple/list of :class:`AnnotationData `- Returns only annotations with data that is in the provided  collection.
         * a dictionary:
-            * `set` - An ID of an dataset (or a :class:`DataAnnotationSet` instance), only needed when specifying `key` as a string (see below)
-            * `key` - An key, either an instance of :class:`DataKey` or a string, in the latter case you need to specify `set` as well.
+            * `set` - An ID of a dataset (or a :class:`DataAnnotationSet` instance), only needed when specifying `key` as a string (see below)
+            * `key` - A key, either an instance of :class:`DataKey` or a string, in the latter case you need to specify `set` as well.
             * `value` (see keyword arguments below)
 
         Keyword Arguments
@@ -183,6 +183,10 @@ class AnnotationStore:
 
         limit: Optional[int] = None
             The maximum number of results to return (default: unlimited)
+        set: Optional[Union[str,AnnotationDataSet]] = None
+            An ID of a dataset (or an :class:`AnnotationDataSet` instance), only needed when specifying `key` as a string
+        key: Optional[Union[str,DataKey]] = None
+            An ID of a key (or a :class:`DataKey` instance), make sure to specify `set` as well if you use a string value for this parameter.
         value: Optional[Union[str,int,float,bool]]
             Constrain the search to annotations with data of a certain value. This can only be used when you also pass a :class:`DataKey` as filter.
             This holds the exact value to search for, there are other variants of this keyword available, see :meth:`data` for a full list. 
@@ -224,8 +228,8 @@ class AnnotationStore:
         * :class:`Annotations` or  a tuple/list of :class:`Annotation` - Returns data references by annotations in the provided  collection.
         * :class:`Data` a tuple/list of :class:`AnnotationData `-  Returns only data that is in the provided :obj:`Data` collection (intersection)
         * a dictionary:
-            * `set` - An ID of an dataset (or a :class:`DataAnnotationSet` instance), only needed when specifying `key` as a string (see below)
-            * `key` - An key, either an instance of :class:`DataKey` or a string, in the latter case you need to specify `set` as well.
+            * `set` - An ID of a dataset (or a :class:`DataAnnotationSet` instance), only needed when specifying `key` as a string (see below)
+            * `key` - A key, either an instance of :class:`DataKey` or a string, in the latter case you need to specify `set` as well.
             * `value` or variants (see keyword arguments below)
 
         Keyword Arguments
@@ -233,6 +237,10 @@ class AnnotationStore:
 
         limit: Optional[int] = None
             The maximum number of results to return (default: unlimited)
+        set: Optional[Union[str,AnnotationDataSet]] = None
+            An ID of a dataset (or an :class:`AnnotationDataSet` instance), only needed when specifying `key` as a string
+        key: Optional[Union[str,DataKey]] = None
+            An ID of a key (or a :class:`DataKey` instance), make sure to specify `set` as well if you use a string value for this parameter.
         value: Optional[Union[str,int,float,bool,List[Union[str,int,float,bool]]]]
             Search for data matching a specific value.
             This holds exact value to search for. Further variants of this keyword are listed below:
@@ -408,8 +416,8 @@ class Annotation:
         * :class:`Annotations` or  a tuple/list of :class:`Annotation`- Returns text selections referenced by any annotations that are already in the provided :obj:`Annotations` collection (intersection)
         * :class:`Data` a tuple/list of :class:`AnnotationData `- Returns only textselections referenced by annotations with data that is in the provided  collection.
         * a dictionary:
-            * `set` - An ID of an dataset (or a :class:`DataAnnotationSet` instance), only needed when specifying `key` as a string (see below)
-            * `key` - An key, either an instance of :class:`DataKey` or a string, in the latter case you need to specify `set` as well.
+            * `set` - An ID of a dataset (or a :class:`DataAnnotationSet` instance), only needed when specifying `key` as a string (see below)
+            * `key` - A key, either an instance of :class:`DataKey` or a string, in the latter case you need to specify `set` as well.
             * `value` (see keyword arguments below)
 
         Keyword Arguments
@@ -452,8 +460,8 @@ class Annotation:
         * :class:`Annotations` or  a tuple/list of :class:`Annotation`- Returns only annotations that are already in the provided :obj:`Annotations` collection (intersection)
         * :class:`Data` a tuple/list of :class:`AnnotationData `- Returns only annotations with data that is in the provided  collection.
         * a dictionary:
-            * `set` - An ID of an dataset (or a :class:`DataAnnotationSet` instance), only needed when specifying `key` as a string (see below)
-            * `key` - An key, either an instance of :class:`DataKey` or a string, in the latter case you need to specify `set` as well.
+            * `set` - An ID of a dataset (or a :class:`DataAnnotationSet` instance), only needed when specifying `key` as a string (see below)
+            * `key` - A key, either an instance of :class:`DataKey` or a string, in the latter case you need to specify `set` as well.
             * `value` or variants (see keyword arguments below)
 
         Keyword Arguments
@@ -546,8 +554,8 @@ class Annotation:
         * :class:`Annotations` or  a tuple/list of :class:`Annotation` - Returns data references by annotations in the provided  collection.
         * :class:`Data` a tuple/list of :class:`AnnotationData `-  Returns only data that is in the provided :obj:`Data` collection (intersection)
         * a dictionary:
-            * `set` - An ID of an dataset (or a :class:`DataAnnotationSet` instance), only needed when specifying `key` as a string (see below)
-            * `key` - An key, either an instance of :class:`DataKey` or a string, in the latter case you need to specify `set` as well.
+            * `set` - An ID of a dataset (or a :class:`DataAnnotationSet` instance), only needed when specifying `key` as a string (see below)
+            * `key` - A key, either an instance of :class:`DataKey` or a string, in the latter case you need to specify `set` as well.
             * `value` or variants (see keyword arguments below)
 
         Keyword Arguments
@@ -555,6 +563,10 @@ class Annotation:
 
         limit: Optional[int] = None
             The maximum number of results to return (default: unlimited)
+        set: Optional[Union[str,AnnotationDataSet]] = None
+            An ID of a dataset (or an :class:`AnnotationDataSet` instance), only needed when specifying `key` as a string
+        key: Optional[Union[str,DataKey]] = None
+            An ID of a key (or a :class:`DataKey` instance), make sure to specify `set` as well if you use a string value for this parameter.
         value: Optional[Union[str,int,float,bool,List[Union[str,int,float,bool]]]]
             Search for data matching a specific value.
             This holds exact value to search for. Further variants of this keyword are listed below:
@@ -975,8 +987,8 @@ class AnnotationData:
         * :class:`Annotations` or  a tuple/list of :class:`Annotation`- Returns only annotations that are already in the provided :obj:`Annotations` collection (intersection)
         * :class:`Data` a tuple/list of :class:`AnnotationData `- Returns only annotations with data that is in the provided  collection.
         * a dictionary:
-            * `set` - An ID of an dataset (or a :class:`DataAnnotationSet` instance), only needed when specifying `key` as a string (see below)
-            * `key` - An key, either an instance of :class:`DataKey` or a string, in the latter case you need to specify `set` as well.
+            * `set` - An ID of a dataset (or a :class:`DataAnnotationSet` instance), only needed when specifying `key` as a string (see below)
+            * `key` - A key, either an instance of :class:`DataKey` or a string, in the latter case you need to specify `set` as well.
             * `value` (see keyword arguments below)
 
         Keyword Arguments
@@ -984,6 +996,10 @@ class AnnotationData:
 
         limit: Optional[int] = None
             The maximum number of results to return (default: unlimited)
+        set: Optional[Union[str,AnnotationDataSet]] = None
+            An ID of a dataset (or an :class:`AnnotationDataSet` instance), only needed when specifying `key` as a string
+        key: Optional[Union[str,DataKey]] = None
+            An ID of a key (or a :class:`DataKey` instance), make sure to specify `set` as well if you use a string value for this parameter.
         value: Optional[Union[str,int,float,bool]]
             Constrain the search to annotations with data of a certain value.
             This holds the exact value to search for, there are other variants of this keyword available, see :meth:`data` for a full list. 

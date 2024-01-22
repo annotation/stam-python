@@ -60,6 +60,10 @@ class AnnotationStore:
                 Enable/disable reverse index for TextResource => Annotation. Holds only annotations that **directly** reference the TextResource (via [`crate::Selector::ResourceSelector`]), i.e. metadata
             * dataset_annotation_map: Optional[bool], default: True
                 Enable/disable reverse index for AnnotationDataSet => Annotation. Holds only annotations that **directly** reference the AnnotationDataSet (via [`crate::Selector::DataSetSelector`]), i.e. metadata
+            * key_annotation_metamap: Optional[bool], default: True
+                Enable/disable reverse index for DataKey  => Annotation. Holds only annotations that **directly** reference the DataKey (via [`crate::Selector::DataKeySelector`]), i.e. metadata
+            * data_annotation_metamap: Optional[bool], default: True
+                Enable/disable reverse index for AnnotationData  => Annotation. Holds only annotations that **directly** reference the AnnotationData (via [`crate::Selector::AnnotationDataSelector`]), i.e. metadata
             * textrelationmap: Optional[bool], default: True
                 Enable/disable the reverse index for text, it maps TextResource => TextSelection => Annotation
             * generate_ids: Optional[bool], default: False

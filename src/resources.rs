@@ -9,9 +9,7 @@ use crate::annotation::PyAnnotations;
 use crate::error::PyStamError;
 use crate::query::*;
 use crate::selector::{PySelector, PySelectorKind};
-use crate::textselection::{
-    PyTextSelection, PyTextSelectionIter, PyTextSelectionOperator, PyTextSelections,
-};
+use crate::textselection::{PyTextSelection, PyTextSelectionIter, PyTextSelections};
 use stam::*;
 
 #[pyclass(dict, module = "stam", name = "TextResource")]

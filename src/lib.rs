@@ -12,8 +12,6 @@ mod resources;
 mod selector;
 mod textselection;
 
-use pyo3::types::*;
-
 use crate::annotation::{PyAnnotation, PyAnnotations};
 use crate::annotationdata::{PyAnnotationData, PyData, PyDataKey, PyDataValue};
 use crate::annotationdataset::PyAnnotationDataSet;

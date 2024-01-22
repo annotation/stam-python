@@ -499,7 +499,7 @@ impl PyAnnotations {
     fn data(&self, args: &PyTuple, kwargs: Option<&PyDict>) -> PyResult<PyData> {
         let limit = get_limit(kwargs);
         if !has_filters(args, kwargs) {
-            self.map(|annotations, store| {
+            self.map(|annotations, _store| {
                 Ok(PyData::from_iter(
                     annotations.items().data().limit(limit),
                     &self.store,
@@ -543,7 +543,7 @@ impl PyAnnotations {
     fn annotations(&self, args: &PyTuple, kwargs: Option<&PyDict>) -> PyResult<PyAnnotations> {
         let limit = get_limit(kwargs);
         if !has_filters(args, kwargs) {
-            self.map(|annotations, store| {
+            self.map(|annotations, _store| {
                 Ok(PyAnnotations::from_iter(
                     annotations.items().annotations().limit(limit),
                     &self.store,
@@ -592,7 +592,7 @@ impl PyAnnotations {
         let limit = get_limit(kwargs);
         let recursive = get_recursive(kwargs, AnnotationDepth::One);
         if !has_filters(args, kwargs) {
-            self.map(|annotations, store| {
+            self.map(|annotations, _store| {
                 Ok(PyAnnotations::from_iter(
                     annotations
                         .items()
@@ -642,7 +642,7 @@ impl PyAnnotations {
     ) -> PyResult<PyTextSelections> {
         let limit = get_limit(kwargs);
         if !has_filters(args, kwargs) {
-            self.map(|annotations, store| {
+            self.map(|annotations, _store| {
                 Ok(PyTextSelections::from_iter(
                     annotations.items().textselections().limit(limit),
                     &self.store,
@@ -679,7 +679,7 @@ impl PyAnnotations {
     ) -> PyResult<PyTextSelections> {
         let limit = get_limit(kwargs);
         if !has_filters(args, kwargs) {
-            self.map(|annotations, store| {
+            self.map(|annotations, _store| {
                 Ok(PyTextSelections::from_iter(
                     annotations
                         .items()

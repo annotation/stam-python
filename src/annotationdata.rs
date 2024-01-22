@@ -791,71 +791,6 @@ pub(crate) fn dataoperator_lesseq_from_py(value: &PyAny) -> Result<DataOperator,
     }
 }
 
-pub(crate) fn data_request_parser<'py, 'store>(
-    kwargs: Option<&'py PyDict>,
-    store: &'store AnnotationStore,
-    mut set_handle: Option<AnnotationDataSetHandle>,
-    mut key_handle: Option<DataKeyHandle>,
-) -> Result<
-    (
-        Option<AnnotationDataSetHandle>,
-        Option<DataKeyHandle>,
-        DataOperator<'store>,
-    ),
-    StamError,
->
-where
-    'py: 'store,
-{
-    if let Some(kwargs) = kwargs {
-        if let Ok(Some(set)) = kwargs.get_item("set") {
-            if set.is_instance_of::<PyAnnotationDataSet>() {
-                let set: PyRef<'py, PyAnnotationDataSet> =
-                    set.extract().expect("extract should succeed");
-                set_handle = Some(set.handle);
-            } else if set.is_none() || set.is_instance_of::<PyBool>() {
-                set_handle = None;
-            } else if let Ok(set) = set.extract() {
-                set_handle = Some(store.resolve_dataset_id(set)?);
-            }
-        }
-        if let Ok(Some(key)) = kwargs.get_item("key") {
-            if key.is_instance_of::<PyDataKey>() {
-                let key: PyRef<'py, PyDataKey> = key.extract().expect("extract should succeed");
-                set_handle = Some(key.set);
-                key_handle = Some(key.handle);
-            } else if key.is_none() || key.is_instance_of::<PyBool>() {
-                key_handle = None;
-            } else if let Ok(key) = key.extract::<&str>() {
-                if let Some(set_handle) = set_handle {
-                    let set = store.dataset(set_handle).expect("set handle must be valid");
-                    if let Some(key) = set.key(key) {
-                        key_handle = Some(key.handle());
-                    } else {
-                        return Err(StamError::IdNotFoundError(
-                            key.to_string(),
-                            "Specified key does not exist",
-                        ));
-                    }
-                } else {
-                    return Err(StamError::OtherError(
-                        "Can not specify a key identifier without a set!",
-                    ));
-                }
-            }
-        }
-        if let Some(op) = dataoperator_from_kwargs(kwargs)? {
-            Ok((set_handle, key_handle, op))
-        } else {
-            Ok((set_handle, key_handle, DataOperator::Any))
-        }
-    } else {
-        Err(StamError::OtherError(
-            "No keyword arguments specified for search: provide a combination of `set`,`key`, and `value`",
-        ))
-    }
-}
-
 #[pyclass(name = "Data")]
 pub struct PyData {
     pub(crate) data: Vec<(AnnotationDataSetHandle, AnnotationDataHandle)>,
@@ -903,7 +838,7 @@ impl PyData {
     fn annotations(&self, args: &PyTuple, kwargs: Option<&PyDict>) -> PyResult<PyAnnotations> {
         let limit = get_limit(kwargs);
         if !has_filters(args, kwargs) {
-            self.map(|data, store| {
+            self.map(|data, _store| {
                 Ok(PyAnnotations::from_iter(
                     data.items().annotations().limit(limit),
                     &self.store,

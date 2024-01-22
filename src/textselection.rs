@@ -597,7 +597,7 @@ impl PyTextSelections {
     fn annotations(&self, args: &PyTuple, kwargs: Option<&PyDict>) -> PyResult<PyAnnotations> {
         let limit = get_limit(kwargs);
         if !has_filters(args, kwargs) {
-            self.map(|textselections, store| {
+            self.map(|textselections, _store| {
                 Ok(PyAnnotations::from_iter(
                     textselections
                         .items()
@@ -643,7 +643,7 @@ impl PyTextSelections {
     fn data(&self, args: &PyTuple, kwargs: Option<&PyDict>) -> PyResult<PyData> {
         let limit = get_limit(kwargs);
         if !has_filters(args, kwargs) {
-            self.map(|textselections, store| {
+            self.map(|textselections, _store| {
                 Ok(PyData::from_iter(
                     textselections
                         .items()
@@ -696,7 +696,7 @@ impl PyTextSelections {
     ) -> PyResult<PyTextSelections> {
         let limit = get_limit(kwargs);
         if !has_filters(args, kwargs) {
-            self.map(|textselections, store| {
+            self.map(|textselections, _store| {
                 Ok(PyTextSelections::from_iter(
                     textselections
                         .items()

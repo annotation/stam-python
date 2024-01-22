@@ -5,9 +5,7 @@ use std::ops::FnOnce;
 use std::sync::{Arc, RwLock};
 
 use crate::annotation::{PyAnnotation, PyAnnotations};
-use crate::annotationdata::{
-    annotationdata_builder, data_request_parser, PyAnnotationData, PyData, PyDataKey,
-};
+use crate::annotationdata::{annotationdata_builder, PyAnnotationData, PyData, PyDataKey};
 use crate::annotationdataset::PyAnnotationDataSet;
 use crate::config::get_config;
 use crate::error::PyStamError;

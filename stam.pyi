@@ -274,19 +274,30 @@ class AnnotationStore:
         --------------
 
         query: str
-            Query in `STAMQL <https://github.com/annotation/stam/tree/master/extensions/stam-query>_`. Note that you *MUST* specify a variable to bind to in your `SELECT` statement (this is normally optional but required for calling from Python).
+            Query in `STAMQL <https://github.com/annotation/stam/tree/master/extensions/stam-query>_`.
+            Note that you *MUST* specify a variable to bind to in your `SELECT`
+            statement (this is normally optional but is required for calling from
+            Python).
 
         Keyword Parameters
         ---------------------
 
-        You can bind extra context variables using keyword arguments. The keys correspond to the variable names
-        that these will be bound to and which you can subsequently use in the STAMQL query. The value must be
-        instances of STAM objects such as Annotation, AnnotationData, DataKey, TextSelection etc..
+        You can bind extra context variables using keyword arguments. The keys
+        correspond to the variable names that these will be bound to and which
+        you can subsequently use in the STAMQL query. These variable names
+        should not carry the '?' prefix you may be accustomed to in STAMQL. The
+        value must be instances of STAM objects such as Annotation,
+        AnnotationData, DataKey, TextSelection etc. These context variables
+        are available to the query but not propagated to the output.
 
         Return Value
         ------------
 
-        Returns a list consisting of dictionaries, each corresponding one result row. The keys in the dictionaries correspond to the variable names in the STAMQL query, the values are instances of whatever type the query returns, i.e. Annotation, AnnotationData, TextResource, TextSelection, AnnotationDataSet.
+        Returns a list consisting of dictionaries, each corresponding one
+        result row. The keys in the dictionaries match with the variable names
+        in the STAMQL query, the values are result instances of whatever type
+        the query returns, i.e. Annotation, AnnotationData, TextResource,
+        TextSelection, AnnotationDataSet.
 
         Examples
         --------------
@@ -435,11 +446,17 @@ class Annotation:
         """
 
     def annotations_in_targets(self, *args, **kwargs) -> Annotations:
-        """Returns annotations (:class:`Annotations` containing :class:`Annotation`) this annotation refers to (i.e. using an *AnnotationSelector*)
+        """
+        Returns annotations (:class:`Annotations` containing
+        :class:`Annotation`) this annotation refers to (i.e. using an
+        *AnnotationSelector*)
 
-        The annotations can be filtered using positional and/or keyword arguments; see :meth:`annotations`. One extra keyword argument is available for this method (see below).
+        The annotations can be filtered using positional and/or keyword
+        arguments; see :meth:`annotations`. One extra keyword argument is
+        available for this method (see below).
 
-        Annotations will returned be in textual order unless recursive is set or a DirectionalSelector is involved.
+        Annotations will returned be in textual order unless recursive is set
+        or a DirectionalSelector is involved.
 
         Keyword Arguments
         -------------------
@@ -450,9 +467,12 @@ class Annotation:
 
     def annotations(self, *args, **kwargs) -> Annotations:
         """
-        Returns annotations (:class:`Annotations` containing :class:`Annotation`) that are referring to this annotation (i.e. others using an AnnotationSelector).
+        Returns annotations (:class:`Annotations` containing
+        :class:`Annotation`) that are referring to this annotation (i.e. others
+        using an AnnotationSelector).
 
-        The annotations can be filtered using positional and/or keyword arguments.
+        The annotations can be filtered using positional and/or keyword
+        arguments.
 
         Positional Arguments
         -------------------
@@ -667,6 +687,7 @@ class Annotation:
 class Annotations:
     """
     An `Annotations` object holds an arbitrary collection of annotations. 
+    The annotations are references to items in an AnnotationStore, not copies.
     You can iterate over it to retrieve :class:`Annotation` instances.
     """
 
@@ -1034,6 +1055,7 @@ class AnnotationData:
 class Data:
     """
     A `Data` object holds an arbitrary collection of annotation data. 
+    The data are references to items in an AnnotationStore, not copies.
     You can iterate over it to retrieve :class:`AnnotationData` instances.
     """
 

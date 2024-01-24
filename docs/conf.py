@@ -15,7 +15,7 @@ import re
 # -- Project information -----------------------------------------------------
 
 project = 'stam-python'
-copyright = '2023, Maarten van Gompel' 
+copyright = '2023, Maarten van Gompel (CC-BY-SA)' 
 author = 'Maarten van Gompel'
 
 # The full version, including alpha/beta/rc tags

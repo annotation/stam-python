@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import Iterator, List, Optional, Union
 
 """
-[STAM](https://github.com/annotation/stam) is a data model for stand-off text
+[STAM](https://github.com/annotation/stam) is a standalone data model for stand-off text
 annotation and described in detail [here](https://github.com/annotation/stam).
 This is a python library (to be more specific; a python binding written in
 Rust) to work with the model.
@@ -11,7 +11,7 @@ Rust) to work with the model.
 **What can you do with this library?**
 
 * Keep, build and manipulate an efficient in-memory store of texts and annotations on texts
-* Search in annotations, data and text:
+* Search in annotations, data and text, either programmatically or via the [STAM Query Language](https://github.com/annotation/stam/tree/master/extensions/stam-query).
     * Search annotations by data, textual content, relations between text fragments (overlap, embedding, adjacency, etc),
     * Search in text (incl. via regular expressions) and find annotations targeting found text selections.
     * Search in data (set,key,value) and find annotations that use the data.
@@ -35,8 +35,7 @@ class AnnotationStore:
     """
     def __init__(self, id=None,file=None, string=None,config=None) -> None:
         """
-        Instantiates a new annotationstore.
-        At least one of `id`, `file` or `string` must be specified as keyword arguments:
+        To instantiate an AnnotationStore, at least one of `id`, `file` or `string` must be specified as keyword arguments:
         
         Keyword Arguments
         --------------------
@@ -57,13 +56,13 @@ class AnnotationStore:
             * annotation_annotation_map: Optional[bool], default: True
                 Enable/disable index for annotations that reference other annotations
             * resource_annotation_map: Optional[bool], default: True
-                Enable/disable reverse index for TextResource => Annotation. Holds only annotations that **directly** reference the TextResource (via [`crate::Selector::ResourceSelector`]), i.e. metadata
+                Enable/disable reverse index for TextResource => Annotation. Holds only annotations that **directly** reference the TextResource (via a ResourceSelector), i.e. metadata
             * dataset_annotation_map: Optional[bool], default: True
-                Enable/disable reverse index for AnnotationDataSet => Annotation. Holds only annotations that **directly** reference the AnnotationDataSet (via [`crate::Selector::DataSetSelector`]), i.e. metadata
+                Enable/disable reverse index for AnnotationDataSet => Annotation. Holds only annotations that **directly** reference the AnnotationDataSet (via DataSetSelector), i.e. metadata
             * key_annotation_metamap: Optional[bool], default: True
-                Enable/disable reverse index for DataKey  => Annotation. Holds only annotations that **directly** reference the DataKey (via [`crate::Selector::DataKeySelector`]), i.e. metadata
+                Enable/disable reverse index for DataKey  => Annotation. Holds only annotations that **directly** reference the DataKey (via DataKeySelector), i.e. metadata
             * data_annotation_metamap: Optional[bool], default: True
-                Enable/disable reverse index for AnnotationData  => Annotation. Holds only annotations that **directly** reference the AnnotationData (via [`crate::Selector::AnnotationDataSelector`]), i.e. metadata
+                Enable/disable reverse index for AnnotationData  => Annotation. Holds only annotations that **directly** reference the AnnotationData (via AnnotationDataSelector), i.e. metadata
             * textrelationmap: Optional[bool], default: True
                 Enable/disable the reverse index for text, it maps TextResource => TextSelection => Annotation
             * generate_ids: Optional[bool], default: False
@@ -105,16 +104,16 @@ class AnnotationStore:
         """Returns the annotation store as one big STAM JSON string"""
 
     def dataset(self, id: str) -> AnnotationDataSet:
-        """Basic retrieval method that returns an :class:`AnnotationDataSet` by ID"""
+        """Basic retrieval method that returns an :class:`AnnotationDataSet` by ID. Raises an exception if not found."""
 
     def annotation(self, id: str) -> Annotation:
-        """Basic retrieval method that returns an :class:`Annotation` by ID"""
+        """Basic retrieval method that returns an :class:`Annotation` by ID. Raises an exception if not found."""
 
     def resource(self, id: str) -> TextResource:
-        """Basic retrieval method that returns a :class:`TextResource` by ID"""
+        """Basic retrieval method that returns a :class:`TextResource` by ID. Raises an exception if not found."""
 
     def key(self, set_id: str, key_id: str) -> DataKey:
-        """Shortcut retrieval method that returns an :class:`DataKey` by ID"""
+        """Shortcut retrieval method that returns an :class:`DataKey` by ID. Raises an exception if not found."""
 
     def annotationdata(self, set_id: str, data_id: str) -> AnnotationData:
         """Shortcut retrieval method that returns an :class:`AnnotationData` by ID"""
@@ -168,32 +167,34 @@ class AnnotationStore:
         Filtering can be applied using positional arguments and/or keyword arguments. It is recommended to only use this method if you apply further filtering, otherwise the memory overhead may be very large if you have many annotations.
         Otherwise you can fall back to a more low-level iterator, :meth:`__iter__` instead
 
-        Positional Arguments
-        -------------------
+        Parameters
+        --------------
 
-        Positional arguments can be of the following types:
+        *args: tuple, optional
+            Filter arguments. These can any be of the following types:
 
-        * :class:`DataKey` - Returns annotations with data matching this key
-        * :class:`AnnotationData` - Returns only annotations that have this exact data
-        * :class:`Annotations` or  a tuple/list of :class:`Annotation`- Returns only annotations that are already in the provided :obj:`Annotations` collection (intersection)
-        * :class:`Data` a tuple/list of :class:`AnnotationData `- Returns only annotations with data that is in the provided  collection.
-        * a dictionary:
-            * `set` - An ID of a dataset (or a :class:`DataAnnotationSet` instance), only needed when specifying `key` as a string (see below)
-            * `key` - A key, either an instance of :class:`DataKey` or a string, in the latter case you need to specify `set` as well.
-            * `value` (see keyword arguments below)
-
-        Keyword Arguments
-        -------------------
-
-        limit: Optional[int] = None
-            The maximum number of results to return (default: unlimited)
-        set: Optional[Union[str,AnnotationDataSet]] = None
-            An ID of a dataset (or an :class:`AnnotationDataSet` instance), only needed when specifying `key` as a string
-        key: Optional[Union[str,DataKey]] = None
-            An ID of a key (or a :class:`DataKey` instance), make sure to specify `set` as well if you use a string value for this parameter.
-        value: Optional[Union[str,int,float,bool]]
-            Constrain the search to annotations with data of a certain value. This can only be used when you also pass a :class:`DataKey` as filter.
-            This holds the exact value to search for, there are other variants of this keyword available, see :meth:`data` for a full list. 
+            * :class:`DataKey`
+                Returns annotations with data matching this key.
+            * :class:`AnnotationData`
+                Returns only annotations that have this exact data.
+            * :class:`Annotations` | [:class:`Annotation`]
+                Returns only annotations that match any of those specified here. 
+            * :class:`Data` | [:class:`AnnotationData`]
+                Returns only annotations with data  matching any of those specified here. 
+            * :class:`dict` with keys:
+                * **set** - An ID of a dataset (or a :class:`DataAnnotationSet` instance), only needed when specifying `key` as a string (see below)
+                * **key** - A key, either an instance of :class:`DataKey` or a string, in the latter case you need to specify `set` as well.
+                * **value** - (see keyword arguments below)
+        **kwargs: dict, optional
+            * limit: (Optional[int] = None)
+                The maximum number of results to return (default: unlimited)
+            * set: (Optional[Union[str,AnnotationDataSet]] = None)
+                An ID of a dataset (or an :class:`AnnotationDataSet` instance), only needed when specifying `key` as a string
+            * key: (Optional[Union[str,DataKey]] = None)
+                An ID of a key (or a :class:`DataKey` instance), make sure to specify `set` as well if you use a string value for this parameter.
+            * value: (Optional[Union[str,int,float,bool]])
+                Constrain the search to annotations with data of a certain value. This can only be used when you also pass a :class:`DataKey` as filter.
+                This holds the exact value to search for, there are other variants of this keyword available, see :meth:`data` for a full list. 
         """
 
 
@@ -221,49 +222,52 @@ class AnnotationStore:
 
         Filtering can be applied using positional arguments and/or keyword arguments. It is recommended to only use this method if you apply further filtering, otherwise the memory overhead may be very large if you have a lot of data.
 
-        Positional Arguments
-        -------------------
+        Parameters
+        -------------
 
-        Positional arguments can be of the following types:
+        *args: tuple, optional
+            Filter arguments, these can be of the following types: 
 
-        * :class:`DataKey` - Returns data matching this key
-        * :class:`Annotation` - Returns data referenced by the mentioned annotation 
-        * :class:`AnnotationData` - Returns only this exact data. Not very useful, use :meth:`test_data` instead.
-        * :class:`Annotations` or  a tuple/list of :class:`Annotation` - Returns data references by annotations in the provided  collection.
-        * :class:`Data` a tuple/list of :class:`AnnotationData `-  Returns only data that is in the provided :obj:`Data` collection (intersection)
-        * a dictionary:
-            * `set` - An ID of a dataset (or a :class:`DataAnnotationSet` instance), only needed when specifying `key` as a string (see below)
-            * `key` - A key, either an instance of :class:`DataKey` or a string, in the latter case you need to specify `set` as well.
-            * `value` or variants (see keyword arguments below)
-
-        Keyword Arguments
-        -------------------
-
-        limit: Optional[int] = None
-            The maximum number of results to return (default: unlimited)
-        set: Optional[Union[str,AnnotationDataSet]] = None
-            An ID of a dataset (or an :class:`AnnotationDataSet` instance), only needed when specifying `key` as a string
-        key: Optional[Union[str,DataKey]] = None
-            An ID of a key (or a :class:`DataKey` instance), make sure to specify `set` as well if you use a string value for this parameter.
-        value: Optional[Union[str,int,float,bool,List[Union[str,int,float,bool]]]]
-            Search for data matching a specific value.
-            This holds exact value to search for. Further variants of this keyword are listed below:
-        value_not: Optional[Union[str,int,float,bool]]
-            Value must not match
-        value_greater: Optional[Union[int,float]]
-            Value must be greater than specified (int or float)
-        value_less: Optional[Union[int,float]]
-            Value must be less than specified (int or float)
-        value_greatereq: Optional[Union[int,float]]
-            Value must be greater than specified or equal (int or float)
-        value_lesseq: Optional[Union[int,float]]
-            Value must be less than specified or equal (int or float)
-        value_in: Optional[Tuple[Union[str,int,float,bool]]]
-            Value must match any in the tuple (this is a logical OR statement)
-        value_not_in: Optional[Tuple[Union[str,int,float,bool]]]
-            Value must not match any in the tuple
-        value_in_range: Optional[Tuple[Union[int,float]]]
-            Must be a numeric 2-tuple with min and max (inclusive) values
+            * :class:`DataKey`
+                Returns data matching this key
+            * :class:`Annotation`
+                Returns data referenced by the mentioned annotation 
+            * :class:`AnnotationData`
+                Returns only this exact data. Not very useful, use :meth:`test_data` instead.
+            * :class:`Annotations` | [class:`Annotation`]
+                Returns data references by annotations in the provided  collection.
+            * :class:`Data` | [class:`AnnotationData`]
+                Returns only data that is in the provided :obj:`Data` collection (intersection)
+            * :class:`dict` with keys:
+                * **set** - An ID of a dataset (or a :class:`DataAnnotationSet` instance), only needed when specifying `key` as a string (see below)
+                * **key** - A key, either an instance of :class:`DataKey` or a string, in the latter case you need to specify `set` as well.
+                * **value** or variants (see keyword arguments below)
+        **kwargs: dict, optional
+            * limit: `Optional[int] = None`
+                The maximum number of results to return (default: unlimited)
+            * set: `Optional[Union[str,AnnotationDataSet]] = None`
+                An ID of a dataset (or an :class:`AnnotationDataSet` instance), only needed when specifying `key` as a string
+            * key: `Optional[Union[str,DataKey]] = None`
+                An ID of a key (or a :class:`DataKey` instance), make sure to specify `set` as well if you use a string value for this parameter.
+            * value: `Optional[Union[str,int,float,bool,List[Union[str,int,float,bool]]]]`
+                Search for data matching a specific value.
+                This holds exact value to search for. Further variants of this keyword are listed below:
+            * value_not: `Optional[Union[str,int,float,bool]]`
+                Value must not match
+            * value_greater: `Optional[Union[int,float]]`
+                Value must be greater than specified (int or float)
+            * value_less: `Optional[Union[int,float]]`
+                Value must be less than specified (int or float)
+            * value_greatereq: `Optional[Union[int,float]]`
+                Value must be greater than specified or equal (int or float)
+            * value_lesseq: `Optional[Union[int,float]]`
+                Value must be less than specified or equal (int or float)
+            * value_in: `Optional[Tuple[Union[str,int,float,bool]]]`
+                Value must match any in the tuple (this is a logical OR statement)
+            * value_not_in: `Optional[Tuple[Union[str,int,float,bool]]]`
+                Value must not match any in the tuple
+            * value_in_range: `Optional[Tuple[Union[int,float]]]`
+                Must be a numeric 2-tuple with min and max (inclusive) values
         """
 
     def query(self, query: str, **kwargs) -> list:
@@ -274,26 +278,21 @@ class AnnotationStore:
         --------------
 
         query: str
-            Query in `STAMQL <https://github.com/annotation/stam/tree/master/extensions/stam-query>_`.
+            Query in `STAMQL <https://github.com/annotation/stam/tree/master/extensions/stam-query>`_.
             Note that you *MUST* specify a variable to bind to in your `SELECT`
             statement (this is normally optional but is required for calling from
             Python).
+        **kwargs: tuple, optional
+            You can bind extra context variables using keyword arguments. The keys
+            correspond to the variable names that these will be bound to and which
+            you can subsequently use in the STAMQL query. These keys 
+            should not carry the '?' prefix you may be accustomed to in STAMQL. The
+            value must be instances of STAM objects such as :class:`Annotation`,
+            :class:`AnnotationData`, :class:`DataKey`, :class`TextSelection` etc. These context variables
+            are available to the query but not propagated to the output.
 
-        Keyword Parameters
-        ---------------------
 
-        You can bind extra context variables using keyword arguments. The keys
-        correspond to the variable names that these will be bound to and which
-        you can subsequently use in the STAMQL query. These variable names
-        should not carry the '?' prefix you may be accustomed to in STAMQL. The
-        value must be instances of STAM objects such as Annotation,
-        AnnotationData, DataKey, TextSelection etc. These context variables
-        are available to the query but not propagated to the output.
-
-        Return Value
-        ------------
-
-        Returns a list consisting of dictionaries, each corresponding one
+        A query returns a list consisting of dictionaries, each corresponding one
         result row. The keys in the dictionaries match with the variable names
         in the STAMQL query, the values are result instances of whatever type
         the query returns, i.e. Annotation, AnnotationData, TextResource,
@@ -421,38 +420,40 @@ class Annotation:
 
         Text selections may be filtered using the following positionl and/or keyword arguments:
 
-        Positional Arguments
+        Parameters
         -------------------
 
-        Positional arguments can be of the following types:
+        *args: tuple, optional
+            Filter arguments, can be of the following types:
 
-        * :class:`DataKey` - Returns text selections referenced by annotations with data matching this key
-        * :class:`AnnotationData` - Returns text selections referenced by annotations that have this exact data
-        * :class:`Annotations` or  a tuple/list of :class:`Annotation`- Returns text selections referenced by any annotations that are already in the provided :obj:`Annotations` collection (intersection)
-        * :class:`Data` a tuple/list of :class:`AnnotationData `- Returns only textselections referenced by annotations with data that is in the provided  collection.
-        * a dictionary:
-            * `set` - An ID of a dataset (or a :class:`DataAnnotationSet` instance), only needed when specifying `key` as a string (see below)
-            * `key` - A key, either an instance of :class:`DataKey` or a string, in the latter case you need to specify `set` as well.
-            * `value` (see keyword arguments below)
-
-        Keyword Arguments
-        -------------------
-
-        limit: Optional[int] = None
-            The maximum number of results to return (default: unlimited)
-        value: Optional[Union[str,int,float,bool]]
-            Constrain the search to text selections referenced by annotations with data of a certain value. This is usually used together with passing a :obj:`DataKey` as filter in the positional arguments.
-            This holds the exact value to search for, there are other variants of this keyword available, see :meth:`data` for a full list. 
+            * :class:`DataKey`
+                Returns text selections referenced by annotations with data matching this key
+            * :class:`AnnotationData`
+                Returns text selections referenced by annotations that have this exact data
+            * :class:`Annotations` | [:class:`Annotation`]
+                Returns text selections referenced by any annotations that are already in the provided :obj:`Annotations` collection (intersection)
+            * :class:`Data` | [:class:`AnnotationData`]
+                Returns only textselections referenced by annotations with data that is in the provided  collection.
+            * :class:`dict` with keys:
+                * **set** - An ID of a dataset (or a :class:`DataAnnotationSet` instance), only needed when specifying `key` as a string (see below)
+                * **key** - A key, either an instance of :class:`DataKey` or a string, in the latter case you need to specify `set` as well.
+                * **value** (see keyword arguments below)
+        **kwargs: dict, optional
+            limit: Optional[int] = None
+                The maximum number of results to return (default: unlimited)
+            value: Optional[Union[str,int,float,bool]]
+                Constrain the search to text selections referenced by annotations with data of a certain value. This is usually used together with passing a :obj:`DataKey` as filter in the positional arguments.
+                This holds the exact value to search for, there are other variants of this keyword available, see :meth:`data` for a full list. 
         """
 
     def annotations_in_targets(self, *args, **kwargs) -> Annotations:
         """
         Returns annotations (:class:`Annotations` containing
-        :class:`Annotation`) this annotation refers to (i.e. using an
+        :class:`Annotation` instances) this annotation refers to (i.e. using an
         *AnnotationSelector*)
 
         The annotations can be filtered using positional and/or keyword
-        arguments; see :meth:`annotations`. One extra keyword argument is
+        arguments; see :meth:`annotations` for full documentation. One extra keyword argument is
         available for this method (see below).
 
         Annotations will returned be in textual order unless recursive is set
@@ -468,34 +469,42 @@ class Annotation:
     def annotations(self, *args, **kwargs) -> Annotations:
         """
         Returns annotations (:class:`Annotations` containing
-        :class:`Annotation`) that are referring to this annotation (i.e. others
+        :class:`Annotation` instances) that are referring to this annotation (i.e. others
         using an AnnotationSelector).
 
         The annotations can be filtered using positional and/or keyword
         arguments.
 
-        Positional Arguments
-        -------------------
+        Parameters
+        -----------
 
-        Positional arguments can be of the following types:
+        *args: tuple, optional
+            These arguments can any be of the following types:
 
-        * :class:`DataKey` - Returns annotations with data matching this key
-        * :class:`AnnotationData` - Returns only annotations that have this exact data
-        * :class:`Annotations` or  a tuple/list of :class:`Annotation`- Returns only annotations that are already in the provided :obj:`Annotations` collection (intersection)
-        * :class:`Data` a tuple/list of :class:`AnnotationData `- Returns only annotations with data that is in the provided  collection.
-        * a dictionary:
-            * `set` - An ID of a dataset (or a :class:`DataAnnotationSet` instance), only needed when specifying `key` as a string (see below)
-            * `key` - A key, either an instance of :class:`DataKey` or a string, in the latter case you need to specify `set` as well.
-            * `value` or variants (see keyword arguments below)
-
-        Keyword Arguments
-        -------------------
-
-        limit: Optional[int] = None
-            The maximum number of results to return (default: unlimited)
-        value: Optional[Union[str,int,float,bool]]
-            Constrain the search to annotations with data of a certain value. This is usually used together with passing a :obj:`DataKey` as filter in the positional arguments.
-            This holds the exact value to search for, there are other variants of this keyword available, see :meth:`data` for a full list. 
+            * :class:`DataKey`
+                Returns annotations with data matching this key.
+            * :class:`AnnotationData`
+                Returns only annotations that have this exact data.
+            * :class:`Annotations` | :class:`Annotation`
+                Returns only annotations that match any of those specified here. 
+            * :class:`Data` | :class:`AnnotationData`
+                Returns only annotations with data  matching any of those specified here. 
+            * :class:`dict` with keys:
+                * **set** - An ID of a dataset (or a :class:`DataAnnotationSet` instance), only needed when specifying `key` as a string (see below)
+                * **key** - A key, either an instance of :class:`DataKey` or a string, in the latter case you need to specify `set` as well.
+                * **value** - (see keyword arguments below)
+        **kwargs: dict, optional
+            * limit: (Optional[int] = None)
+                The maximum number of results to return (default: unlimited)
+            * set: (Optional[Union[str,AnnotationDataSet]] = None)
+                An ID of a dataset (or an :class:`AnnotationDataSet` instance), only needed when specifying `key` as a string
+            * key: (Optional[Union[str,DataKey]] = None)
+                An ID of a key (or a :class:`DataKey` instance), make sure to specify `set` as well if you use a string value for this parameter.
+            * value: (Optional[Union[str,int,float,bool]])
+                Constrain the search to annotations with data of a certain value. This can only be used when you also pass a :class:`DataKey` as filter.
+                This holds the exact value to search for, there are other variants of this keyword available, see :meth:`data` for a full list. 
+            * limit: (Optional[int] = None)
+                The maximum number of results to return (default: unlimited)
 
         Example
         ---------
@@ -535,7 +544,7 @@ class Annotation:
         Parameters
         ------------
 
-        limit: Optional[int] = None
+        `limit`: `Optional[int] = None`
             The maximum number of results to return (default: unlimited)
         """
 
@@ -546,7 +555,7 @@ class Annotation:
         Parameters
         ------------
 
-        limit: Optional[int] = None
+        `limit`: `Optional[int] = None`
             The maximum number of results to return (default: unlimited)
         """
 
@@ -567,50 +576,54 @@ class Annotation:
         the data, then just iterating over the annotation directly (:meth:`__iter__`) will be more efficient. Do note that implementing
         any filtering yourself in Python is much less performant than letting this data method do it for you.
 
-        Positional Arguments
-        -------------------------
+        Parameters
+        -------------
 
-        Positional arguments can be of the following types:
+        *args: tuple, optional
+            Filter arguments, these can be of the following types: 
 
-        * :class:`DataKey` - Returns data matching this key
-        * :class:`Annotation` - Returns data referenced by the mentioned annotation 
-        * :class:`AnnotationData` - Returns only this exact data. Not very useful, use :meth:`test_data` instead.
-        * :class:`Annotations` or  a tuple/list of :class:`Annotation` - Returns data references by annotations in the provided  collection.
-        * :class:`Data` a tuple/list of :class:`AnnotationData `-  Returns only data that is in the provided :obj:`Data` collection (intersection)
-        * a dictionary:
-            * `set` - An ID of a dataset (or a :class:`DataAnnotationSet` instance), only needed when specifying `key` as a string (see below)
-            * `key` - A key, either an instance of :class:`DataKey` or a string, in the latter case you need to specify `set` as well.
-            * `value` or variants (see keyword arguments below)
-
-        Keyword Arguments
-        -------------------
-
-        limit: Optional[int] = None
-            The maximum number of results to return (default: unlimited)
-        set: Optional[Union[str,AnnotationDataSet]] = None
-            An ID of a dataset (or an :class:`AnnotationDataSet` instance), only needed when specifying `key` as a string
-        key: Optional[Union[str,DataKey]] = None
-            An ID of a key (or a :class:`DataKey` instance), make sure to specify `set` as well if you use a string value for this parameter.
-        value: Optional[Union[str,int,float,bool,List[Union[str,int,float,bool]]]]
-            Search for data matching a specific value.
-            This holds exact value to search for. Further variants of this keyword are listed below:
-        value_not: Optional[Union[str,int,float,bool]]
-            Value must not match
-        value_greater: Optional[Union[int,float]]
-            Value must be greater than specified (int or float)
-        value_less: Optional[Union[int,float]]
-            Value must be less than specified (int or float)
-        value_greatereq: Optional[Union[int,float]]
-            Value must be greater than specified or equal (int or float)
-        value_lesseq: Optional[Union[int,float]]
-            Value must be less than specified or equal (int or float)
-        value_in: Optional[Tuple[Union[str,int,float,bool]]]
-            Value must match any in the tuple (this is a logical OR statement)
-        value_not_in: Optional[Tuple[Union[str,int,float,bool]]]
-            Value must not match any in the tuple
-        value_in_range: Optional[Tuple[Union[int,float]]]
-            Must be a numeric 2-tuple with min and max (inclusive) values
-
+            * :class:`DataKey`
+                Returns data matching this key
+            * :class:`Annotation`
+                Returns data referenced by the mentioned annotation 
+            * :class:`AnnotationData`
+                Returns only this exact data. Not very useful, use :meth:`test_data` instead.
+            * :class:`Annotations` | [class:`Annotation`]
+                Returns data references by annotations in the provided  collection.
+            * :class:`Data` | [class:`AnnotationData`]
+                Returns only data that is in the provided :obj:`Data` collection (intersection)
+            * :class:`dict` with keys:
+                * **set** - An ID of a dataset (or a :class:`DataAnnotationSet` instance), only needed when specifying `key` as a string (see below)
+                * **key** - A key, either an instance of :class:`DataKey` or a string, in the latter case you need to specify `set` as well.
+                * **value** or variants (see keyword arguments below)
+        **kwargs: dict, optional
+            * limit: `Optional[int] = None`
+                The maximum number of results to return (default: unlimited)
+            * set: `Optional[Union[str,AnnotationDataSet]] = None`
+                An ID of a dataset (or an :class:`AnnotationDataSet` instance), only needed when specifying `key` as a string
+            * key: `Optional[Union[str,DataKey]] = None`
+                An ID of a key (or a :class:`DataKey` instance), make sure to specify `set` as well if you use a string value for this parameter.
+            * value: `Optional[Union[str,int,float,bool,List[Union[str,int,float,bool]]]]`
+                Search for data matching a specific value.
+                This holds exact value to search for. Further variants of this keyword are listed below:
+            * value_not: `Optional[Union[str,int,float,bool]]`
+                Value must not match
+            * value_greater: `Optional[Union[int,float]]`
+                Value must be greater than specified (int or float)
+            * value_less: `Optional[Union[int,float]]`
+                Value must be less than specified (int or float)
+            * value_greatereq: `Optional[Union[int,float]]`
+                Value must be greater than specified or equal (int or float)
+            * value_lesseq: `Optional[Union[int,float]]`
+                Value must be less than specified or equal (int or float)
+            * value_in: `Optional[Tuple[Union[str,int,float,bool]]]`
+                Value must match any in the tuple (this is a logical OR statement)
+            * value_not_in: `Optional[Tuple[Union[str,int,float,bool]]]`
+                Value must not match any in the tuple
+            * value_in_range: `Optional[Tuple[Union[int,float]]]`
+                Must be a numeric 2-tuple with min and max (inclusive) values
+            * limit: `Optional[int] = None`
+                The maximum number of results to return (default: unlimited)
 
         Example
         -----------
@@ -644,14 +657,14 @@ class Annotation:
         Parameters
         ------------
 
-        operator: TextSelectionOperator
+        `operator`: :class:`TextSelectionOperator`
             The operator to apply when comparing text selections
 
 
         Keyword Arguments
         -------------------
 
-        limit: Optional[int] = None
+        `limit`: `Optional[int] = None`
             The maximum number of results to return (default: unlimited)
 
 
@@ -939,7 +952,7 @@ class DataKey:
         Parameters
         ------------
 
-        limit: Optional[int] = None
+        `limit`: `Optional[int] = None`
             The maximum number of results to return (default: unlimited)
         """
 
@@ -954,7 +967,7 @@ class DataValue:
         """Get the actual value"""
 
     def __init__(self, value: Union[str,bool,int,float,List]) -> None:
-        """Instantiate a new DataValue from a Python type. You usually don't need to do this explicitly"""
+        """You can instantiate a new DataValue from a supported Python type, but you usually don't need to do this explicitly."""
 
     def __str__(self) -> str:
         """Get the actual value as as string"""
@@ -1002,32 +1015,36 @@ class AnnotationData:
 
         The annotations can be filtered using positional and/or keyword arguments.
 
-        Positional Arguments
-        -------------------
+        Parameters
+        -----------
 
-        Positional arguments can be of the following types:
+        *args: tuple, optional
+            Filter arguments, can any be of the following types:
 
-        * :class:`DataKey` - Returns annotations with data matching this key
-        * :class:`AnnotationData` - Returns only annotations that have this exact data
-        * :class:`Annotations` or  a tuple/list of :class:`Annotation`- Returns only annotations that are already in the provided :obj:`Annotations` collection (intersection)
-        * :class:`Data` a tuple/list of :class:`AnnotationData `- Returns only annotations with data that is in the provided  collection.
-        * a dictionary:
-            * `set` - An ID of a dataset (or a :class:`DataAnnotationSet` instance), only needed when specifying `key` as a string (see below)
-            * `key` - A key, either an instance of :class:`DataKey` or a string, in the latter case you need to specify `set` as well.
-            * `value` (see keyword arguments below)
-
-        Keyword Arguments
-        -------------------
-
-        limit: Optional[int] = None
-            The maximum number of results to return (default: unlimited)
-        set: Optional[Union[str,AnnotationDataSet]] = None
-            An ID of a dataset (or an :class:`AnnotationDataSet` instance), only needed when specifying `key` as a string
-        key: Optional[Union[str,DataKey]] = None
-            An ID of a key (or a :class:`DataKey` instance), make sure to specify `set` as well if you use a string value for this parameter.
-        value: Optional[Union[str,int,float,bool]]
-            Constrain the search to annotations with data of a certain value.
-            This holds the exact value to search for, there are other variants of this keyword available, see :meth:`data` for a full list. 
+            * :class:`DataKey`
+                Returns annotations with data matching this key.
+            * :class:`AnnotationData`
+                Returns only annotations that have this exact data.
+            * :class:`Annotations` | :class:`Annotation`
+                Returns only annotations that match any of those specified here. 
+            * :class:`Data` | :class:`AnnotationData`
+                Returns only annotations with data  matching any of those specified here. 
+            * :class:`dict` with keys:
+                * **set** - An ID of a dataset (or a :class:`DataAnnotationSet` instance), only needed when specifying `key` as a string (see below)
+                * **key** - A key, either an instance of :class:`DataKey` or a string, in the latter case you need to specify `set` as well.
+                * **value** - (see keyword arguments below)
+        **kwargs: dict, optional
+            * limit: (Optional[int] = None)
+                The maximum number of results to return (default: unlimited)
+            * set: (Optional[Union[str,AnnotationDataSet]] = None)
+                An ID of a dataset (or an :class:`AnnotationDataSet` instance), only needed when specifying `key` as a string
+            * key: (Optional[Union[str,DataKey]] = None)
+                An ID of a key (or a :class:`DataKey` instance), make sure to specify `set` as well if you use a string value for this parameter.
+            * value: (Optional[Union[str,int,float,bool]])
+                Constrain the search to annotations with data of a certain value. This can only be used when you also pass a :class:`DataKey` as filter.
+                This holds the exact value to search for, there are other variants of this keyword available, see :meth:`data` for a full list. 
+            * limit: (Optional[int] = None)
+                The maximum number of results to return (default: unlimited)
         """
 
     def test_annotations(self, *args, **kwargs) -> bool:
@@ -1045,7 +1062,7 @@ class AnnotationData:
         Parameters
         ------------
 
-        limit: Optional[int] = None
+        `limit`: `Optional[int] = None`
             The maximum number of results to return (default: unlimited)
         """
 
@@ -1351,7 +1368,7 @@ class Offset:
     """
 
     def __init__(self, begin: Cursor, end: Cursor) -> None:
-        """Instantiate a new offset on the basis of two :class:`Cursor` instances"""
+        """You can instantiate a new offset on the basis of two :class:`Cursor` instances"""
 
     @staticmethod
     def simple(begin: int, end: int) -> Offset:
@@ -1381,8 +1398,7 @@ class Cursor:
     """
 
     def __init__(self, index, endaligned: bool = False):
-        """Instantiate a new cursor.
-
+        """
         Parameters
         ------------
 
@@ -1759,12 +1775,12 @@ class TextSelection:
 
 class TextSelectionOperator:
     """
-    The TextSelectionOperator, simply put, allows comparison of two :class:`TextSelection' instances. It
-    allows testing for all kinds of spatial relations (as embodied by this enum) in which two
+    The TextSelectionOperator, simply put, allows comparison of two :class:`TextSelection` instances. It
+    allows testing for all kinds of spatial relations (as embodied by this class) in which two
     :class:`TextSelection` instances can be.
    
-    Rather than operator on single :class:`TextSelection` instances, te implementation goes a bit
-    further and can act also on the basis of multiple :class:`TextSelection` as a set;
+    Rather than operate on single :class:`TextSelection` instances, the implementation goes a bit
+    further and can act also on the basis of multiple :class:`TextSelection` instances as a set;
     allowing you to compare two sets, each containing possibly multiple TextSelections, at once.
 
     The operator is instantiated via one of its static methods.

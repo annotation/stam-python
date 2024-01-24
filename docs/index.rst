@@ -9,7 +9,7 @@ Rust) to work with the model.
 **What can you do with this library?**
 
 * Keep, build and manipulate an efficient in-memory store of texts and annotations on texts
-* Search in annotations, data and text, either programmatically or via the [STAM Query Language](https://github.com/annotation/stam/tree/master/extensions/stam-query).
+* Search in annotations, data and text, either programmatically or via the `STAM Query Language <https://github.com/annotation/stam/tree/master/extensions/stam-query>`_.
     * Search annotations by data, textual content, relations between text fragments (overlap, embedding, adjacency, etc),
     * Search in text (incl. via regular expressions) and find annotations targeting found text selections.
     * Search in data (set,key,value) and find annotations that use the data.

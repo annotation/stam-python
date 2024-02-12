@@ -263,6 +263,8 @@ pub(crate) fn datavalue_from_py<'py>(value: &'py PyAny) -> Result<DataValue, Sta
         Ok(DataValue::Bool(value))
     } else if let Ok(None) = value.extract::<Option<bool>>() {
         Ok(DataValue::Null)
+    } else if let Ok(value) = value.extract() {
+        Ok(DataValue::Datetime(value))
     } else {
         if value.is_instance_of::<PyList>() {
             let value: &PyList = value.downcast().unwrap();
@@ -288,6 +290,7 @@ pub(crate) fn datavalue_into_py<'py>(
         DataValue::Float(f) => Ok(f.into_py(py).into_ref(py)),
         DataValue::Int(v) => Ok(v.into_py(py).into_ref(py)),
         DataValue::Bool(v) => Ok(v.into_py(py).into_ref(py)),
+        DataValue::Datetime(v) => Ok(v.into_py(py).into_ref(py)),
         DataValue::Null => {
             //feels a bit hacky, but I can't find a PyNone to return as PyAny
             let x: Option<bool> = None;

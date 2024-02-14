@@ -195,6 +195,8 @@ impl PyAnnotationStore {
                 .with_config(store.config().clone());
             if let Some(text) = text {
                 resource = resource.with_text(text);
+            } else if let Some(filename) = filename {
+                resource = resource.with_filename(filename);
             }
             let handle = store.insert(resource.build()?)?;
             Ok(PyTextResource {

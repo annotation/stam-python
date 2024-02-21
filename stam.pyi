@@ -97,6 +97,9 @@ class AnnotationStore:
     def to_file(self, filename: str) -> None:
         """Saves the annotation store to file. Use either .json or .csv as extension."""
 
+    def from_file(self, filename: str) -> None:
+        """Load another annotation store (only in STAM JSON format currently) into the current one. This can be done multiple times and effectively merges annotations stores."""
+
     def save(self) -> None:
         """Saves the annotation store to the same file it was loaded from or last saved to."""
 

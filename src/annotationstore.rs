@@ -101,6 +101,10 @@ impl PyAnnotationStore {
         self.map(|store| Ok(store.id().map(|x| x.to_owned())))
     }
 
+    fn from_file(&mut self, filename: &str) -> PyResult<()> {
+        self.map_mut(|store| store.merge_json_file(filename))
+    }
+
     /// Saves the annotation store to file
     fn to_file(&mut self, filename: &str) -> PyResult<()> {
         self.set_filename(filename)?;

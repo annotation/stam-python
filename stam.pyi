@@ -699,6 +699,10 @@ class Annotation:
                 ...
         """
 
+    def json(self) -> str:
+        """Returns the annotation as STAM JSON in a string with appropriate pretty-print formatting."""
+
+
     def webannotation(self, **kwargs) -> str:
         """
         Returns the annotation as a W3C Web Annotation in JSON-LD, as a compact single-line string without pretty formatting (immediately usable for output to JSONL).

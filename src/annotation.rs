@@ -451,6 +451,10 @@ impl PyAnnotation {
         }
     }
 
+    fn json(&self) -> PyResult<String> {
+        self.map(|annotation| annotation.as_ref().to_json_string(annotation.store()))
+    }
+
     /// Returns the annotation as a W3C Web Annotation in JSON-LD, as a string
     fn webannotation(&self, kwargs: Option<&PyDict>) -> PyResult<String> {
         let mut config = WebAnnoConfig::default();

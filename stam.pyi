@@ -699,6 +699,38 @@ class Annotation:
                 ...
         """
 
+    def webannotation(self, **kwargs) -> str:
+        """
+        Returns the annotation as a W3C Web Annotation in JSON-LD, as a compact single-line string without pretty formatting (immediately usable for output to JSONL).
+
+        Keywords Arguments
+        --------------------
+
+        `default_annotation_iri`: `str`
+            IRI prefix for Annotation Identifiers. Will be prepended if the annotations public ID is not an IRI yet.
+
+        `generate_annotation_iri`: `bool`
+            Generate a random annotation IRI if it does not exist yet? (non-deterministic!)
+
+        `default_set_iri`: `str`
+            IRI prefix for Annotation Data Sets. Will be prepended if the annotation data set public ID is not an IRI yet.
+
+        `default_resource_iri`: `str`
+            IRI prefix for Text Resources. Will be prepended if the resource public ID is not an IRI yet.
+
+        'extra_context`: `[str]`
+            Extra JSON-LD context to export, these must be URLs to JSONLD files.
+
+        `auto_generated`: `bool`
+            Automatically add a 'generated' triple for each annotation, with the timestamp of serialisation
+
+        `auto_generator`: `bool`
+            Automatically add a 'generator' triple for each annotation, with the software details
+
+        `context_namespaces`: `[(str,str)]`
+            Automatically generate a JSON-LD context alias for all URIs in keys, maps URI prefixes to namespace prefixes
+        """
+
 
 class Annotations:
     """

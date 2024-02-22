@@ -1,3 +1,4 @@
+use pyo3::exceptions::PyValueError;
 use pyo3::exceptions::{PyIndexError, PyRuntimeError};
 use pyo3::prelude::*;
 use pyo3::pyclass::CompareOp;
@@ -448,6 +449,48 @@ impl PyAnnotation {
                 },
             )
         }
+    }
+
+    /// Returns the annotation as a W3C Web Annotation in JSON-LD, as a string
+    fn webannotation(&self, kwargs: Option<&PyDict>) -> PyResult<String> {
+        let mut config = WebAnnoConfig::default();
+        if let Some(kwargs) = kwargs {
+            if let Ok(Some(v)) = kwargs.get_item("default_annotation_iri") {
+                config.default_annotation_iri = v.extract()?;
+            }
+            if let Ok(Some(v)) = kwargs.get_item("default_resource_iri") {
+                config.default_resource_iri = v.extract()?;
+            }
+            if let Ok(Some(v)) = kwargs.get_item("default_set_iri") {
+                config.default_set_iri = v.extract()?;
+            }
+            if let Ok(Some(v)) = kwargs.get_item("auto_generated") {
+                config.auto_generated = v.extract()?;
+            }
+            if let Ok(Some(v)) = kwargs.get_item("auto_generator") {
+                config.auto_generator = v.extract()?;
+            }
+            if let Ok(Some(v)) = kwargs.get_item("extra_context") {
+                config.extra_context = v.extract()?;
+            }
+            if let Ok(Some(v)) = kwargs.get_item("context_namespaces") {
+                config.context_namespaces = {
+                    let mut namespaces = Vec::new();
+                    for assignment in v.extract::<Vec<String>>()? {
+                        let result: Vec<_> = assignment.splitn(2, ":").collect();
+                        if result.len() != 2 {
+                            return Err(PyValueError::new_err(format!(
+                                "Syntax for --ns should be `ns: uri_prefix`"
+                            )));
+                        }
+                        namespaces
+                            .push((result[1].trim().to_string(), result[0].trim().to_string()));
+                    }
+                    namespaces
+                }
+            }
+        }
+        self.map(|annotation| Ok(annotation.to_webannotation(&config)))
     }
 }
 

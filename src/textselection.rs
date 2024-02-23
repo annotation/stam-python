@@ -7,7 +7,7 @@ use std::hash::{Hash, Hasher};
 use std::ops::FnOnce;
 use std::sync::{Arc, RwLock};
 
-use crate::annotation::PyAnnotations;
+use crate::annotation::{PyAnnotation, PyAnnotations};
 use crate::annotationdata::PyData;
 use crate::error::PyStamError;
 use crate::query::*;
@@ -457,6 +457,22 @@ impl PyTextSelection {
             Ok(textselection
                 .inner()
                 .test(&operator.operator, &other.textselection))
+        })
+    }
+
+    fn test_annotation(
+        &self,
+        operator: PyTextSelectionOperator,
+        other: &PyAnnotation,
+    ) -> PyResult<bool> {
+        self.map(|textselection| {
+            let store = textselection.rootstore();
+            let other: &Annotation = store.get(other.handle)?;
+            if let Some(other) = other.as_resultitem(store, store).textselectionset() {
+                Ok(textselection.test_set(&operator.operator, &other))
+            } else {
+                Ok(false)
+            }
         })
     }
 }

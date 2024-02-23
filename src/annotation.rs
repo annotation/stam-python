@@ -14,7 +14,7 @@ use crate::error::PyStamError;
 use crate::query::*;
 use crate::resources::{PyOffset, PyTextResource};
 use crate::selector::{PySelector, PySelectorKind};
-use crate::textselection::{PyTextSelectionOperator, PyTextSelections};
+use crate::textselection::{PyTextSelection, PyTextSelectionOperator, PyTextSelections};
 use stam::*;
 
 #[pyclass(dict, module = "stam", name = "Annotation")]
@@ -495,6 +495,30 @@ impl PyAnnotation {
             }
         }
         self.map(|annotation| Ok(annotation.to_webannotation(&config)))
+    }
+
+    fn test_textselection(
+        &self,
+        operator: PyTextSelectionOperator,
+        other: &PyTextSelection,
+    ) -> PyResult<bool> {
+        self.map(|annotation| {
+            let store = annotation.store();
+            let textselection = ResultTextSelection::Unbound(
+                store,
+                store.get(other.resource_handle)?,
+                other.textselection.clone(),
+            );
+            Ok(annotation.test_textselection(&operator.operator, &textselection))
+        })
+    }
+
+    fn test(&self, operator: PyTextSelectionOperator, other: &PyAnnotation) -> PyResult<bool> {
+        self.map(|annotation| {
+            let store = annotation.store();
+            let other: &Annotation = store.get(other.handle)?;
+            Ok(annotation.test(&operator.operator, &other.as_resultitem(store, store)))
+        })
     }
 }
 

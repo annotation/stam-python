@@ -739,7 +739,6 @@ class Annotation:
         """
         This method is called to test whether a specific spatial relation (as expressed by the
         passed operator) holds between an :class:`Annotation` and another.
-        This only works if the annotation references text and all text pertains to the same resource for both annotations.
         A boolean is returned with the test result.
         """
 
@@ -747,7 +746,6 @@ class Annotation:
         """
         This method is called to test whether a specific spatial relation (as expressed by the
         passed operator) holds between an :class:`Annotation` and a :class:`Textselection`.
-        This only works if the annotation references text and all text pertains to the same resource for both.
         A boolean is returned with the test result.
         """
 
@@ -1832,7 +1830,6 @@ class TextSelection:
         """
         This method is called to test whether a specific spatial relation (as expressed by the
         passed operator) holds between an :class:`TextSelection` and an :class:`Annotation`.
-        This only works if the annotation references text and all text pertains to the same resource for both.
         A boolean is returned with the test result.
         """
 

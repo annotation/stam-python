@@ -520,6 +520,31 @@ impl PyAnnotation {
             Ok(annotation.test(&operator.operator, &other.as_resultitem(store, store)))
         })
     }
+
+    #[pyo3(signature = (via, **kwargs))]
+    fn transpose(
+        &mut self,
+        via: &PyAnnotation,
+        kwargs: Option<&PyDict>,
+    ) -> PyResult<PyAnnotations> {
+        let transpose_config = if let Some(kwargs) = kwargs {
+            get_transpose_config(kwargs)
+        } else {
+            TransposeConfig::default()
+        };
+        let builders: Vec<AnnotationBuilder> = self.map(|annotation| {
+            let store = annotation.store();
+            let via = store.annotation(via.handle).or_fail()?;
+            annotation.transpose(&via, transpose_config)
+        })?;
+        let annotations =
+            self.map_store_mut(|store| store.annotate_from_iter(builders.into_iter()))?;
+        Ok(PyAnnotations {
+            annotations,
+            store: self.store.clone(),
+            cursor: 0,
+        })
+    }
 }
 
 #[pyclass(name = "Annotations")]
@@ -997,4 +1022,46 @@ impl PyAnnotation {
             f(annotation, query)
         })
     }
+}
+
+pub fn get_transpose_config(kwargs: &PyDict) -> TransposeConfig {
+    let mut config = TransposeConfig::default();
+    for (key, value) in kwargs {
+        if let Some(key) = key.extract().unwrap() {
+            match key {
+                "debug" => {
+                    if let Ok(Some(value)) = value.extract() {
+                        config.debug = value;
+                    }
+                }
+                "allow_simple" => {
+                    if let Ok(Some(value)) = value.extract() {
+                        config.allow_simple = value;
+                    }
+                }
+                "no_transposition" => {
+                    if let Ok(Some(value)) = value.extract() {
+                        config.no_transposition = value;
+                    }
+                }
+                "no_resegmentation" => {
+                    if let Ok(Some(value)) = value.extract() {
+                        config.no_resegmentation = value;
+                    }
+                }
+                "transposition_id" => {
+                    if let Ok(Some(value)) = value.extract() {
+                        config.transposition_id = value;
+                    }
+                }
+                "resegmentation_id" => {
+                    if let Ok(Some(value)) = value.extract() {
+                        config.resegmentation_id = value;
+                    }
+                }
+                _ => eprintln!("Ignored unknown kwargs option for transpose(): {}", key),
+            }
+        }
+    }
+    config
 }

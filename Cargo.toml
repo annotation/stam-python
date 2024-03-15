@@ -17,7 +17,7 @@ name = "stam"
 crate-type = ["cdylib"]
 
 [dependencies]
-pyo3 = { version = "0.20.2", features = ["chrono"] }
+pyo3 = { version = "0.20.3", features = ["chrono"] }
 stam = "0.11.0"
 
 [features]

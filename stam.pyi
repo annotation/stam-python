@@ -1481,8 +1481,13 @@ class Offset:
         Move an offset a specified distance (character points) to the right (positive integer) or to the left (negative integer).
         Will raise a ValueError if the offsets exceeds its natural bounds.
         """
-    
 
+    def __len__(self) -> int:
+        """
+        Returns the length of the offset (in character points).
+        If the underlying cursor types are not of the same type, the length
+        is undefined and a ValueError is raised.
+        """
 
 class Cursor:
     """

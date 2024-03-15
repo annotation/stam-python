@@ -700,6 +700,12 @@ impl PyOffset {
         Ok(Self { offset })
     }
 
+    fn __len__(&self) -> PyResult<usize> {
+        self.offset
+            .len()
+            .ok_or(PyValueError::new_err(format!("Offset has unknown length",)))
+    }
+
     pub(crate) fn __richcmp__(&self, other: PyRef<Self>, op: CompareOp) -> Py<PyAny> {
         let py = other.py();
         match op {

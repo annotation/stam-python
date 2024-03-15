@@ -622,6 +622,19 @@ impl PyCursor {
             Cursor::EndAligned(v) => v.to_string(),
         }
     }
+
+    fn shift(&self, distance: isize) -> PyResult<Self> {
+        let cursor = self.cursor.shift(distance).map_err(|e| {
+            PyValueError::new_err(format!(
+                "Unable to shift cursor over distance {}: {}",
+                distance, e
+            ))
+        })?;
+        match cursor {
+            Cursor::BeginAligned(b) => Self::new(b as isize, Some(false)),
+            Cursor::EndAligned(e) => Self::new(e, Some(true)),
+        }
+    }
 }
 
 #[pyclass(dict, module = "stam", name = "Offset")]
@@ -675,6 +688,16 @@ impl PyOffset {
         PyCursor {
             cursor: self.offset.end,
         }
+    }
+
+    fn shift(&self, distance: isize) -> PyResult<Self> {
+        let offset = self.offset.shift(distance).map_err(|e| {
+            PyValueError::new_err(format!(
+                "Unable to shift offset over distance {}: {}",
+                distance, e
+            ))
+        })?;
+        Ok(Self { offset })
     }
 
     pub(crate) fn __richcmp__(&self, other: PyRef<Self>, op: CompareOp) -> Py<PyAny> {

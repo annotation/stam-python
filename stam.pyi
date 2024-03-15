@@ -1476,6 +1476,13 @@ class Offset:
     def __str__(self) -> str:
         """Get a string representation of the offset"""
 
+    def shift(self, distance: int) -> Offset:
+        """
+        Move an offset a specified distance (character points) to the right (positive integer) or to the left (negative integer).
+        Will raise a ValueError if the offsets exceeds its natural bounds.
+        """
+    
+
 
 class Cursor:
     """
@@ -1508,6 +1515,12 @@ class Cursor:
 
     def __str__(self) -> str:
         """Get a string representation of the cursor"""
+
+    def shift(self, distance: int) -> Cursor:
+        """
+        Move a cursor a specified distance (character points) to the right (positive integer) or to the left (negative integer).
+        Will raise a ValueError if the offsets exceeds its natural bounds.
+        """
 
 class TextResource:
     """

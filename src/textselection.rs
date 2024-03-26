@@ -131,6 +131,10 @@ impl PyTextSelection {
         self.map(|textselection| Ok(textselection.textlen()))
     }
 
+    fn __len__(&self) -> PyResult<usize> {
+        self.textlen()
+    }
+
     /// Returns another TextSelection instance covering the specified offset *inside* the current
     /// textselection. The offset is specified relative to the current one.
     fn textselection(&self, offset: &PyOffset) -> PyResult<PyTextSelection> {

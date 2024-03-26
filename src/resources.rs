@@ -100,6 +100,10 @@ impl PyTextResource {
         self.map(|res| Ok(res.textlen()))
     }
 
+    fn __len__(&self) -> PyResult<usize> {
+        self.textlen()
+    }
+
     /// Returns a TextSelection instance covering the specified offset
     fn textselection(&self, offset: &PyOffset) -> PyResult<PyTextSelection> {
         self.map(|res| {

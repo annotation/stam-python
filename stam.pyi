@@ -1560,6 +1560,11 @@ class TextResource:
         Returns the length of the resources's text in unicode points (same as `len(self.text())` but more performant)
         """
 
+    def __len__(self) -> int:
+        """
+        Returns the length of the resources's text in unicode points (same as `len(self.text())` but more performant)
+        """
+
     def __str__(self) -> str:
         """Returns the text of the resource (by value, aka a copy), same as :meth:`text`"""
 
@@ -1715,7 +1720,12 @@ class TextSelection:
 
     def textlen(self) -> int:
         """
-        Returns the length of the resources's text in unicode points (same as `len(self.text())` but more performant)
+        Returns the length of the text selection in unicode points (same as `len(self.text())` but more performant)
+        """
+
+    def __len__(self) -> int:
+        """
+        Returns the length of the text selection in unicode points (same as `len(self.text())` but more performant)
         """
 
     def __str__(self) -> str:

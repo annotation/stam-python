@@ -1677,6 +1677,17 @@ class TextResource:
         The annotations can be filtered using positional and/or keyword arguments. See :meth:`Annotation.annotations`.
        """
 
+    def segmentation(self) -> List[TextSelection]:
+        """
+        Returns a sequence of minimum-length non-overlapping TextSelections, covering the full resource, in textual order
+        """
+
+    def segmentation_in_range(self, begin: int, end: int) -> List[TextSelection]:
+        """
+        Returns a sequence of minimum-length non-overlapping TextSelections, covering the selected range in the resource, in textual order
+        """
+
+
 
 #   def related_text(self, operator: TextSelectionOperator, referenceselections: List[TextSelection], **kwargs) -> TextSelections:
 #       """
@@ -1895,6 +1906,11 @@ class TextSelection:
         This method is called to test whether a specific spatial relation (as expressed by the
         passed operator) holds between an :class:`TextSelection` and an :class:`Annotation`.
         A boolean is returned with the test result.
+        """
+
+    def segmentation(self) -> List[TextSelection]:
+        """
+        Returns a sequence of minimum-length non-overlapping TextSelections, covering the selected text selection, in textual order
         """
 
 class TextSelectionOperator:

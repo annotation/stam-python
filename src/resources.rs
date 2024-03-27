@@ -340,6 +340,36 @@ impl PyTextResource {
         }
     }
 
+    fn segmentation(&self) -> PyResult<Vec<PyTextSelection>> {
+        self.map(|resource| {
+            Ok(resource
+                .segmentation()
+                .map(|ts| {
+                    PyTextSelection::new(
+                        ts.inner().clone(),
+                        ts.resource().handle(),
+                        &self.store.clone(),
+                    )
+                })
+                .collect())
+        })
+    }
+
+    fn segmentation_in_range(&self, begin: usize, end: usize) -> PyResult<Vec<PyTextSelection>> {
+        self.map(|resource| {
+            Ok(resource
+                .segmentation_in_range(begin, end)
+                .map(|ts| {
+                    PyTextSelection::new(
+                        ts.inner().clone(),
+                        ts.resource().handle(),
+                        &self.store.clone(),
+                    )
+                })
+                .collect())
+        })
+    }
+
     /// Iterates over all known textselections that start in the spceified range, in sorted order
     fn range(&self, begin: usize, end: usize) -> PyResult<PyTextSelectionIter> {
         Ok(PyTextSelectionIter {

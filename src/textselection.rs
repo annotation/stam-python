@@ -479,6 +479,21 @@ impl PyTextSelection {
             }
         })
     }
+
+    fn segmentation(&self) -> PyResult<Vec<PyTextSelection>> {
+        self.map(|textselection| {
+            Ok(textselection
+                .segmentation()
+                .map(|ts| {
+                    PyTextSelection::new(
+                        ts.inner().clone(),
+                        ts.resource().handle(),
+                        &self.store.clone(),
+                    )
+                })
+                .collect())
+        })
+    }
 }
 
 impl PyTextSelection {

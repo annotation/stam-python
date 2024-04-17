@@ -312,6 +312,17 @@ class AnnotationStore:
                     print(str(result['a']))
         """
 
+    def remove(self, item: Union[Annotation,AnnotationDataSet,TextResource, AnnotationData,DataKey], **kwargs):
+       """
+       Remove any STAM item from the store.
+
+       Keyword arguments
+       -------------------
+       strict: Optional[bool]
+            In strict mode, any annotation that uses this item (where item is `AnnotationData` or `DataKey`) will be removed entirely, otherwise the annotation will be modified to remove the reference only.
+       """
+
+
 #   def find_data(self,  **kwargs) -> Data:
 #       """
 #       Find annotation data by set, key and value.

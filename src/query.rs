@@ -348,6 +348,17 @@ pub(crate) fn get_recursive(kwargs: Option<&PyDict>, default: AnnotationDepth) -
     default
 }
 
+pub(crate) fn get_bool(kwargs: Option<&PyDict>, name: &str, default: bool) -> bool {
+    if let Some(kwargs) = kwargs {
+        if let Ok(Some(v)) = kwargs.get_item(name) {
+            if let Ok(v) = v.extract::<bool>() {
+                return v;
+            }
+        }
+    }
+    default
+}
+
 pub(crate) fn get_limit(kwargs: Option<&PyDict>) -> Option<usize> {
     if let Some(kwargs) = kwargs {
         if let Ok(Some(limit)) = kwargs.get_item("limit") {

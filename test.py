@@ -604,7 +604,39 @@ and climbing high mountains without the aid of a safety harness.
         self.assertTrue(any(data.key().id() == "structuretype" and str(data.value()) == "punctuation" for data in annotation))
 
 
+class Test8Remove(unittest.TestCase):
+    def setUp(self):
+        """Create some data from scratch"""
+        #this is the very same data as in Test1, but constructed more implicitly via annotate()
+        self.store = AnnotationStore(id="test")
+        resource = self.store.add_resource(id="testres", text="Hello world")
+        self.store.annotate(id="A1", 
+                            target=Selector.textselector(resource, Offset.simple(6,11)),
+                            data={ "id": "D1", "key": "pos", "value": "noun", "set": "testdataset"})
 
+    def test_remove_annotation(self):
+        self.store.remove(self.store.annotation("A1"))
+        with self.assertRaises(Exception):
+            self.store.annotation("A1")
+
+    def test_remove_dataset(self):
+        self.store.remove(self.store.dataset("testdataset"))
+        with self.assertRaises(Exception):
+            self.store.annotation("A1")
+
+    def test_remove_data(self):
+        self.store.remove(self.store.annotationdata("testdataset", "D1"), strict=True)
+        with self.assertRaises(Exception):
+            self.store.annotationdata("testdataset", "D1")
+        with self.assertRaises(Exception):
+            self.store.annotation("A1")
+
+    def test_remove_key(self):
+        self.store.remove(self.store.key("testdataset", "pos"), strict=True)
+        with self.assertRaises(Exception):
+            self.store.key("testdataset", "pos")
+        with self.assertRaises(Exception):
+            self.store.annotation("A1")
 
 
 if __name__ == "__main__":

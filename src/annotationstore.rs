@@ -1,4 +1,4 @@
-use pyo3::exceptions::PyRuntimeError;
+use pyo3::exceptions::{PyRuntimeError, PyTypeError};
 use pyo3::prelude::*;
 use pyo3::types::*;
 use std::ops::FnOnce;
@@ -419,6 +419,29 @@ impl PyAnnotationStore {
             query_to_python(store.query(query), &self.store, py)
         })
         .map_err(|err| err.into())
+    }
+
+    #[pyo3(signature = (item, **kwargs))]
+    fn remove<'py>(&mut self, item: &'py PyAny, kwargs: Option<&'py PyDict>) -> PyResult<()> {
+        let strict = get_bool(kwargs, "strict", false);
+        if item.is_instance_of::<PyAnnotation>() {
+            let item: PyRef<'py, PyAnnotation> = item.extract()?;
+            self.map_store_mut(|store| store.remove(item.handle))
+        } else if item.is_instance_of::<PyTextResource>() {
+            let item: PyRef<'py, PyTextResource> = item.extract()?;
+            self.map_store_mut(|store| store.remove(item.handle))
+        } else if item.is_instance_of::<PyAnnotationDataSet>() {
+            let item: PyRef<'py, PyAnnotationDataSet> = item.extract()?;
+            self.map_store_mut(|store| store.remove(item.handle))
+        } else if item.is_instance_of::<PyAnnotationData>() {
+            let item: PyRef<'py, PyAnnotationData> = item.extract()?;
+            self.map_store_mut(|store| store.remove_data(item.set, item.handle, strict))
+        } else if item.is_instance_of::<PyDataKey>() {
+            let item: PyRef<'py, PyDataKey> = item.extract()?;
+            self.map_store_mut(|store| store.remove_key(item.set, item.handle, strict))
+        } else {
+            Err(PyTypeError::new_err("Expected a STAM item"))
+        }
     }
 }
 

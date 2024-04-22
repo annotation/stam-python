@@ -36,12 +36,9 @@ pub struct PyAnnotation {
 impl PyAnnotation {
     pub(crate) fn new(
         handle: AnnotationHandle,
-        store: &Arc<RwLock<AnnotationStore>>,
+        store: Arc<RwLock<AnnotationStore>>,
     ) -> PyAnnotation {
-        PyAnnotation {
-            handle,
-            store: store.clone(),
-        }
+        PyAnnotation { handle, store }
     }
 }
 
@@ -291,8 +288,12 @@ impl PyAnnotation {
         let list: &PyList = PyList::empty(py);
         self.map(|annotation| {
             for (i, resource) in annotation.resources().enumerate() {
-                list.append(PyTextResource::new_py(resource.handle(), &self.store, py))
-                    .ok();
+                list.append(PyTextResource::new_py(
+                    resource.handle(),
+                    self.store.clone(),
+                    py,
+                ))
+                .ok();
                 if Some(i + 1) == limit {
                     break;
                 }
@@ -311,7 +312,7 @@ impl PyAnnotation {
             for (i, dataset) in annotation.datasets().enumerate() {
                 list.append(PyAnnotationDataSet::new_py(
                     dataset.handle(),
-                    &self.store,
+                    self.store.clone(),
                     py,
                 ))
                 .ok();
@@ -555,7 +556,7 @@ impl PyAnnotations {
         pyself.cursor += 1; //increment first (prevent exclusive mutability issues)
         if let Some(handle) = pyself.annotations.get(pyself.cursor - 1) {
             //index is one ahead, prevents exclusive lock issues
-            Some(PyAnnotation::new(*handle, &pyself.store))
+            Some(PyAnnotation::new(*handle, pyself.store.clone()))
         } else {
             None
         }
@@ -566,7 +567,7 @@ impl PyAnnotations {
             index = pyself.annotations.len() as isize + index;
         }
         if let Some(handle) = pyself.annotations.get(index as usize) {
-            Ok(PyAnnotation::new(*handle, &pyself.store))
+            Ok(PyAnnotation::new(*handle, pyself.store.clone()))
         } else {
             Err(PyIndexError::new_err("annotation index out of bounds"))
         }
@@ -999,7 +1000,7 @@ impl PyAnnotation {
                 annotation.store(),
             )
             .map_err(|e| StamError::QuerySyntaxError(format!("{}", e), "(python to query)"))?
-            .with_annotationvar("main", annotation.clone());
+            .with_annotationvar("main", &annotation);
             f(annotation, query)
         })
     }

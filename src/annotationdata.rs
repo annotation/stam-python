@@ -29,13 +29,9 @@ impl PyDataKey {
     pub(crate) fn new(
         handle: DataKeyHandle,
         set: AnnotationDataSetHandle,
-        store: &Arc<RwLock<AnnotationStore>>,
+        store: Arc<RwLock<AnnotationStore>>,
     ) -> PyDataKey {
-        PyDataKey {
-            set,
-            handle,
-            store: store.clone(),
-        }
+        PyDataKey { set, handle, store }
     }
 }
 
@@ -204,7 +200,7 @@ impl PyDataKey {
                 key.rootstore(),
             )
             .map_err(|e| StamError::QuerySyntaxError(format!("{}", e), "(python to query)"))?
-            .with_keyvar("main", key.clone());
+            .with_keyvar("main", &key);
             f(key, query)
         })
     }
@@ -232,13 +228,9 @@ impl PyAnnotationData {
     pub(crate) fn new(
         handle: AnnotationDataHandle,
         set: AnnotationDataSetHandle,
-        store: &Arc<RwLock<AnnotationStore>>,
+        store: Arc<RwLock<AnnotationStore>>,
     ) -> PyAnnotationData {
-        PyAnnotationData {
-            set,
-            handle,
-            store: store.clone(),
-        }
+        PyAnnotationData { set, handle, store }
     }
 }
 
@@ -452,7 +444,7 @@ impl PyAnnotationData {
 
     /// Returns the AnnotationDataSet this data is part of
     fn dataset(&self) -> PyResult<PyAnnotationDataSet> {
-        Ok(PyAnnotationDataSet::new(self.set, &self.store))
+        Ok(PyAnnotationDataSet::new(self.set, self.store.clone()))
     }
 
     #[pyo3(signature = (*args, **kwargs))]
@@ -554,7 +546,7 @@ impl PyAnnotationData {
                 data.rootstore(),
             )
             .map_err(|e| StamError::QuerySyntaxError(format!("{}", e), "(python to query)"))?
-            .with_datavar("main", data.clone());
+            .with_datavar("main", &data);
             f(data, query)
         })
     }
@@ -797,7 +789,11 @@ impl PyData {
         pyself.cursor += 1; //increment first (prevent exclusive mutability issues)
         if let Some((set_handle, handle)) = pyself.data.get(pyself.cursor - 1) {
             //index is one ahead, prevents exclusive lock issues
-            Some(PyAnnotationData::new(*handle, *set_handle, &pyself.store))
+            Some(PyAnnotationData::new(
+                *handle,
+                *set_handle,
+                pyself.store.clone(),
+            ))
         } else {
             None
         }
@@ -808,7 +804,11 @@ impl PyData {
             index = pyself.data.len() as isize + index;
         }
         if let Some((set_handle, handle)) = pyself.data.get(index as usize) {
-            Ok(PyAnnotationData::new(*handle, *set_handle, &pyself.store))
+            Ok(PyAnnotationData::new(
+                *handle,
+                *set_handle,
+                pyself.store.clone(),
+            ))
         } else {
             Err(PyIndexError::new_err("data index out of bounds"))
         }

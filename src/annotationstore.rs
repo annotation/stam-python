@@ -126,7 +126,7 @@ impl PyAnnotationStore {
         self.map(|store| {
             store
                 .resolve_dataset_id(id)
-                .map(|handle| PyAnnotationDataSet::new(handle, &self.store))
+                .map(|handle| PyAnnotationDataSet::new(handle, self.store.clone()))
         })
     }
 
@@ -135,7 +135,7 @@ impl PyAnnotationStore {
         self.map(|store| {
             store
                 .resolve_annotation_id(id)
-                .map(|handle| PyAnnotation::new(handle, &self.store))
+                .map(|handle| PyAnnotation::new(handle, self.store.clone()))
         })
     }
 
@@ -144,7 +144,7 @@ impl PyAnnotationStore {
         self.map(|store| {
             store
                 .resolve_resource_id(id)
-                .map(|handle| PyTextResource::new(handle, &self.store))
+                .map(|handle| PyTextResource::new(handle, self.store.clone()))
         })
     }
 
@@ -155,7 +155,7 @@ impl PyAnnotationStore {
             Ok(PyDataKey::new(
                 key.handle(),
                 key.set().handle(),
-                &self.store,
+                self.store.clone(),
             ))
         })
     }
@@ -167,7 +167,7 @@ impl PyAnnotationStore {
             Ok(PyAnnotationData::new(
                 data.handle(),
                 data.set().handle(),
-                &self.store,
+                self.store.clone(),
             ))
         })
     }
@@ -344,12 +344,13 @@ impl PyAnnotationStore {
 
     #[pyo3(signature = (querystring, **kwargs))]
     fn query<'py>(
-        &self,
+        &mut self,
         querystring: &str,
         kwargs: Option<&'py PyDict>,
         py: Python<'py>,
     ) -> PyResult<&'py PyList> {
-        self.map(|store| {
+        let clonedstore = self.store.clone();
+        self.map_mut(|store| {
             let (mut query, _) = Query::parse(querystring)?;
             if let Some(kwargs) = kwargs {
                 //bind keyword arguments as variables in the query
@@ -362,7 +363,7 @@ impl PyAnnotationStore {
                                 if let Ok(annotation) = annotation {
                                     let annotation =
                                         store.annotation(annotation.handle).or_fail()?;
-                                    query.bind_annotationvar(varname, annotation);
+                                    query.bind_annotationvar(varname, &annotation);
                                 }
                             } else if value.is_instance_of::<PyAnnotationData>() {
                                 let data: PyResult<PyRef<'py, PyAnnotationData>> =
@@ -370,7 +371,7 @@ impl PyAnnotationStore {
                                 if let Ok(data) = data {
                                     let data =
                                         store.annotationdata(data.set, data.handle).or_fail()?;
-                                    query.bind_datavar(varname, data);
+                                    query.bind_datavar(varname, &data);
                                 }
                             } else if value.is_instance_of::<PyDataKey>() {
                                 let key: PyResult<PyRef<'py, PyDataKey>> =
@@ -378,7 +379,7 @@ impl PyAnnotationStore {
                                 if let Ok(key) = key {
                                     let key =
                                         store.key(key.set, key.handle).or_fail()?;
-                                    query.bind_keyvar(varname, key);
+                                    query.bind_keyvar(varname, &key);
                                 }
                             } else if value.is_instance_of::<PyTextResource>() {
                                 let resource: PyResult<PyRef<'py, PyTextResource>> =
@@ -386,7 +387,7 @@ impl PyAnnotationStore {
                                 if let Ok(resource) = resource {
                                     let resource =
                                         store.resource(resource.handle).or_fail()?;
-                                    query.bind_resourcevar(varname, resource);
+                                    query.bind_resourcevar(varname, &resource);
                                 }
                             } else if value.is_instance_of::<PyAnnotationDataSet>() {
                                 let dataset: PyResult<PyRef<'py, PyAnnotationDataSet>> =
@@ -394,7 +395,7 @@ impl PyAnnotationStore {
                                 if let Ok(dataset) = dataset {
                                     let dataset =
                                         store.dataset(dataset.handle).or_fail()?;
-                                    query.bind_datasetvar(varname, dataset);
+                                    query.bind_datasetvar(varname, &dataset);
                                 }
                             } else if value.is_instance_of::<PyTextSelection>() {
                                 let textselection: PyResult<PyRef<'py, PyTextSelection>> =
@@ -403,7 +404,7 @@ impl PyAnnotationStore {
                                     if let Some(handle) = textselection.textselection.handle() {
                                         if let Some(textselection) =
                                             store.textselection(textselection.resource_handle, handle) {
-                                            query.bind_textvar(varname, textselection);
+                                            query.bind_textvar(varname, &textselection);
                                         }
                                     }
                                 }
@@ -414,9 +415,9 @@ impl PyAnnotationStore {
                     }
                 }
             }
-
+            let iter = store.query_mut(query)?;
             //run the query and convert the output to a python structure (list of dicts)
-            query_to_python(store.query(query)?, &self.store, py)
+            query_to_python(iter, clonedstore, py)
         })
         .map_err(|err| err.into())
     }

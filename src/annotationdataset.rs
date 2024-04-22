@@ -25,17 +25,14 @@ pub(crate) struct PyAnnotationDataSet {
 impl PyAnnotationDataSet {
     pub(crate) fn new(
         handle: AnnotationDataSetHandle,
-        store: &Arc<RwLock<AnnotationStore>>,
+        store: Arc<RwLock<AnnotationStore>>,
     ) -> PyAnnotationDataSet {
-        PyAnnotationDataSet {
-            handle,
-            store: store.clone(),
-        }
+        PyAnnotationDataSet { handle, store }
     }
 
     pub(crate) fn new_py<'py>(
         handle: AnnotationDataSetHandle,
-        store: &Arc<RwLock<AnnotationStore>>,
+        store: Arc<RwLock<AnnotationStore>>,
         py: Python<'py>,
     ) -> &'py PyAny {
         Self::new(handle, store).into_py(py).into_ref(py)
@@ -93,7 +90,7 @@ impl PyAnnotationDataSet {
         self.map(|annotationset| {
             Ok(annotationset
                 .key(key)
-                .map(|key| PyDataKey::new(key.handle(), self.handle, &self.store))
+                .map(|key| PyDataKey::new(key.handle(), self.handle, self.store.clone()))
                 .ok_or_else(|| StamError::IdNotFoundError(key.to_string(), "key not found"))?)
         })
     }
@@ -103,7 +100,7 @@ impl PyAnnotationDataSet {
         self.map_mut(|annotationset| {
             let datakey = DataKey::new(key.to_string());
             let handle = annotationset.insert(datakey)?;
-            Ok(PyDataKey::new(handle, self.handle, &self.store))
+            Ok(PyDataKey::new(handle, self.handle, self.store.clone()))
         })
     }
 
@@ -138,7 +135,11 @@ impl PyAnnotationDataSet {
                 databuilder = databuilder.with_id(id.into());
             }
             let handle = annotationset.build_insert_data(databuilder, true)?;
-            Ok(PyAnnotationData::new(handle, self.handle, &self.store))
+            Ok(PyAnnotationData::new(
+                handle,
+                self.handle,
+                self.store.clone(),
+            ))
         })
     }
 
@@ -147,7 +148,7 @@ impl PyAnnotationDataSet {
         self.map(|annotationset| {
             Ok(annotationset
                 .annotationdata(data_id)
-                .map(|data| PyAnnotationData::new(data.handle(), self.handle, &self.store))
+                .map(|data| PyAnnotationData::new(data.handle(), self.handle, self.store.clone()))
                 .ok_or_else(|| {
                     StamError::IdNotFoundError(data_id.to_string(), "annotationdata not found")
                 })?)
@@ -277,7 +278,7 @@ impl PyAnnotationDataSet {
                 dataset.store(),
             )
             .map_err(|e| StamError::QuerySyntaxError(format!("{}", e), "(python to query)"))?
-            .with_datasetvar("main", dataset.clone());
+            .with_datasetvar("main", &dataset);
             f(dataset, query)
         })
     }
@@ -367,7 +368,7 @@ impl PyAnnotationDataIter {
                 Some(PyAnnotationData::new(
                     data_handle,
                     pyself.handle,
-                    &pyself.store,
+                    pyself.store.clone(),
                 ))
             } else {
                 None

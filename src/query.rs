@@ -49,7 +49,7 @@ where
                 let key: PyRef<'py, PyDataKey> = filter.extract()?;
                 if let Some(key) = store.key(key.set, key.handle) {
                     let varname = new_contextvar(&mut used_contextvarnames);
-                    query.bind_keyvar(varname, key);
+                    query.bind_keyvar(varname, &key);
                     if let Some(operator) = operator {
                         query.constrain(Constraint::KeyValueVariable(
                             varname,
@@ -104,7 +104,7 @@ where
                     };
                     if let Some(key) = key {
                         let varname = new_contextvar(&mut used_contextvarnames);
-                        query.bind_keyvar(varname, key);
+                        query.bind_keyvar(varname, &key);
                         if let Some(operator) = operator {
                             query.constrain(Constraint::KeyValueVariable(
                                 varname,
@@ -147,7 +147,7 @@ where
         }
         if let Some(data) = store.annotationdata(data.set, data.handle) {
             let varname = new_contextvar(&mut used_contextvarnames);
-            query.bind_datavar(varname, data);
+            query.bind_datavar(varname, &data);
             query.constrain(Constraint::DataVariable(
                 varname,
                 SelectionQualifier::Normal,
@@ -157,7 +157,7 @@ where
         let key: PyRef<'py, PyDataKey> = filter.extract()?;
         if let Some(key) = store.key(key.set, key.handle) {
             let varname = new_contextvar(&mut used_contextvarnames);
-            query.bind_keyvar(varname, key);
+            query.bind_keyvar(varname, &key);
             if let Some(operator) = operator {
                 query.constrain(Constraint::KeyValueVariable(
                     varname,
@@ -176,7 +176,7 @@ where
         let annotation: PyRef<'py, PyAnnotation> = filter.extract()?;
         if let Some(annotation) = store.annotation(annotation.handle) {
             let varname = new_contextvar(&mut used_contextvarnames);
-            query.bind_annotationvar(varname, annotation);
+            query.bind_annotationvar(varname, &annotation);
             query.constrain(Constraint::AnnotationVariable(
                 varname,
                 SelectionQualifier::Normal,
@@ -410,7 +410,7 @@ impl<I> LimitIterator for I where I: Iterator {}
 /// Converts a QueryIter to a Python list with dictionaries for each result, the dictionary keys correspond to the variable names from the query.
 pub(crate) fn query_to_python<'py>(
     iter: QueryIter,
-    store: &Arc<RwLock<AnnotationStore>>,
+    store: Arc<RwLock<AnnotationStore>>,
     py: Python<'py>,
 ) -> Result<&'py PyList, StamError> {
     let results = PyList::empty(py);
@@ -425,7 +425,7 @@ pub(crate) fn query_to_python<'py>(
                 QueryResultItem::Annotation(annotation) => {
                     dict.set_item(
                         name,
-                        PyAnnotation::new(annotation.handle(), store)
+                        PyAnnotation::new(annotation.handle(), store.clone())
                             .into_py(py)
                             .into_ref(py),
                     )
@@ -434,7 +434,7 @@ pub(crate) fn query_to_python<'py>(
                 QueryResultItem::AnnotationData(data) => {
                     dict.set_item(
                         name,
-                        PyAnnotationData::new(data.handle(), data.set().handle(), store)
+                        PyAnnotationData::new(data.handle(), data.set().handle(), store.clone())
                             .into_py(py)
                             .into_ref(py),
                     )
@@ -443,7 +443,7 @@ pub(crate) fn query_to_python<'py>(
                 QueryResultItem::DataKey(key) => {
                     dict.set_item(
                         name,
-                        PyDataKey::new(key.handle(), key.set().handle(), store)
+                        PyDataKey::new(key.handle(), key.set().handle(), store.clone())
                             .into_py(py)
                             .into_ref(py),
                     )
@@ -452,7 +452,7 @@ pub(crate) fn query_to_python<'py>(
                 QueryResultItem::TextResource(resource) => {
                     dict.set_item(
                         name,
-                        PyTextResource::new(resource.handle(), store)
+                        PyTextResource::new(resource.handle(), store.clone())
                             .into_py(py)
                             .into_ref(py),
                     )
@@ -461,7 +461,7 @@ pub(crate) fn query_to_python<'py>(
                 QueryResultItem::AnnotationDataSet(dataset) => {
                     dict.set_item(
                         name,
-                        PyAnnotationDataSet::new(dataset.handle(), store)
+                        PyAnnotationDataSet::new(dataset.handle(), store.clone())
                             .into_py(py)
                             .into_ref(py),
                     )
@@ -476,7 +476,7 @@ pub(crate) fn query_to_python<'py>(
                                 .expect("textselection must be bound")
                                 .clone(),
                             textselection.resource().handle(),
-                            store,
+                            store.clone(),
                         )
                         .into_py(py)
                         .into_ref(py),

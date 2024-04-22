@@ -26,17 +26,14 @@ pub(crate) struct PyTextResource {
 impl PyTextResource {
     pub(crate) fn new(
         handle: TextResourceHandle,
-        store: &Arc<RwLock<AnnotationStore>>,
+        store: Arc<RwLock<AnnotationStore>>,
     ) -> PyTextResource {
-        PyTextResource {
-            handle,
-            store: store.clone(),
-        }
+        PyTextResource { handle, store }
     }
 
     pub(crate) fn new_py<'py>(
         handle: TextResourceHandle,
-        store: &Arc<RwLock<AnnotationStore>>,
+        store: Arc<RwLock<AnnotationStore>>,
         py: Python<'py>,
     ) -> &'py PyAny {
         Self::new(handle, store).into_py(py).into_ref(py)
@@ -348,7 +345,7 @@ impl PyTextResource {
                     PyTextSelection::new(
                         ts.inner().clone(),
                         ts.resource().handle(),
-                        &self.store.clone(),
+                        self.store.clone(),
                     )
                 })
                 .collect())
@@ -363,7 +360,7 @@ impl PyTextResource {
                     PyTextSelection::new(
                         ts.inner().clone(),
                         ts.resource().handle(),
-                        &self.store.clone(),
+                        self.store.clone(),
                     )
                 })
                 .collect())
@@ -556,7 +553,7 @@ impl PyTextResource {
                 resource.store(),
             )
             .map_err(|e| StamError::QuerySyntaxError(format!("{}", e), "(python to query)"))?
-            .with_resourcevar("main", resource.clone());
+            .with_resourcevar("main", &resource);
             f(resource, query)
         })
     }

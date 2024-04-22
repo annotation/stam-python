@@ -27,12 +27,12 @@ impl PyTextSelection {
     pub(crate) fn new(
         textselection: TextSelection,
         resource: TextResourceHandle,
-        store: &Arc<RwLock<AnnotationStore>>,
+        store: Arc<RwLock<AnnotationStore>>,
     ) -> PyTextSelection {
         PyTextSelection {
             textselection,
             resource_handle: resource,
-            store: store.clone(),
+            store,
         }
     }
 
@@ -483,7 +483,7 @@ impl PyTextSelection {
                     PyTextSelection::new(
                         ts.inner().clone(),
                         ts.resource().handle(),
-                        &self.store.clone(),
+                        self.store.clone(),
                     )
                 })
                 .collect())
@@ -531,7 +531,7 @@ impl PyTextSelection {
                 textselection.rootstore(),
             )
             .map_err(|e| StamError::QuerySyntaxError(format!("{}", e), "(python to query)"))?
-            .with_textvar("main", textselection.clone());
+            .with_textvar("main", &textselection);
             f(textselection, query)
         })
     }
@@ -568,7 +568,7 @@ impl PyTextSelections {
                     return Ok(PyTextSelection::new(
                         textselection.clone(),
                         res_handle,
-                        &pyself.store,
+                        pyself.store.clone(),
                     ));
                 }
                 Err(StamError::HandleError("a handle did not resolve"))
@@ -587,7 +587,7 @@ impl PyTextSelections {
                 Ok(PyTextSelection::new(
                     textselection.clone(),
                     res_handle,
-                    &pyself.store,
+                    pyself.store.clone(),
                 ))
             })
         } else {

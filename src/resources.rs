@@ -425,7 +425,7 @@ impl PyTextResource {
         } else {
             self.map_with_query(
                 Type::Annotation,
-                Constraint::ResourceVariable("main", SelectionQualifier::Normal),
+                Constraint::ResourceVariable("main", SelectionQualifier::Normal, None),
                 args,
                 kwargs,
                 |annotation, query| {
@@ -457,7 +457,7 @@ impl PyTextResource {
         } else {
             self.map_with_query(
                 Type::Annotation,
-                Constraint::ResourceVariable("main", SelectionQualifier::Metadata),
+                Constraint::ResourceVariable("main", SelectionQualifier::Metadata, None),
                 args,
                 kwargs,
                 |annotation, query| {
@@ -479,7 +479,7 @@ impl PyTextResource {
         } else {
             self.map_with_query(
                 Type::Annotation,
-                Constraint::ResourceVariable("main", SelectionQualifier::Normal),
+                Constraint::ResourceVariable("main", SelectionQualifier::Normal, None),
                 args,
                 kwargs,
                 |resource, query| Ok(resource.store().query(query).test()),
@@ -498,7 +498,7 @@ impl PyTextResource {
         } else {
             self.map_with_query(
                 Type::Annotation,
-                Constraint::ResourceVariable("main", SelectionQualifier::Metadata),
+                Constraint::ResourceVariable("main", SelectionQualifier::Metadata, None),
                 args,
                 kwargs,
                 |resource, query| Ok(resource.store().query(query).test()),

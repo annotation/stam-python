@@ -181,6 +181,7 @@ where
                 varname,
                 SelectionQualifier::Normal,
                 AnnotationDepth::One,
+                None,
             ));
         } else {
             return Err(PyValueError::new_err(

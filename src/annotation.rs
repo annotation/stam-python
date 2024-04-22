@@ -166,6 +166,7 @@ impl PyAnnotation {
                     "main",
                     SelectionQualifier::Normal,
                     AnnotationDepth::One,
+                    None,
                 ),
                 args,
                 kwargs,
@@ -200,7 +201,12 @@ impl PyAnnotation {
         } else {
             self.map_with_query(
                 Type::Annotation,
-                Constraint::AnnotationVariable("main", SelectionQualifier::Metadata, recursive),
+                Constraint::AnnotationVariable(
+                    "main",
+                    SelectionQualifier::Metadata,
+                    recursive,
+                    None,
+                ),
                 args,
                 kwargs,
                 |annotation, query| {
@@ -233,6 +239,7 @@ impl PyAnnotation {
                     "main",
                     SelectionQualifier::Normal,
                     AnnotationDepth::One,
+                    None,
                 ),
                 args,
                 kwargs,
@@ -259,6 +266,7 @@ impl PyAnnotation {
                     "main",
                     SelectionQualifier::Normal,
                     AnnotationDepth::One,
+                    None,
                 ),
                 args,
                 kwargs,
@@ -279,7 +287,12 @@ impl PyAnnotation {
         } else {
             self.map_with_query(
                 Type::Annotation,
-                Constraint::AnnotationVariable("main", SelectionQualifier::Metadata, recursive),
+                Constraint::AnnotationVariable(
+                    "main",
+                    SelectionQualifier::Metadata,
+                    recursive,
+                    None,
+                ),
                 args,
                 kwargs,
                 |annotation, query| Ok(annotation.store().query(query).test()),
@@ -375,6 +388,7 @@ impl PyAnnotation {
                     "main",
                     SelectionQualifier::Normal,
                     AnnotationDepth::One,
+                    None,
                 ),
                 args,
                 kwargs,
@@ -401,6 +415,7 @@ impl PyAnnotation {
                     "main",
                     SelectionQualifier::Normal,
                     AnnotationDepth::One,
+                    None,
                 ),
                 args,
                 kwargs,
@@ -608,6 +623,7 @@ impl PyAnnotations {
                     "main",
                     SelectionQualifier::Normal,
                     AnnotationDepth::One,
+                    None,
                 ),
                 args,
                 kwargs,
@@ -627,6 +643,7 @@ impl PyAnnotations {
                     "main",
                     SelectionQualifier::Normal,
                     AnnotationDepth::One,
+                    None,
                 ),
                 args,
                 kwargs,
@@ -652,6 +669,7 @@ impl PyAnnotations {
                     "main",
                     SelectionQualifier::Normal,
                     AnnotationDepth::One,
+                    None,
                 ),
                 args,
                 kwargs,
@@ -671,6 +689,7 @@ impl PyAnnotations {
                     "main",
                     SelectionQualifier::Normal,
                     AnnotationDepth::One,
+                    None,
                 ),
                 args,
                 kwargs,
@@ -700,7 +719,7 @@ impl PyAnnotations {
         } else {
             self.map_with_query(
                 Type::Annotation,
-                Constraint::AnnotationVariable("main", SelectionQualifier::Normal, recursive),
+                Constraint::AnnotationVariable("main", SelectionQualifier::Normal, recursive, None),
                 args,
                 kwargs,
                 |query, store| Ok(PyAnnotations::from_query(query, store, &self.store, limit)),
@@ -722,7 +741,7 @@ impl PyAnnotations {
         } else {
             self.map_with_query(
                 Type::Annotation,
-                Constraint::AnnotationVariable("main", SelectionQualifier::Normal, recursive),
+                Constraint::AnnotationVariable("main", SelectionQualifier::Normal, recursive, None),
                 args,
                 kwargs,
                 |query, store| Ok(store.query(query).test()),
@@ -751,6 +770,7 @@ impl PyAnnotations {
                     "main",
                     SelectionQualifier::Normal,
                     AnnotationDepth::One,
+                    None,
                 ),
                 args,
                 kwargs,

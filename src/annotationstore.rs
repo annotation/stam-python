@@ -289,7 +289,7 @@ impl PyAnnotationStore {
             })
         } else {
             self.map_with_query(Type::Annotation, args, kwargs, |query, store| {
-                Ok(PyAnnotations::from_query(query, store, &self.store, limit))
+                PyAnnotations::from_query(query, store, &self.store, limit)
             })
         }
     }
@@ -337,7 +337,7 @@ impl PyAnnotationStore {
             self.map(|store| Ok(PyData::from_iter(store.data().limit(limit), &self.store)))
         } else {
             self.map_with_query(Type::AnnotationData, args, kwargs, |query, store| {
-                Ok(PyData::from_query(query, store, &self.store, limit))
+                PyData::from_query(query, store, &self.store, limit)
             })
         }
     }
@@ -416,7 +416,7 @@ impl PyAnnotationStore {
             }
 
             //run the query and convert the output to a python structure (list of dicts)
-            query_to_python(store.query(query), &self.store, py)
+            query_to_python(store.query(query)?, &self.store, py)
         })
         .map_err(|err| err.into())
     }

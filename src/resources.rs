@@ -429,12 +429,7 @@ impl PyTextResource {
                 args,
                 kwargs,
                 |annotation, query| {
-                    Ok(PyAnnotations::from_query(
-                        query,
-                        annotation.store(),
-                        &self.store,
-                        limit,
-                    ))
+                    PyAnnotations::from_query(query, annotation.store(), &self.store, limit)
                 },
             )
         }
@@ -461,12 +456,7 @@ impl PyTextResource {
                 args,
                 kwargs,
                 |annotation, query| {
-                    Ok(PyAnnotations::from_query(
-                        query,
-                        annotation.store(),
-                        &self.store,
-                        limit,
-                    ))
+                    PyAnnotations::from_query(query, annotation.store(), &self.store, limit)
                 },
             )
         }
@@ -482,7 +472,7 @@ impl PyTextResource {
                 Constraint::ResourceVariable("main", SelectionQualifier::Normal, None),
                 args,
                 kwargs,
-                |resource, query| Ok(resource.store().query(query).test()),
+                |resource, query| Ok(resource.store().query(query)?.test()),
             )
         }
     }
@@ -501,7 +491,7 @@ impl PyTextResource {
                 Constraint::ResourceVariable("main", SelectionQualifier::Metadata, None),
                 args,
                 kwargs,
-                |resource, query| Ok(resource.store().query(query).test()),
+                |resource, query| Ok(resource.store().query(query)?.test()),
             )
         }
     }

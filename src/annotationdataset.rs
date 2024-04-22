@@ -183,14 +183,7 @@ impl PyAnnotationDataSet {
                 Constraint::DataSetVariable("main", SelectionQualifier::Normal),
                 args,
                 kwargs,
-                |dataset, query| {
-                    Ok(PyData::from_query(
-                        query,
-                        dataset.store(),
-                        &self.store,
-                        limit,
-                    ))
-                },
+                |dataset, query| PyData::from_query(query, dataset.store(), &self.store, limit),
             )
         }
     }
@@ -205,7 +198,7 @@ impl PyAnnotationDataSet {
                 Constraint::DataSetVariable("main", SelectionQualifier::Normal),
                 args,
                 kwargs,
-                |dataset, query| Ok(dataset.store().query(query).test()),
+                |dataset, query| Ok(dataset.store().query(query)?.test()),
             )
         }
     }

@@ -89,12 +89,7 @@ impl PyDataKey {
             self.map(|key| Ok(PyData::from_iter(key.data().limit(limit), &self.store)))
         } else {
             self.map_with_query(Type::AnnotationData, args, kwargs, |key, query| {
-                Ok(PyData::from_query(
-                    query,
-                    key.rootstore(),
-                    &self.store,
-                    limit,
-                ))
+                PyData::from_query(query, key.rootstore(), &self.store, limit)
             })
         }
     }
@@ -105,7 +100,7 @@ impl PyDataKey {
             self.map(|key| Ok(key.data().test()))
         } else {
             self.map_with_query(Type::AnnotationData, args, kwargs, |key, query| {
-                Ok(key.rootstore().query(query).test())
+                Ok(key.rootstore().query(query)?.test())
             })
         }
     }
@@ -122,12 +117,7 @@ impl PyDataKey {
             })
         } else {
             self.map_with_query(Type::Annotation, args, kwargs, |key, query| {
-                Ok(PyAnnotations::from_query(
-                    query,
-                    key.rootstore(),
-                    &self.store,
-                    limit,
-                ))
+                PyAnnotations::from_query(query, key.rootstore(), &self.store, limit)
             })
         }
     }
@@ -138,7 +128,7 @@ impl PyDataKey {
             self.map(|key| Ok(key.annotations().test()))
         } else {
             self.map_with_query(Type::Annotation, args, kwargs, |key, query| {
-                Ok(key.rootstore().query(query).test())
+                Ok(key.rootstore().query(query)?.test())
             })
         }
     }
@@ -477,12 +467,7 @@ impl PyAnnotationData {
             })
         } else {
             self.map_with_query(Type::Annotation, args, kwargs, |data, query| {
-                Ok(PyAnnotations::from_query(
-                    query,
-                    data.rootstore(),
-                    &self.store,
-                    limit,
-                ))
+                PyAnnotations::from_query(query, data.rootstore(), &self.store, limit)
             })
         }
     }
@@ -493,7 +478,7 @@ impl PyAnnotationData {
             self.map(|key| Ok(key.annotations().test()))
         } else {
             self.map_with_query(Type::Annotation, args, kwargs, |key, query| {
-                Ok(key.rootstore().query(query).test())
+                Ok(key.rootstore().query(query)?.test())
             })
         }
     }
@@ -849,7 +834,7 @@ impl PyData {
             })
         } else {
             self.map_with_query(Type::Annotation, args, kwargs, |query, store| {
-                Ok(PyAnnotations::from_query(query, store, &self.store, limit))
+                PyAnnotations::from_query(query, store, &self.store, limit)
             })
         }
     }
@@ -860,7 +845,7 @@ impl PyData {
             self.map(|data, _| Ok(data.items().annotations().test()))
         } else {
             self.map_with_query(Type::Annotation, args, kwargs, |query, store| {
-                Ok(store.query(query).test())
+                Ok(store.query(query)?.test())
             })
         }
     }
@@ -885,11 +870,11 @@ impl PyData {
         store: &'store AnnotationStore,
         wrappedstore: &Arc<RwLock<AnnotationStore>>,
         limit: Option<usize>,
-    ) -> Self {
+    ) -> Result<Self, StamError> {
         assert!(query.resulttype() == Some(Type::AnnotationData));
-        Self {
+        Ok(Self {
             data: store
-                .query(query)
+                .query(query)?
                 .limit(limit)
                 .map(|mut resultitems| {
                     //we use the deepest item if there are multiple
@@ -902,7 +887,7 @@ impl PyData {
                 .collect(),
             store: wrappedstore.clone(),
             cursor: 0,
-        }
+        })
     }
 
     fn map<T, F>(&self, f: F) -> Result<T, PyErr>

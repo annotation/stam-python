@@ -171,12 +171,7 @@ impl PyAnnotation {
                 args,
                 kwargs,
                 |annotation, query| {
-                    Ok(PyTextSelections::from_query(
-                        query,
-                        annotation.store(),
-                        &self.store,
-                        limit,
-                    ))
+                    PyTextSelections::from_query(query, annotation.store(), &self.store, limit)
                 },
             )
         }
@@ -210,12 +205,7 @@ impl PyAnnotation {
                 args,
                 kwargs,
                 |annotation, query| {
-                    Ok(PyAnnotations::from_query(
-                        query,
-                        annotation.store(),
-                        &self.store,
-                        limit,
-                    ))
+                    PyAnnotations::from_query(query, annotation.store(), &self.store, limit)
                 },
             )
         }
@@ -244,12 +234,7 @@ impl PyAnnotation {
                 args,
                 kwargs,
                 |annotation, query| {
-                    Ok(PyAnnotations::from_query(
-                        query,
-                        annotation.store(),
-                        &self.store,
-                        limit,
-                    ))
+                    PyAnnotations::from_query(query, annotation.store(), &self.store, limit)
                 },
             )
         }
@@ -270,7 +255,7 @@ impl PyAnnotation {
                 ),
                 args,
                 kwargs,
-                |annotation, query| Ok(annotation.store().query(query).test()),
+                |annotation, query| Ok(annotation.store().query(query)?.test()),
             )
         }
     }
@@ -295,7 +280,7 @@ impl PyAnnotation {
                 ),
                 args,
                 kwargs,
-                |annotation, query| Ok(annotation.store().query(query).test()),
+                |annotation, query| Ok(annotation.store().query(query)?.test()),
             )
         }
     }
@@ -393,12 +378,7 @@ impl PyAnnotation {
                 args,
                 kwargs,
                 |annotation, query| {
-                    Ok(PyData::from_query(
-                        query,
-                        annotation.store(),
-                        &self.store,
-                        limit,
-                    ))
+                    PyData::from_query(query, annotation.store(), &self.store, limit)
                 },
             )
         }
@@ -419,7 +399,7 @@ impl PyAnnotation {
                 ),
                 args,
                 kwargs,
-                |annotation, query| Ok(annotation.store().query(query).test()),
+                |annotation, query| Ok(annotation.store().query(query)?.test()),
             )
         }
     }
@@ -455,12 +435,7 @@ impl PyAnnotation {
                 args,
                 kwargs,
                 |annotation, query| {
-                    Ok(PyTextSelections::from_query(
-                        query,
-                        annotation.store(),
-                        &self.store,
-                        limit,
-                    ))
+                    PyTextSelections::from_query(query, annotation.store(), &self.store, limit)
                 },
             )
         }
@@ -627,7 +602,7 @@ impl PyAnnotations {
                 ),
                 args,
                 kwargs,
-                |query, store| Ok(PyData::from_query(query, store, &self.store, limit)),
+                |query, store| PyData::from_query(query, store, &self.store, limit),
             )
         }
     }
@@ -647,7 +622,7 @@ impl PyAnnotations {
                 ),
                 args,
                 kwargs,
-                |query, store| Ok(store.query(query).test()),
+                |query, store| Ok(store.query(query)?.test()),
             )
         }
     }
@@ -673,7 +648,7 @@ impl PyAnnotations {
                 ),
                 args,
                 kwargs,
-                |query, store| Ok(PyAnnotations::from_query(query, store, &self.store, limit)),
+                |query, store| PyAnnotations::from_query(query, store, &self.store, limit),
             )
         }
     }
@@ -693,7 +668,7 @@ impl PyAnnotations {
                 ),
                 args,
                 kwargs,
-                |query, store| Ok(store.query(query).test()),
+                |query, store| Ok(store.query(query)?.test()),
             )
         }
     }
@@ -722,7 +697,7 @@ impl PyAnnotations {
                 Constraint::AnnotationVariable("main", SelectionQualifier::Normal, recursive, None),
                 args,
                 kwargs,
-                |query, store| Ok(PyAnnotations::from_query(query, store, &self.store, limit)),
+                |query, store| PyAnnotations::from_query(query, store, &self.store, limit),
             )
         }
     }
@@ -744,7 +719,7 @@ impl PyAnnotations {
                 Constraint::AnnotationVariable("main", SelectionQualifier::Normal, recursive, None),
                 args,
                 kwargs,
-                |query, store| Ok(store.query(query).test()),
+                |query, store| Ok(store.query(query)?.test()),
             )
         }
     }
@@ -774,14 +749,7 @@ impl PyAnnotations {
                 ),
                 args,
                 kwargs,
-                |query, store| {
-                    Ok(PyTextSelections::from_query(
-                        query,
-                        store,
-                        &self.store,
-                        limit,
-                    ))
-                },
+                |query, store| PyTextSelections::from_query(query, store, &self.store, limit),
             )
         }
     }
@@ -813,14 +781,7 @@ impl PyAnnotations {
                 },
                 args,
                 kwargs,
-                |query, store| {
-                    Ok(PyTextSelections::from_query(
-                        query,
-                        store,
-                        &self.store,
-                        limit,
-                    ))
-                },
+                |query, store| PyTextSelections::from_query(query, store, &self.store, limit),
             )
         }
     }
@@ -861,11 +822,11 @@ impl PyAnnotations {
         store: &'store AnnotationStore,
         wrappedstore: &Arc<RwLock<AnnotationStore>>,
         limit: Option<usize>,
-    ) -> Self {
+    ) -> Result<Self, StamError> {
         assert!(query.resulttype() == Some(Type::Annotation));
-        Self {
+        Ok(Self {
             annotations: store
-                .query(query)
+                .query(query)?
                 .limit(limit)
                 .map(|mut resultitems| {
                     //we use the deepest item if there are multiple
@@ -878,7 +839,7 @@ impl PyAnnotations {
                 .collect(),
             store: wrappedstore.clone(),
             cursor: 0,
-        }
+        })
     }
 
     fn map<T, F>(&self, f: F) -> Result<T, PyErr>

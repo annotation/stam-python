@@ -317,12 +317,7 @@ impl PyTextSelection {
                 args,
                 kwargs,
                 |textselection, query| {
-                    Ok(PyAnnotations::from_query(
-                        query,
-                        textselection.rootstore(),
-                        &self.store,
-                        limit,
-                    ))
+                    PyAnnotations::from_query(query, textselection.rootstore(), &self.store, limit)
                 },
             )
         }
@@ -338,7 +333,7 @@ impl PyTextSelection {
                 Constraint::TextVariable("main"),
                 args,
                 kwargs,
-                |textselection, query| Ok(textselection.rootstore().query(query).test()),
+                |textselection, query| Ok(textselection.rootstore().query(query)?.test()),
             )
         }
     }
@@ -353,7 +348,7 @@ impl PyTextSelection {
                 Constraint::TextVariable("main"),
                 args,
                 kwargs,
-                |textselection, query| Ok(textselection.rootstore().query(query).test()),
+                |textselection, query| Ok(textselection.rootstore().query(query)?.test()),
             )
         }
     }
@@ -383,12 +378,12 @@ impl PyTextSelection {
                 args,
                 kwargs,
                 |textselection, query| {
-                    Ok(PyTextSelections::from_query(
+                    PyTextSelections::from_query(
                         query,
                         textselection.rootstore(),
                         &self.store,
                         limit,
-                    ))
+                    )
                 },
             )
         }
@@ -648,7 +643,7 @@ impl PyTextSelections {
                 Constraint::TextVariable("main"),
                 args,
                 kwargs,
-                |query, store| Ok(PyAnnotations::from_query(query, store, &self.store, limit)),
+                |query, store| PyAnnotations::from_query(query, store, &self.store, limit),
             )
         }
     }
@@ -669,7 +664,7 @@ impl PyTextSelections {
                 Constraint::TextVariable("main"),
                 args,
                 kwargs,
-                |query, store| Ok(store.query(query).test()),
+                |query, store| Ok(store.query(query)?.test()),
             )
         }
     }
@@ -695,7 +690,7 @@ impl PyTextSelections {
                 Constraint::TextVariable("main"),
                 args,
                 kwargs,
-                |query, store| Ok(PyData::from_query(query, store, &self.store, limit)),
+                |query, store| PyData::from_query(query, store, &self.store, limit),
             )
         }
     }
@@ -717,7 +712,7 @@ impl PyTextSelections {
                 Constraint::TextVariable("main"),
                 args,
                 kwargs,
-                |query, store| Ok(store.query(query).test()),
+                |query, store| Ok(store.query(query)?.test()),
             )
         }
     }
@@ -750,14 +745,7 @@ impl PyTextSelections {
                 },
                 args,
                 kwargs,
-                |query, store| {
-                    Ok(PyTextSelections::from_query(
-                        query,
-                        store,
-                        &self.store,
-                        limit,
-                    ))
-                },
+                |query, store| PyTextSelections::from_query(query, store, &self.store, limit),
             )
         }
     }
@@ -813,11 +801,11 @@ impl PyTextSelections {
         store: &'store AnnotationStore,
         wrappedstore: &Arc<RwLock<AnnotationStore>>,
         limit: Option<usize>,
-    ) -> Self {
+    ) -> Result<Self, StamError> {
         assert!(query.resulttype() == Some(Type::TextSelection));
-        Self {
+        Ok(Self {
             textselections: store
-                .query(query)
+                .query(query)?
                 .limit(limit)
                 .map(|mut resultitems| {
                     //we use the deepest item if there are multiple
@@ -835,7 +823,7 @@ impl PyTextSelections {
                 .collect(),
             store: wrappedstore.clone(),
             cursor: 0,
-        }
+        })
     }
 
     fn map<T, F>(&self, f: F) -> Result<T, PyErr>

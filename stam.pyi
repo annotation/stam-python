@@ -294,6 +294,12 @@ class AnnotationStore:
             :class:`AnnotationData`, :class:`DataKey`, :class`TextSelection` etc. These context variables
             are available to the query but not propagated to the output.
 
+       Keyword arguments
+       -------------------
+
+       readonly: Optional[bool]
+            If set to `True`, queries that would mutate the store are rejected (raise an Exception).
+            In other words, only `SELECT` statements are allowed then.
 
         A query returns a list consisting of dictionaries, each corresponding one
         result row. The keys in the dictionaries match with the variable names

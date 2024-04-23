@@ -352,6 +352,7 @@ impl PyAnnotationStore {
         let clonedstore = self.store.clone();
         self.map_mut(|store| {
             let (mut query, _) = Query::parse(querystring)?;
+            let readonly = get_bool(kwargs, "readonly", false);
             if let Some(kwargs) = kwargs {
                 //bind keyword arguments as variables in the query
                 for (varname, value) in kwargs.iter() {
@@ -415,7 +416,11 @@ impl PyAnnotationStore {
                     }
                 }
             }
-            let iter = store.query_mut(query)?;
+            let iter = if readonly {
+                store.query_mut(query)?
+            } else {
+                store.query(query)?
+            };
             //run the query and convert the output to a python structure (list of dicts)
             query_to_python(iter, clonedstore, py)
         })

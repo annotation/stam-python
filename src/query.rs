@@ -360,6 +360,21 @@ pub(crate) fn get_bool(kwargs: Option<&PyDict>, name: &str, default: bool) -> bo
     default
 }
 
+pub(crate) fn get_opt_string(
+    kwargs: Option<&PyDict>,
+    name: &str,
+    default: Option<&str>,
+) -> Option<String> {
+    if let Some(kwargs) = kwargs {
+        if let Ok(Some(v)) = kwargs.get_item(name) {
+            if let Ok(v) = v.extract::<String>() {
+                return Some(v.clone());
+            }
+        }
+    }
+    default.map(|s| s.to_string())
+}
+
 pub(crate) fn get_limit(kwargs: Option<&PyDict>) -> Option<usize> {
     if let Some(kwargs) = kwargs {
         if let Ok(Some(limit)) = kwargs.get_item("limit") {

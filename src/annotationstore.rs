@@ -1,4 +1,4 @@
-use pyo3::exceptions::{PyRuntimeError, PyTypeError};
+use pyo3::exceptions::{PyRuntimeError, PyTypeError, PyValueError};
 use pyo3::prelude::*;
 use pyo3::types::*;
 use std::ops::FnOnce;
@@ -14,6 +14,7 @@ use crate::resources::PyTextResource;
 use crate::selector::PySelector;
 use crate::textselection::PyTextSelection;
 use stam::*;
+use stamtools::view::{AnsiWriter, Highlight, HtmlWriter};
 
 #[pyclass(dict, module = "stam", name = "AnnotationStore")]
 /// An Annotation Store is an unordered collection of annotations, resources and
@@ -449,6 +450,89 @@ impl PyAnnotationStore {
             Err(PyTypeError::new_err("Expected a STAM item"))
         }
     }
+
+    #[pyo3(signature = (querystring, *args, **kwargs))]
+    fn view<'py>(
+        &self,
+        querystring: &str,
+        args: &'py PyTuple,
+        kwargs: Option<&'py PyDict>,
+    ) -> PyResult<String> {
+        let query: Query = querystring
+            .try_into()
+            .map_err(|err| PyStamError::new_err(format!("{}", err)))?;
+        let mut highlights: Vec<&str> = Vec::new();
+        for a in args.iter() {
+            let hquerystring: &str = a.extract()?;
+            highlights.push(hquerystring);
+        }
+        let prune = get_bool(kwargs, "prune", false);
+        let legend = get_bool(kwargs, "legend", false);
+        let titles = get_bool(kwargs, "titles", false);
+        let interactive = get_bool(kwargs, "interactive", false);
+        let autocollapse = get_bool(kwargs, "autocollapse", false);
+        let header = get_opt_string(kwargs, "header", None);
+        let footer = get_opt_string(kwargs, "footer", None);
+        let format = get_opt_string(kwargs, "format", Some("html"));
+        match format.as_deref() {
+            Some("html") => self
+                .map_store(|store| {
+                    let mut writer = HtmlWriter::new(store, query)
+                        .with_prune(prune)
+                        .with_legend(legend)
+                        .with_titles(titles)
+                        .with_interactive(interactive)
+                        .with_autocollapse(autocollapse);
+                    if header.is_some() {
+                        writer = writer.with_header(header.as_deref());
+                    };
+                    if footer.is_some() {
+                        writer = writer.with_footer(footer.as_deref());
+                    };
+                    for (i, hquery) in highlights.iter().enumerate() {
+                        match Highlight::parse_query(hquery, store, i) {
+                            Ok(highlight) => writer = writer.with_highlight(highlight),
+                            Err(e) => {
+                                //MAYBE TODO: improve error propagation
+                                eprintln!("{}", e);
+                                return Err(StamError::OtherError(
+                                    "Highlight query failed to parse",
+                                ));
+                            }
+                        }
+                    }
+                    Ok(format!("{}", writer))
+                })
+                .map_err(|err| PyStamError::new_err(format!("{}", err))),
+            Some("ansi") => self
+                .map_store(|store| {
+                    let mut writer = AnsiWriter::new(store, query)
+                        .with_prune(prune)
+                        .with_legend(legend)
+                        .with_titles(titles);
+                    for (i, hquery) in highlights.iter().enumerate() {
+                        match Highlight::parse_query(hquery, store, i) {
+                            Ok(highlight) => writer = writer.with_highlight(highlight),
+                            Err(e) => {
+                                //MAYBE TODO: improve error propagation
+                                eprintln!("{}", e);
+                                return Err(StamError::OtherError(
+                                    "Highlight query failed to parse",
+                                ));
+                            }
+                        }
+                    }
+                    let mut out: Vec<u8> = Vec::new();
+                    writer.write(&mut out)?;
+                    String::from_utf8(out)
+                        .map_err(|_| StamError::OtherError("Failed to turn buffer to string"))
+                })
+                .map_err(|err| PyStamError::new_err(format!("{}", err))),
+            _ => Err(PyValueError::new_err(
+                "Invalid format to view(): set 'html' or 'ansi'",
+            )),
+        }
+    }
 }
 
 pub(crate) trait MapStore {
@@ -508,7 +592,7 @@ impl PyAnnotationStore {
         self.map_store_mut(f)
     }
 
-    fn map_with_query<T, F>(
+    pub(crate) fn map_with_query<T, F>(
         &self,
         resulttype: Type,
         args: &PyTuple,

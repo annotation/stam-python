@@ -328,6 +328,39 @@ class AnnotationStore:
             In strict mode, any annotation that uses this item (where item is `AnnotationData` or `DataKey`) will be removed entirely, otherwise the annotation will be modified to remove the reference only.
        """
 
+    def view(self, selectionquery, *args, **kwargs) -> str:
+        """
+        Execute a selection query and zero or more highlight queries, and visualise the result as HTML or ANSI-colored text.
+        The results are returned as a string.
+
+        Arguments
+        ---------------
+
+        selectionquery: str
+            The main selection query in STAMQL. This selects what will be shown.
+
+        *args: List[str]
+           Each positional argument is a highlight query in STAMQL. It determines what portions of the results will be highlighted and how (attributes are support)
+
+        Keyword arguments
+        -----------------------
+
+        format: Optional[str]
+            The format to use, can be either `html` (default) or `ansi`.
+        legend: Optional[bool]
+            Show legend or not?
+        titles: Optional[bool]
+            Show titles or not (per result)
+        prune: Optional[bool]
+            Prune to only show highlights?
+        interactive: Optional[bool]
+            Output is slightly interactive (html only, insert some minimal javascript)
+        autocollapse: Optional[bool]
+            Collapse all tags on initial view (html only)
+        """
+
+
+
 
 #   def find_data(self,  **kwargs) -> Data:
 #       """

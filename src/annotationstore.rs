@@ -467,9 +467,9 @@ impl PyAnnotationStore {
             highlights.push(hquerystring);
         }
         let prune = get_bool(kwargs, "prune", false);
-        let legend = get_bool(kwargs, "legend", false);
-        let titles = get_bool(kwargs, "titles", false);
-        let interactive = get_bool(kwargs, "interactive", false);
+        let legend = get_bool(kwargs, "legend", true);
+        let titles = get_bool(kwargs, "titles", true);
+        let interactive = get_bool(kwargs, "interactive", true);
         let autocollapse = get_bool(kwargs, "autocollapse", false);
         let header = get_opt_string(kwargs, "header", None);
         let footer = get_opt_string(kwargs, "footer", None);

@@ -2073,7 +2073,7 @@ class TextSelectionOperator:
         """
 
     @staticmethod
-    def precedes(all: Optional[bool] = False, negate: Optional[bool] = False) -> TextSelectionOperator:
+    def precedes(all: Optional[bool] = False, negate: Optional[bool] = False, allow_whitespace: Optional[bool] = True) -> TextSelectionOperator:
         """
         Create an operator to test if one textselection(sets) is to the immediate left (precedes) of another
         Each TextSelection in A is ends where at least one TextSelection in B begins.
@@ -2090,7 +2090,7 @@ class TextSelectionOperator:
         """
 
     @staticmethod
-    def succeeds(all: Optional[bool] = False, negate: Optional[bool] = False) -> TextSelectionOperator:
+    def succeeds(all: Optional[bool] = False, negate: Optional[bool] = False, allow_whitespace: Optional[bool] = True) -> TextSelectionOperator:
         """
         Create an operator to test if one textselection(sets) is to the immediate right (succeeds) of another
         Each TextSelection in A is begis where at least one TextSelection in A ends.

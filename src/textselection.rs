@@ -453,9 +453,11 @@ impl PyTextSelection {
 
     fn test(&self, operator: PyTextSelectionOperator, other: &PyTextSelection) -> PyResult<bool> {
         self.map(|textselection| {
-            Ok(textselection
-                .inner()
-                .test(&operator.operator, &other.textselection))
+            Ok(textselection.inner().test(
+                &operator.operator,
+                &other.textselection,
+                textselection.resource().as_ref(),
+            ))
         })
     }
 
@@ -1040,21 +1042,31 @@ impl PyTextSelectionOperator {
     }
 
     #[staticmethod]
-    fn precedes(all: Option<bool>, negate: Option<bool>) -> PyResult<Self> {
+    fn precedes(
+        all: Option<bool>,
+        negate: Option<bool>,
+        allow_whitespace: Option<bool>,
+    ) -> PyResult<Self> {
         Ok(Self {
             operator: TextSelectionOperator::Precedes {
                 all: all.unwrap_or(false),
                 negate: negate.unwrap_or(false),
+                allow_whitespace: allow_whitespace.unwrap_or(true),
             },
         })
     }
 
     #[staticmethod]
-    fn succeeds(all: Option<bool>, negate: Option<bool>) -> PyResult<Self> {
+    fn succeeds(
+        all: Option<bool>,
+        negate: Option<bool>,
+        allow_whitespace: Option<bool>,
+    ) -> PyResult<Self> {
         Ok(Self {
             operator: TextSelectionOperator::Succeeds {
                 all: all.unwrap_or(false),
                 negate: negate.unwrap_or(false),
+                allow_whitespace: allow_whitespace.unwrap_or(true),
             },
         })
     }

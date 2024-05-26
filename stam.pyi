@@ -2085,6 +2085,8 @@ class TextSelectionOperator:
             If this is set, then for each `TextSelection` in A, the relationship must hold with **ALL** of the text selections in B. The normal behaviour, when this is set to false, is a match with any item suffices (and may be returned).
         negate: Optional[bool] 
             Inverses the operator (turns it into a negation).
+        allow_whitespace: Optional[bool] 
+            Allow whitespace between the two text selections, this defaults to `True` 
         """
 
     @staticmethod
@@ -2100,6 +2102,8 @@ class TextSelectionOperator:
             If this is set, then for each `TextSelection` in A, the relationship must hold with **ALL** of the text selections in B. The normal behaviour, when this is set to false, is a match with any item suffices (and may be returned).
         negate: Optional[bool] 
             Inverses the operator (turns it into a negation).
+        allow_whitespace: Optional[bool] 
+            Allow whitespace between the two text selections, this defaults to `True` 
         """
 
     @staticmethod

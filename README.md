@@ -48,7 +48,7 @@ installed (Rust), you can try the latest development release from Github:
 
 * [STAM Specification](https://github.com/annotation/stam) - the STAM specification itself
 * [API Reference](https://stam-python.readthedocs.io)
-* [STAM Tutorial: Standoff Text Annotation for Pythonistas](tutorial.ipynb) - An extensive tutorial showing how to work with this Python library, in the form of a Jupyter Notebook. **Recommended!**
+* [STAM Tutorial: Standoff Text Annotation for Pythonistas](https://nbviewer.org/github/annotation/stam-python/blob/master/tutorial.ipynb) - An extensive tutorial showing how to work with this Python library, in the form of a Jupyter Notebook. **Recommended!**
 
 ## Usage 
 
@@ -147,7 +147,7 @@ store.set_filename("example.stam.json")
 store.save()
 ```
 
-For more documentation, please read: [STAM Tutorial: Standoff Text Annotation for Pythonistas](tutorial.ipynb).
+For more documentation, please read: [STAM Tutorial: Standoff Text Annotation for Pythonistas](https://nbviewer.org/github/annotation/stam-python/blob/master/tutorial.ipynb).
 
 ## Differences between the rust library and python library and performance considerations
 

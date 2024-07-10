@@ -48,7 +48,21 @@ impl PyTextResource {
         self.map(|res| Ok(res.id().map(|x| x.to_owned())))
     }
 
-    /// Tests the ID of the dataset
+    fn filename(&self) -> PyResult<Option<String>> {
+        self.map(|res| Ok(res.as_ref().filename().map(|s| s.to_string())))
+    }
+
+    fn set_filename(&self, filename: &str) -> PyResult<()> {
+        self.map_mut(|res| {
+            let _ = res.set_filename(filename);
+            Ok(())
+        })
+    }
+
+    fn has_filename(&self, filename: &str) -> PyResult<bool> {
+        self.map(|res| Ok(res.as_ref().filename() == Some(filename)))
+    }
+
     fn has_id(&self, other: &str) -> PyResult<bool> {
         self.map(|res| Ok(res.id() == Some(other)))
     }
@@ -529,6 +543,23 @@ impl PyTextResource {
         } else {
             Err(PyRuntimeError::new_err(
                 "Unable to obtain store (should never happen)",
+            ))
+        }
+    }
+
+    /// Map function to act on the actual underlying store mutably, helps reduce boilerplate
+    pub(crate) fn map_mut<T, F>(&self, f: F) -> Result<T, PyErr>
+    where
+        F: FnOnce(&mut TextResource) -> Result<T, StamError>,
+    {
+        if let Ok(mut store) = self.store.write() {
+            let res: &mut TextResource = store
+                .get_mut(self.handle)
+                .map_err(|err| PyStamError::new_err(format!("{}", err)))?;
+            f(res).map_err(|err| PyStamError::new_err(format!("{}", err)))
+        } else {
+            Err(PyRuntimeError::new_err(
+                "Can't get exclusive lock to write to store",
             ))
         }
     }

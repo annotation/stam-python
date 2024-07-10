@@ -122,10 +122,16 @@ class AnnotationStore:
         """Shortcut retrieval method that returns an :class:`AnnotationData` by ID"""
 
     def add_resource(self, filename: Optional[str] = None, text: Optional[str] = None, id: Optional[str] = None) -> TextResource:
-        """Create a new :class:`TextResource` and add it to the store. Returns the added instance."""
+        """Create a new :class:`TextResource` and add it to the store. Returns the added instance.
 
-    def add_dataset(self, id: str) -> AnnotationDataSet:
-        """Create a new :class:`AnnotationDataSet` and add it to the store. Returns the added instance."""
+        If you want to store the resource as a stand-off text file, you can specify a filename. Make sure to set `use_include = True` in the Annotation Store's configuration then.
+        """
+
+    def add_dataset(self, id: str, filename: Optional[str] = None) -> AnnotationDataSet:
+        """Create a new :class:`AnnotationDataSet` and add it to the store. Returns the added instance.
+
+        If you want to store the dataset as a stand-off JSON file, you can specify a filename. Make sure to set `use_include = True` in the Annotation Store's configuration then.
+        """
 
     def set_filename(self, filename: str) -> None:
         """Set the filename for the annotationstore, the format is derived from the extension, can be `.json` or `csv`"""
@@ -1585,6 +1591,15 @@ class TextResource:
     [Unicode Normalization Form C (NFC) (https://www.unicode.org/reports/tr15/) but
     *MAY* be in another unicode normalization forms.
     """
+
+    def set_filename(self, filename: str):
+        """Set the filename for stand-off file specified using @include (if any)"""
+
+    def filename(self, filename: str) -> Optional[str]:
+        """Returns the filename for the stand-off file specified using @include (if any). This allocates a copy, use has_filename() for checking."""
+
+    def has_filename(self, filename: str) -> Optional[str]:
+        """Tests the filename for the stand-off file specified using @include (if any)."""
 
     def id(self) -> Optional[str]:
         """Returns the public ID (by value, aka a copy)

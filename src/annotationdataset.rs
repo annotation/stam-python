@@ -52,6 +52,21 @@ impl PyAnnotationDataSet {
         self.map(|annotationset| Ok(annotationset.id() == Some(other)))
     }
 
+    fn filename(&self) -> PyResult<Option<String>> {
+        self.map(|dataset| Ok(dataset.as_ref().filename().map(|s| s.to_string())))
+    }
+
+    fn set_filename(&self, filename: &str) -> PyResult<()> {
+        self.map_mut(|dataset| {
+            let _ = dataset.set_filename(filename);
+            Ok(())
+        })
+    }
+
+    fn has_filename(&self, filename: &str) -> PyResult<bool> {
+        self.map(|dataset| Ok(dataset.as_ref().filename() == Some(filename)))
+    }
+
     fn __richcmp__(&self, other: PyRef<Self>, op: CompareOp) -> bool {
         match op {
             CompareOp::Eq => self.handle == other.handle,

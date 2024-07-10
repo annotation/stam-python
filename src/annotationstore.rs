@@ -219,10 +219,13 @@ impl PyAnnotationStore {
     }
 
     /// Create a new AnnotationDataSet and adds it to the store
-    fn add_dataset(&mut self, id: String) -> PyResult<PyAnnotationDataSet> {
+    fn add_dataset(&mut self, id: String, filename: Option<&str>) -> PyResult<PyAnnotationDataSet> {
         let store_clone = self.store.clone();
         self.map_mut(|store| {
-            let dataset = AnnotationDataSet::new(store.config().clone()).with_id(id);
+            let mut dataset = AnnotationDataSet::new(store.config().clone()).with_id(id);
+            if let Some(filename) = filename {
+                dataset.set_filename(filename);
+            }
             let handle = store.insert(dataset)?;
             Ok(PyAnnotationDataSet {
                 handle,

@@ -266,7 +266,38 @@ class Test1(unittest.TestCase):
         self.assertIsInstance(results[0]["a"], Annotation)
         self.assertEqual(str(results[0]["a"]), "world")
 
+    def test_save(self):
+        self.store.set_filename("/tmp/test.store.stam.json")
+        self.store.save()
 
+class Test1b(unittest.TestCase):
+    def setUp(self):
+        """Create some data from scratch (stand-off files)"""
+        self.store = AnnotationStore(id="test", config={'use_include': True})
+        with open('/tmp/test.txt', 'w',encoding='utf-8') as f:
+            print("Hello world", file=f)
+        resource = self.store.add_resource(id="testres", filename="/tmp/test.txt")
+        dataset = self.store.add_dataset(id="testdataset", filename='/tmp/testdataset.dataset.stam.json')
+        dataset.add_key("pos")
+        data = dataset.add_data("pos","noun","D1")
+        self.store.annotate(id="A1", 
+                            target=Selector.textselector(resource, Offset.simple(6,11)),
+                            data=data)
+
+    def test01_save(self):
+        self.store.set_filename("/tmp/test-standoff.store.stam.json")
+        self.store.save()
+
+
+class Test1c(unittest.TestCase):
+    def test_load(self):
+        store = AnnotationStore(file="/tmp/test.store.stam.json")
+
+    def test_load_standoff(self):
+        store = AnnotationStore(file="/tmp/test-standoff.store.stam.json")
+        #reserialise to test
+        store.set_filename("/tmp/test-standoff2.store.stam.json")
+        store.save()
 
 class Test2(unittest.TestCase):
     def setUp(self):

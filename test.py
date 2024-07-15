@@ -299,6 +299,25 @@ class Test1c(unittest.TestCase):
         store.set_filename("/tmp/test-standoff2.store.stam.json")
         store.save()
 
+class Test1d(unittest.TestCase):
+    def test(self):
+        """Create a second annotation store"""
+        store = AnnotationStore(id="test2", config={'use_include': True})
+        resource = store.add_resource(id="testres", filename="/tmp/test.txt")
+        dataset = store.add_dataset(id="testdataset", filename='/tmp/testdataset.dataset.stam.json')
+        dataset.add_key("pos")
+        data = dataset.add_data("lemma","world","D2")
+        store.annotate(id="A2", 
+                            target=Selector.textselector(resource, Offset.simple(6,11)),
+                            data=data)
+        store.set_filename("/tmp/test-standoff.store2.stam.json")
+        store.save()
+
+        #now merge the first one
+        store.from_file("/tmp/test-standoff.store.stam.json")
+        store.set_filename("/tmp/test-standoff.store-merged.stam.json")
+        store.save()
+
 class Test2(unittest.TestCase):
     def setUp(self):
         """Create some data from scratch"""
@@ -668,6 +687,7 @@ class Test8Remove(unittest.TestCase):
             self.store.key("testdataset", "pos")
         with self.assertRaises(Exception):
             self.store.annotation("A1")
+
 
 
 if __name__ == "__main__":

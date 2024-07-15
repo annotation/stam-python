@@ -2,7 +2,6 @@ use pyo3::exceptions::{PyRuntimeError, PyTypeError, PyValueError};
 use pyo3::prelude::*;
 use pyo3::types::*;
 use std::ops::FnOnce;
-use std::path::Path;
 use std::sync::{Arc, RwLock};
 
 use crate::annotation::{PyAnnotation, PyAnnotations};
@@ -233,10 +232,10 @@ impl PyAnnotationStore {
         let store_clone = self.store.clone();
         self.map_mut(|store| {
             let mut dataset = if let Some(filename) = filename {
-                if Path::new(filename).exists() {
-                    AnnotationDataSet::from_file(filename, store.config().clone())?
-                } else {
-                    AnnotationDataSet::new(store.config().clone())
+                match AnnotationDataSet::from_file(filename, store.config().clone()) {
+                    Ok(dataset) => dataset,
+                    Err(StamError::IOError(..)) => AnnotationDataSet::new(store.config().clone()), //no such file, create anew
+                    Err(e) => return Err(e), //other error, propagate
                 }
             } else {
                 AnnotationDataSet::new(store.config().clone())

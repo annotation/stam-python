@@ -14,6 +14,7 @@ use crate::resources::PyTextResource;
 use crate::selector::PySelector;
 use crate::textselection::PyTextSelection;
 use stam::*;
+use stamtools::split::{split, SplitMode};
 use stamtools::view::{AnsiWriter, Highlight, HtmlWriter};
 
 #[pyclass(dict, module = "stam", name = "AnnotationStore")]
@@ -555,6 +556,23 @@ impl PyAnnotationStore {
                 "Invalid format to view(): set 'html' or 'ansi'",
             )),
         }
+    }
+
+    #[pyo3(signature = (querystrings, retain))]
+    fn split<'py>(&mut self, querystrings: Vec<&str>, retain: bool) -> PyResult<()> {
+        let mode = if retain {
+            SplitMode::Retain
+        } else {
+            SplitMode::Delete
+        };
+        let mut queries: Vec<Query> = Vec::new();
+        for querystring in querystrings {
+            let query: Query = querystring
+                .try_into()
+                .map_err(|err| PyStamError::new_err(format!("{}", err)))?;
+            queries.push(query);
+        }
+        self.map_store_mut(|store| Ok(split(store, queries, mode, false)))
     }
 }
 

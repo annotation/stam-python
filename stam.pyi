@@ -365,6 +365,12 @@ class AnnotationStore:
             Collapse all tags on initial view (html only)
         """
 
+    def split(self, queries: List[str], retain: bool):
+        """
+        Splits an annotation store by either retaining (if `retain == True`) or removing (if `retain == False`) the items selected by the queries.
+        Queries must be STAMQL queries that select annotations, resources or datasets.
+        This deletes items from the store along with all their dependencies and comes with a reasonable performance overhead.
+        """
 
 
 

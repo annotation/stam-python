@@ -2,6 +2,7 @@ use pyo3::exceptions::{PyRuntimeError, PyTypeError, PyValueError};
 use pyo3::prelude::*;
 use pyo3::types::*;
 use std::ops::FnOnce;
+use std::path::Path;
 use std::sync::{Arc, RwLock};
 
 use crate::annotation::{PyAnnotation, PyAnnotations};
@@ -173,7 +174,7 @@ impl PyAnnotationStore {
         })
     }
 
-    /// Create a new TextResource and adds it to the store
+    /// Create a new TextResource or load an existing one and adds it to the store
     fn add_resource(
         &mut self,
         filename: Option<&str>,
@@ -218,11 +219,31 @@ impl PyAnnotationStore {
         })
     }
 
-    /// Create a new AnnotationDataSet and adds it to the store
-    fn add_dataset(&mut self, id: String, filename: Option<&str>) -> PyResult<PyAnnotationDataSet> {
+    /// Create a new AnnotationDataSet or load an existing one and adds it to the store
+    fn add_dataset(
+        &mut self,
+        id: Option<&str>,
+        filename: Option<&str>,
+    ) -> PyResult<PyAnnotationDataSet> {
+        if id.is_none() && filename.is_none() {
+            return Err(PyRuntimeError::new_err(
+                "Incomplete, set either id or filename",
+            ));
+        }
         let store_clone = self.store.clone();
         self.map_mut(|store| {
-            let mut dataset = AnnotationDataSet::new(store.config().clone()).with_id(id);
+            let mut dataset = if let Some(filename) = filename {
+                if Path::new(filename).exists() {
+                    AnnotationDataSet::from_file(filename, store.config().clone())?
+                } else {
+                    AnnotationDataSet::new(store.config().clone())
+                }
+            } else {
+                AnnotationDataSet::new(store.config().clone())
+            };
+            if let Some(id) = id {
+                dataset = dataset.with_id(id);
+            }
             if let Some(filename) = filename {
                 dataset.set_filename(filename);
             }

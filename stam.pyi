@@ -127,10 +127,10 @@ class AnnotationStore:
         If you want to store the resource as a stand-off text file, you can specify a filename. Make sure to set `use_include = True` in the Annotation Store's configuration then.
         """
 
-    def add_dataset(self, id: str, filename: Optional[str] = None) -> AnnotationDataSet:
+    def add_dataset(self, id: Optional[str] = None, filename: Optional[str] = None) -> AnnotationDataSet:
         """Create a new :class:`AnnotationDataSet` and add it to the store. Returns the added instance.
 
-        If you want to store the dataset as a stand-off JSON file, you can specify a filename. Make sure to set `use_include = True` in the Annotation Store's configuration then.
+        If you want to store the dataset as a stand-off JSON file, you can specify a filename. The dataset will be loaded from file if it exists. Make sure to set `use_include = True` in the Annotation Store's configuration then.
         """
 
     def set_filename(self, filename: str) -> None:

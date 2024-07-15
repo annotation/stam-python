@@ -276,6 +276,8 @@ class Test1b(unittest.TestCase):
         self.store = AnnotationStore(id="test", config={'use_include': True})
         with open('/tmp/test.txt', 'w',encoding='utf-8') as f:
             print("Hello world", file=f)
+        if os.path.exists('/tmp/testdataset.dataset.stam.json'):
+            os.unlink('/tmp/testdataset.dataset.stam.json')
         resource = self.store.add_resource(id="testres", filename="/tmp/test.txt")
         dataset = self.store.add_dataset(id="testdataset", filename='/tmp/testdataset.dataset.stam.json')
         dataset.add_key("pos")
@@ -305,7 +307,7 @@ class Test1d(unittest.TestCase):
         store = AnnotationStore(id="test2", config={'use_include': True})
         resource = store.add_resource(id="testres", filename="/tmp/test.txt")
         dataset = store.add_dataset(id="testdataset", filename='/tmp/testdataset.dataset.stam.json')
-        dataset.add_key("pos")
+        dataset.add_key("lemma")
         data = dataset.add_data("lemma","world","D2")
         store.annotate(id="A2", 
                             target=Selector.textselector(resource, Offset.simple(6,11)),

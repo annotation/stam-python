@@ -15,7 +15,7 @@ use crate::selector::PySelector;
 use crate::textselection::PyTextSelection;
 use stam::*;
 use stamtools::split::{split, SplitMode};
-use stamtools::view::{AnsiWriter, Highlight, HtmlWriter};
+use stamtools::view::{AnsiWriter, HtmlWriter};
 
 #[pyclass(dict, module = "stam", name = "AnnotationStore")]
 /// An Annotation Store is an unordered collection of annotations, resources and
@@ -482,18 +482,35 @@ impl PyAnnotationStore {
         args: &'py PyTuple,
         kwargs: Option<&'py PyDict>,
     ) -> PyResult<String> {
-        let query: Query = querystring
-            .try_into()
-            .map_err(|err| PyStamError::new_err(format!("{}", err)))?;
-        let mut highlights: Vec<&str> = Vec::new();
-        for a in args.iter() {
-            let hquerystring: &str = a.extract()?;
-            highlights.push(hquerystring);
+        let mut append_querystring = querystring.to_string();
+        if querystring.trim().ends_with("}") {
+            if !args.is_empty() {
+                return Err(PyValueError::new_err("You can't supply positional arguments if the main query already contains subqueries (use either one or the other)"));
+            }
+        } else if !args.is_empty() {
+            for (i, arg) in args.iter().enumerate() {
+                let subquerystring: &str = arg.extract()?;
+                if i == 0 {
+                    append_querystring += " { ";
+                } else {
+                    append_querystring += " | ";
+                }
+                append_querystring += subquerystring;
+            }
+            append_querystring += " }";
         }
-        let prune = get_bool(kwargs, "prune", false);
+
+        let query: Query = append_querystring.as_str().try_into().map_err(|err| {
+            PyStamError::new_err(format!(
+                "{} -- full query was: {}",
+                err,
+                append_querystring.as_str()
+            ))
+        })?;
         let legend = get_bool(kwargs, "legend", true);
         let titles = get_bool(kwargs, "titles", true);
         let interactive = get_bool(kwargs, "interactive", true);
+        let selectionvar = get_opt_string(kwargs, "use", None);
         let autocollapse = get_bool(kwargs, "autocollapse", false);
         let header = get_opt_string(kwargs, "header", None);
         let footer = get_opt_string(kwargs, "footer", None);
@@ -501,8 +518,8 @@ impl PyAnnotationStore {
         match format.as_deref() {
             Some("html") => self
                 .map_store(|store| {
-                    let mut writer = HtmlWriter::new(store, query)
-                        .with_prune(prune)
+                    let mut writer = HtmlWriter::new(store, query, selectionvar.as_deref())
+                        .map_err(|e| StamError::QuerySyntaxError(e, ""))?
                         .with_legend(legend)
                         .with_titles(titles)
                         .with_interactive(interactive)
@@ -513,39 +530,15 @@ impl PyAnnotationStore {
                     if footer.is_some() {
                         writer = writer.with_footer(footer.as_deref());
                     };
-                    for (i, hquery) in highlights.iter().enumerate() {
-                        match Highlight::parse_query(hquery, store, i) {
-                            Ok(highlight) => writer = writer.with_highlight(highlight),
-                            Err(e) => {
-                                //MAYBE TODO: improve error propagation
-                                eprintln!("{}", e);
-                                return Err(StamError::OtherError(
-                                    "Highlight query failed to parse",
-                                ));
-                            }
-                        }
-                    }
                     Ok(format!("{}", writer))
                 })
                 .map_err(|err| PyStamError::new_err(format!("{}", err))),
             Some("ansi") => self
                 .map_store(|store| {
-                    let mut writer = AnsiWriter::new(store, query)
-                        .with_prune(prune)
+                    let writer = AnsiWriter::new(store, query, selectionvar.as_deref())
+                        .map_err(|e| StamError::QuerySyntaxError(e, ""))?
                         .with_legend(legend)
                         .with_titles(titles);
-                    for (i, hquery) in highlights.iter().enumerate() {
-                        match Highlight::parse_query(hquery, store, i) {
-                            Ok(highlight) => writer = writer.with_highlight(highlight),
-                            Err(e) => {
-                                //MAYBE TODO: improve error propagation
-                                eprintln!("{}", e);
-                                return Err(StamError::OtherError(
-                                    "Highlight query failed to parse",
-                                ));
-                            }
-                        }
-                    }
                     let mut out: Vec<u8> = Vec::new();
                     writer.write(&mut out)?;
                     String::from_utf8(out)

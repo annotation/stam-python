@@ -357,8 +357,8 @@ class AnnotationStore:
             Show legend or not?
         titles: Optional[bool]
             Show titles or not (per result)
-        prune: Optional[bool]
-            Prune to only show highlights?
+        use: Optional[str]
+            The variable to use for the main selection (if not set, the first will be used) 
         interactive: Optional[bool]
             Output is slightly interactive (html only, insert some minimal javascript)
         autocollapse: Optional[bool]

@@ -429,13 +429,13 @@ pub(crate) fn query_to_python<'py>(
     py: Python<'py>,
 ) -> Result<&'py PyList, StamError> {
     let results = PyList::empty(py);
-    let names = iter.names();
     for resultitems in iter {
         let dict = PyDict::new(py);
-        for (result, name) in resultitems
-            .iter()
-            .zip(names.enumerate().iter().map(|x| x.1))
-        {
+        for (result, name) in resultitems.iter().zip(resultitems.names()) {
+            if name.is_none() {
+                continue;
+            }
+            let name = name.unwrap();
             match result {
                 QueryResultItem::Annotation(annotation) => {
                     dict.set_item(

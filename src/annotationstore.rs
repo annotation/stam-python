@@ -12,6 +12,7 @@ use crate::error::PyStamError;
 use crate::query::*;
 use crate::resources::PyTextResource;
 use crate::selector::PySelector;
+use crate::substore::PyAnnotationSubStore;
 use crate::textselection::PyTextSelection;
 use stam::*;
 use stamtools::split::{split, SplitMode};
@@ -255,6 +256,30 @@ impl PyAnnotationStore {
         })
     }
 
+    /// Load an existing annotation store as a dependency to this one
+    fn add_substore(&mut self, filename: &str) -> PyResult<PyAnnotationSubStore> {
+        let store_clone = self.store.clone();
+        self.map_mut(|store| {
+            let handle = store.add_substore(filename)?;
+            Ok(PyAnnotationSubStore {
+                handle,
+                store: store_clone,
+            })
+        })
+    }
+
+    /// Create a new annotation store as a dependency of this one
+    fn add_new_substore(&mut self, id: &str, filename: &str) -> PyResult<PyAnnotationSubStore> {
+        let store_clone = self.store.clone();
+        self.map_mut(|store| {
+            let handle = store.add_new_substore(id, filename)?;
+            Ok(PyAnnotationSubStore {
+                handle,
+                store: store_clone,
+            })
+        })
+    }
+
     /// Adds an annotation. Returns an :obj:`Annotation` instance pointing to the added annotation.
     ///
     /// Args:
@@ -336,6 +361,14 @@ impl PyAnnotationStore {
         })
     }
 
+    /// Returns a generator over all substores in this store
+    fn substores(&self) -> PyResult<PySubStoreIter> {
+        Ok(PySubStoreIter {
+            store: self.store.clone(),
+            index: 0,
+        })
+    }
+
     /// Returns the number of annotations in the store (not substracting deletions)
     fn annotations_len(&self) -> PyResult<usize> {
         self.map(|store| Ok(store.annotations_len()))
@@ -349,6 +382,11 @@ impl PyAnnotationStore {
     /// Returns the number of annotation data sets in the store (not substracting deletions)
     fn datasets_len(&self) -> PyResult<usize> {
         self.map(|store| Ok(store.datasets_len()))
+    }
+
+    /// Returns the number of substores in the store (not substracting deletions)
+    fn substores_len(&self) -> PyResult<usize> {
+        self.map(|store| Ok(store.substores_len()))
     }
 
     fn shrink_to_fit(&mut self) -> PyResult<()> {
@@ -793,6 +831,58 @@ impl PyResourceIter {
 }
 
 impl PyResourceIter {
+    fn map<T, F>(&self, f: F) -> Option<T>
+    where
+        F: FnOnce(&AnnotationStore) -> Option<T>,
+    {
+        if let Ok(store) = self.store.read() {
+            f(&store)
+        } else {
+            None //should never happen here
+        }
+    }
+}
+
+#[pyclass(name = "SubStoreIter")]
+struct PySubStoreIter {
+    pub(crate) store: Arc<RwLock<AnnotationStore>>,
+    pub(crate) index: usize,
+}
+
+#[pymethods]
+impl PySubStoreIter {
+    fn __iter__(pyself: PyRef<'_, Self>) -> PyRef<'_, Self> {
+        pyself
+    }
+
+    fn __next__(mut pyself: PyRefMut<'_, Self>) -> Option<PyAnnotationSubStore> {
+        pyself.index += 1; //increment first (prevent exclusive mutability issues)
+        let result = pyself.map(|store| {
+            let handle: AnnotationSubStoreHandle = AnnotationSubStoreHandle::new(pyself.index - 1);
+            if let Ok(substore) = store.get(handle) {
+                //index is one ahead, prevents exclusive lock issues
+                let handle = substore.handle().expect("annotation must have an ID");
+                Some(PyAnnotationSubStore {
+                    handle,
+                    store: pyself.store.clone(),
+                })
+            } else {
+                None
+            }
+        });
+        if result.is_some() {
+            result
+        } else {
+            if pyself.index >= pyself.map(|store| Some(store.annotations_len())).unwrap() {
+                None
+            } else {
+                Self::__next__(pyself)
+            }
+        }
+    }
+}
+
+impl PySubStoreIter {
     fn map<T, F>(&self, f: F) -> Option<T>
     where
         F: FnOnce(&AnnotationStore) -> Option<T>,

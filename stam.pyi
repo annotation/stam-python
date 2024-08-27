@@ -133,6 +133,19 @@ class AnnotationStore:
         If you want to store the dataset as a stand-off JSON file, you can specify a filename. The dataset will be loaded from file if it exists. Make sure to set `use_include = True` in the Annotation Store's configuration then.
         """
 
+    def add_substore(self, filename: str) -> AnnotationSubStore:
+        """
+        Load an existing annotation store as a dependency to this one. It will be store in an stand-off JSON file and included using the @include mechanism.
+        Returns the added substore.
+        """
+
+    def add_new_substore(self, id: str, filename: str) -> AnnotationSubStore:
+        """
+        Add a new empty annotation store as a dependency to this one.
+        It will be stored in an stand-off JSON file and included using the @include mechanism.
+        Returns the added substore.
+        """
+
     def set_filename(self, filename: str) -> None:
         """Set the filename for the annotationstore, the format is derived from the extension, can be `.json` or `csv`"""
     
@@ -214,6 +227,9 @@ class AnnotationStore:
     def resources(self) -> Iterator[TextResource]:
         """Returns an iterator over all text resources (:class:`TextResource`) in this store"""
 
+    def substores(self) -> Iterator[AnnotationSubStore]:
+        """Returns an iterator over all substores (:class:`AnnotationSubStore`) in this store, i.e. stores that are included by this one as dependencies"""
+
     def annotations_len(self) -> int:
         """Returns the number of annotations in the store (not substracting deletions)"""
 
@@ -222,6 +238,9 @@ class AnnotationStore:
 
     def resources_len(self) -> int:
         """Returns the number of text resources in the store (not substracting deletions)"""
+
+    def substores_len(self) -> int:
+        """Returns the number of substores in the store"""
 
     def shrink_to_fit(self):
         """Reallocates internal data structures to tight fits to conserve memory space (if necessary). You can use this after having added lots of annotations to possibly reduce the memory consumption."""
@@ -1604,7 +1623,7 @@ class TextResource:
     def filename(self, filename: str) -> Optional[str]:
         """Returns the filename for the stand-off file specified using @include (if any). This allocates a copy, use has_filename() for checking."""
 
-    def has_filename(self, filename: str) -> Optional[str]:
+    def has_filename(self, filename: str) -> bool:
         """Tests the filename for the stand-off file specified using @include (if any)."""
 
     def id(self) -> Optional[str]:
@@ -2156,6 +2175,22 @@ class TextSelectionOperator:
         negate: Optional[bool] 
             Inverses the operator (turns it into a negation).
         """
+
+class AnnotationSubStore:
+    """
+    A substore is a sub-collection of annotations that is serialised as an independent AnnotationStore,
+    In STAM JSON it is included using the @include mechanism.
+    """
+
+    def id(self) -> Optional[str]:
+        """Returns the public identifier (by value, aka a copy)"""
+
+    def filename(self, filename: str) -> Optional[str]:
+        """Returns the filename for the stand-off annotation store. This allocates a copy, use has_filename() for checking."""
+
+    def has_filename(self, filename: str) -> bool:
+        """Tests the filename for the stand-off file specified using @include (if any)."""
+
 
 class StamError(Exception):
     """STAM Error"""

@@ -10,6 +10,7 @@ mod error;
 mod query;
 mod resources;
 mod selector;
+mod substore;
 mod textselection;
 
 use crate::annotation::{PyAnnotation, PyAnnotations};
@@ -19,6 +20,7 @@ use crate::annotationstore::PyAnnotationStore;
 use crate::error::PyStamError;
 use crate::resources::{PyCursor, PyOffset, PyTextResource};
 use crate::selector::{PySelector, PySelectorKind};
+use crate::substore::PyAnnotationSubStore;
 use crate::textselection::{PyTextSelection, PyTextSelectionOperator, PyTextSelections};
 
 const VERSION: &'static str = env!("CARGO_PKG_VERSION");
@@ -43,5 +45,6 @@ fn stam(py: Python<'_>, m: &PyModule) -> PyResult<()> {
     m.add_class::<PyAnnotations>()?;
     m.add_class::<PyData>()?;
     m.add_class::<PyTextSelections>()?;
+    m.add_class::<PyAnnotationSubStore>()?;
     Ok(())
 }

@@ -2191,6 +2191,9 @@ class AnnotationSubStore:
     def has_filename(self, filename: str) -> bool:
         """Tests the filename for the stand-off file specified using @include (if any)."""
 
+    def associate(self, item: Union[Annotation,TextResource,AnnotationDataSet]):
+        """Associates an annotation, text resource or annotation dataset with this substore"""
+
 
 class StamError(Exception):
     """STAM Error"""

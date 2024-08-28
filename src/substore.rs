@@ -6,8 +6,11 @@ use std::borrow::Cow;
 use std::ops::FnOnce;
 use std::sync::{Arc, RwLock};
 
-use crate::annotation::PyAnnotations;
+use crate::annotation::PyAnnotation;
+use crate::annotationdataset::PyAnnotationDataSet;
+use crate::annotationstore::MapStore;
 use crate::error::PyStamError;
+use crate::resources::PyTextResource;
 use stam::*;
 
 #[pyclass(dict, module = "stam", name = "AnnotationSubStore")]
@@ -78,6 +81,35 @@ impl PyAnnotationSubStore {
 
     fn __hash__(&self) -> usize {
         self.handle.as_usize()
+    }
+
+    fn associate(&mut self, item: &PyAny) -> PyResult<()> {
+        if item.is_instance_of::<PyAnnotation>() {
+            let item: PyRef<PyAnnotation> = item.extract()?;
+            let substore_handle = self.handle;
+            self.map_store_mut(|store| store.associate_substore(item.handle, substore_handle))
+        } else if item.is_instance_of::<PyTextResource>() {
+            let item: PyRef<PyTextResource> = item.extract()?;
+            let substore_handle = self.handle;
+            self.map_store_mut(|store| store.associate_substore(item.handle, substore_handle))
+        } else if item.is_instance_of::<PyAnnotationDataSet>() {
+            let item: PyRef<PyAnnotationDataSet> = item.extract()?;
+            let substore_handle = self.handle;
+            self.map_store_mut(|store| store.associate_substore(item.handle, substore_handle))
+        } else {
+            Err(PyValueError::new_err(
+                "Invalid type for item, expected Annotation, TextResource or AnnotationDataSet",
+            ))
+        }
+    }
+}
+
+impl MapStore for PyAnnotationSubStore {
+    fn get_store(&self) -> &Arc<RwLock<AnnotationStore>> {
+        &self.store
+    }
+    fn get_store_mut(&mut self) -> &mut Arc<RwLock<AnnotationStore>> {
+        &mut self.store
     }
 }
 

@@ -1,7 +1,6 @@
 use pyo3::exceptions::{PyRuntimeError, PyValueError};
 use pyo3::prelude::*;
 use pyo3::pyclass::CompareOp;
-use pyo3::types::*;
 use std::borrow::Cow;
 use std::ops::FnOnce;
 use std::sync::{Arc, RwLock};
@@ -24,6 +23,7 @@ pub(crate) struct PyAnnotationSubStore {
     pub(crate) store: Arc<RwLock<AnnotationStore>>,
 }
 
+/*
 impl PyAnnotationSubStore {
     pub(crate) fn new(
         handle: AnnotationSubStoreHandle,
@@ -40,6 +40,7 @@ impl PyAnnotationSubStore {
         Self::new(handle, store).into_py(py).into_ref(py)
     }
 }
+*/
 
 #[pymethods]
 impl PyAnnotationSubStore {

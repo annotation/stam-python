@@ -9,6 +9,7 @@ use crate::annotationdata::{datavalue_from_py, PyAnnotationData, PyData, PyDataK
 use crate::error::PyStamError;
 use crate::query::*;
 use crate::selector::{PySelector, PySelectorKind};
+use crate::substore::PyAnnotationSubStore;
 use stam::*;
 
 #[pyclass(dict, module = "stam", name = "AnnotationDataSet")]
@@ -234,6 +235,18 @@ impl PyAnnotationDataSet {
                 offset: None,
                 subselectors: Vec::new(),
             })
+        })
+    }
+
+    fn substores(&self) -> PyResult<Vec<PyAnnotationSubStore>> {
+        self.map(|dataset| {
+            Ok(dataset
+                .substores()
+                .map(|s| PyAnnotationSubStore {
+                    handle: s.handle(),
+                    store: self.store.clone(),
+                })
+                .collect())
         })
     }
 }

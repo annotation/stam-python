@@ -23,7 +23,6 @@ pub(crate) struct PyAnnotationSubStore {
     pub(crate) store: Arc<RwLock<AnnotationStore>>,
 }
 
-/*
 impl PyAnnotationSubStore {
     pub(crate) fn new(
         handle: AnnotationSubStoreHandle,
@@ -40,7 +39,6 @@ impl PyAnnotationSubStore {
         Self::new(handle, store).into_py(py).into_ref(py)
     }
 }
-*/
 
 #[pymethods]
 impl PyAnnotationSubStore {

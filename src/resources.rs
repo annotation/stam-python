@@ -9,6 +9,7 @@ use crate::annotation::PyAnnotations;
 use crate::error::PyStamError;
 use crate::query::*;
 use crate::selector::{PySelector, PySelectorKind};
+use crate::substore::PyAnnotationSubStore;
 use crate::textselection::{PyTextSelection, PyTextSelectionIter, PyTextSelections};
 use stam::*;
 
@@ -505,6 +506,18 @@ impl PyTextResource {
                 |resource, query| Ok(resource.store().query(query)?.test()),
             )
         }
+    }
+
+    fn substores(&self) -> PyResult<Vec<PyAnnotationSubStore>> {
+        self.map(|resource| {
+            Ok(resource
+                .substores()
+                .map(|s| PyAnnotationSubStore {
+                    handle: s.handle(),
+                    store: self.store.clone(),
+                })
+                .collect())
+        })
     }
 
     /*

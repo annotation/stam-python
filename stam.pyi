@@ -210,6 +210,8 @@ class AnnotationStore:
         **kwargs: dict, optional
             * limit: (Optional[int] = None)
                 The maximum number of results to return (default: unlimited)
+            * substore: (Optional[bool] = None)
+                Set this to False if you want to include only results from the root store and not from any substores (default: True)
             * set: (Optional[Union[str,AnnotationDataSet]] = None)
                 An ID of a dataset (or an :class:`AnnotationDataSet` instance), only needed when specifying `key` as a string
             * key: (Optional[Union[str,DataKey]] = None)
@@ -971,6 +973,10 @@ class Annotations:
             Output debug information to stderr
        """
 
+    def substore(self) -> Optional[AnnotationSubStore]:
+        """
+        Returns the substore this annotation is a part of, or `None` if the annotation is part of the root store.
+        """
 
 class AnnotationDataSet:
     """
@@ -1032,6 +1038,11 @@ class AnnotationDataSet:
 
     def select(self) -> Selector:
         """Returns a selector pointing to this annotation dataset (via a *DataSetSelector*)"""
+
+    def substores(self) -> List[AnnotationSubStore]:
+        """
+        Returns the substores this dataset is a part of (if any).
+        """
 
 
 class DataKey:
@@ -1777,7 +1788,10 @@ class TextResource:
         Returns a sequence of minimum-length non-overlapping TextSelections, covering the selected range in the resource, in textual order
         """
 
-
+    def substores(self) -> List[AnnotationSubStore]:
+        """
+        Returns the substores this resource is a part of (if any).
+        """
 
 #   def related_text(self, operator: TextSelectionOperator, referenceselections: List[TextSelection], **kwargs) -> TextSelections:
 #       """

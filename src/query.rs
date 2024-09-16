@@ -8,6 +8,7 @@ use crate::annotationdata::{dataoperator_from_kwargs, PyAnnotationData, PyData, 
 use crate::annotationdataset::PyAnnotationDataSet;
 use crate::error::PyStamError;
 use crate::resources::PyTextResource;
+use crate::substore::PyAnnotationSubStore;
 use crate::textselection::PyTextSelection;
 use stam::*;
 
@@ -41,7 +42,29 @@ where
         let operator = dataoperator_from_kwargs(filter)
             .map_err(|err| PyValueError::new_err(format!("{}", err)))?
             .or(operator);
-        if filter.contains("key")? {
+        if filter.contains("substore")? {
+            let substore = filter
+                .get_item("substore")?
+                .expect("substore field was checked to exist in filter");
+            if substore.is_instance_of::<PyAnnotationSubStore>() {
+                let substore: PyRef<'py, PyAnnotationSubStore> = filter.extract()?;
+                if let Some(substore) = store.substore(substore.handle) {
+                    let varname = new_contextvar(&mut used_contextvarnames);
+                    query.bind_substorevar(varname, &substore);
+                    query.constrain(Constraint::SubStoreVariable(varname));
+                } else {
+                    return Err(PyValueError::new_err(
+                        "Passed AnnotationSubStore instance is invalid (should never happen)",
+                    ));
+                }
+            } else if substore.is_instance_of::<PyBool>() {
+                //root store only
+                let substore: bool = filter.extract()?;
+                if !substore {
+                    query.constrain(Constraint::SubStore(None));
+                }
+            }
+        } else if filter.contains("key")? {
             let key = filter
                 .get_item("key")?
                 .expect("key field was checked to exist in filter");
@@ -185,7 +208,7 @@ where
             ));
         } else {
             return Err(PyValueError::new_err(
-                "Passed DataKey instance is invalid (should never happen)",
+                "Passed Annotation instance is invalid (should never happen)",
             ));
         }
     } else if filter.is_instance_of::<PyAnnotations>() {
@@ -201,6 +224,17 @@ where
             Handles::from_iter(data.data.iter().copied(), store),
             SelectionQualifier::Normal,
         ));
+    } else if filter.is_instance_of::<PyAnnotationSubStore>() {
+        let substore: PyRef<'py, PyAnnotationSubStore> = filter.extract()?;
+        if let Some(substore) = store.substore(substore.handle) {
+            let varname = new_contextvar(&mut used_contextvarnames);
+            query.bind_substorevar(varname, &substore);
+            query.constrain(Constraint::SubStoreVariable(varname));
+        } else {
+            return Err(PyValueError::new_err(
+                "Passed AnnotationSubStore instance is invalid (should never happen)",
+            ));
+        }
     } else {
         return Err(PyValueError::new_err(
             "Got filter argument of unexpected type",
@@ -386,6 +420,17 @@ pub(crate) fn get_limit(kwargs: Option<&PyDict>) -> Option<usize> {
     None
 }
 
+pub(crate) fn get_substore(kwargs: Option<&PyDict>) -> Option<bool> {
+    if let Some(kwargs) = kwargs {
+        if let Ok(Some(limit)) = kwargs.get_item("substore") {
+            if let Ok(limit) = limit.extract::<bool>() {
+                return Some(limit);
+            }
+        }
+    }
+    None
+}
+
 pub(crate) struct LimitIter<I: Iterator> {
     inner: I,
     limit: Option<usize>,
@@ -495,6 +540,15 @@ pub(crate) fn query_to_python<'py>(
                         )
                         .into_py(py)
                         .into_ref(py),
+                    )
+                    .unwrap();
+                }
+                QueryResultItem::AnnotationSubStore(substore) => {
+                    dict.set_item(
+                        name,
+                        PyAnnotationSubStore::new(substore.handle(), store.clone())
+                            .into_py(py)
+                            .into_ref(py),
                     )
                     .unwrap();
                 }

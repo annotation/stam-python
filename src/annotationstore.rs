@@ -330,13 +330,23 @@ impl PyAnnotationStore {
     #[pyo3(signature = (*args, **kwargs))]
     fn annotations(&self, args: &PyTuple, kwargs: Option<&PyDict>) -> PyResult<PyAnnotations> {
         let limit = get_limit(kwargs);
+        let substore = get_substore(kwargs);
         if !has_filters(args, kwargs) {
-            self.map(|store| {
-                Ok(PyAnnotations::from_iter(
-                    store.annotations().limit(limit),
-                    &self.store,
-                ))
-            })
+            if substore == Some(false) {
+                self.map(|store| {
+                    Ok(PyAnnotations::from_iter(
+                        store.annotations_no_substores().limit(limit),
+                        &self.store,
+                    ))
+                })
+            } else {
+                self.map(|store| {
+                    Ok(PyAnnotations::from_iter(
+                        store.annotations().limit(limit),
+                        &self.store,
+                    ))
+                })
+            }
         } else {
             self.map_with_query(Type::Annotation, args, kwargs, |query, store| {
                 PyAnnotations::from_query(query, store, &self.store, limit)

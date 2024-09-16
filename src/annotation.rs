@@ -14,6 +14,7 @@ use crate::error::PyStamError;
 use crate::query::*;
 use crate::resources::{PyOffset, PyTextResource};
 use crate::selector::{PySelector, PySelectorKind};
+use crate::substore::PyAnnotationSubStore;
 use crate::textselection::{PyTextSelection, PyTextSelectionOperator, PyTextSelections};
 use stam::*;
 
@@ -534,6 +535,16 @@ impl PyAnnotation {
             annotations,
             store: self.store.clone(),
             cursor: 0,
+        })
+    }
+
+    fn substore(&self) -> PyResult<Option<PyAnnotationSubStore>> {
+        self.map(|annotation| {
+            let substore = annotation.substore();
+            Ok(substore.map(|s| PyAnnotationSubStore {
+                handle: s.handle(),
+                store: self.store.clone(),
+            }))
         })
     }
 }

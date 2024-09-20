@@ -184,12 +184,7 @@ impl PyAnnotationStore {
     ) -> PyResult<PyTextResource> {
         if id.is_none() && filename.is_none() {
             return Err(PyRuntimeError::new_err(
-                "Incomplete, set either id or filename",
-            ));
-        }
-        if filename.is_some() && text.is_some() {
-            return Err(PyRuntimeError::new_err(
-                "Set either filename or text keyword arguments, but not both",
+                "Incomplete, set either id and/or filename",
             ));
         }
         let store_clone = self.store.clone(); //just a smart pointer clone, not the whole store
@@ -199,10 +194,11 @@ impl PyAnnotationStore {
                     id.unwrap_or_else(|| filename.expect("filename"))
                         .to_string(),
                 )
-                .with_config(store.config().clone());
+                .with_config(store.new_config());
             if let Some(text) = text {
                 resource = resource.with_text(text);
-            } else if let Some(filename) = filename {
+            }
+            if let Some(filename) = filename {
                 resource = resource.with_filename(filename);
             }
             let handle = store.insert(resource.build()?)?;
@@ -234,13 +230,13 @@ impl PyAnnotationStore {
         let store_clone = self.store.clone();
         self.map_mut(|store| {
             let mut dataset = if let Some(filename) = filename {
-                match AnnotationDataSet::from_file(filename, store.config().clone()) {
+                match AnnotationDataSet::from_file(filename, store.new_config()) {
                     Ok(dataset) => dataset,
-                    Err(StamError::IOError(..)) => AnnotationDataSet::new(store.config().clone()), //no such file, create anew
+                    Err(StamError::IOError(..)) => AnnotationDataSet::new(store.new_config()), //no such file, create anew
                     Err(e) => return Err(e), //other error, propagate
                 }
             } else {
-                AnnotationDataSet::new(store.config().clone())
+                AnnotationDataSet::new(store.new_config())
             };
             if let Some(id) = id {
                 dataset = dataset.with_id(id);

@@ -17,6 +17,11 @@ pub fn get_config(kwargs: &PyDict) -> Config {
                         config = config.with_debug(value);
                     }
                 }
+                "workdir" => {
+                    if let Ok(Some(value)) = value.extract() {
+                        config = config.with_workdir(value);
+                    }
+                }
                 "textrelationmap" => {
                     if let Ok(Some(value)) = value.extract() {
                         config = config.with_textrelationmap(value);

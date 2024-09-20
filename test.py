@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 
 import sys
-from os import environ
+from os import environ, chdir
 import os.path
 import unittest
+import tempfile
 
 from stam import AnnotationStore, Offset, AnnotationData, Selector, TextResource, DataKey, DataValue, AnnotationDataSet, Annotation, StamError, TextSelection, Cursor, TextSelectionOperator, Data,Annotations,TextSelections
 
@@ -689,6 +690,130 @@ class Test8Remove(unittest.TestCase):
             self.store.key("testdataset", "pos")
         with self.assertRaises(Exception):
             self.store.annotation("A1")
+
+class Test9aSubStoreRelative(unittest.TestCase):
+    def setUp(self):
+        """Create some data from scratch"""
+        self.tempdir = tempfile.TemporaryDirectory(delete=False)
+        os.mkdir(f"{self.tempdir.name}/stores")
+        os.mkdir(f"{self.tempdir.name}/texts")
+        os.mkdir(f"{self.tempdir.name}/sets")
+        #print(f"Created temporary directory: {self.tempdir.name}")
+
+
+        #base (level0) store, only contains a resource, nothing else
+        store = AnnotationStore(id="level0", config={"use_include": True, "workdir": self.tempdir.name})
+        store.set_filename(f"stores/level0.store.stam.json")
+        store.add_resource(id="testres", text="Hello world", filename="../texts/hello.txt")
+        store.save()
+
+        #store with metadata (level1), includes level0
+        store = AnnotationStore(id="level1meta", config={"use_include": True, "workdir": self.tempdir.name})
+        store.set_filename("stores/level1meta.store.stam.json")
+        store.add_substore("level0.store.stam.json")
+        dataset = store.add_dataset(id="testset", filename="../sets/meta.set.stam.json")
+        data = dataset.add_data("author", "proycon")
+        testres = store.resource("testres")
+        store.annotate(Selector.resourceselector(testres), data)
+        store.save()
+
+        #store with annotations on text (level1), includes level0
+        store = AnnotationStore(id="level1ann", config={"use_include": True, "workdir": self.tempdir.name})
+        store.set_filename("stores/level1ann.store.stam.json")
+        store.add_substore("level0.store.stam.json")
+        dataset = store.add_dataset(id="annset", filename="../sets/ann.set.stam.json")
+        testres = store.resource("testres")
+        store.annotate(Selector.textselector(testres, Offset.simple(0,5)), {
+            "set": "annset",
+            "key": "word",
+            "value": "hello",
+        },id="A2")
+        store.save()
+
+        #store with annotations on text (level2), includes both level1 stores, which in turn (both) include level0
+        store = AnnotationStore(id="level2", config={"use_include": True, "workdir": self.tempdir.name})
+        store.set_filename("stores/level2.store.stam.json")
+        store.add_substore("level1ann.store.stam.json")
+        store.add_substore("level1meta.store.stam.json")
+        dataset = store.add_dataset(id="level2set", filename="../sets/level2.set.stam.json")
+        testres = store.resource("testres")
+        store.annotate(Selector.annotationselector(store.annotation("A2")), {
+            "set": "level2set",
+            "key": "type",
+            "value": "greeting",
+        },id="A3")
+        store.save()
+
+    def tearDown(self) -> None:
+        self.tempdir.cleanup()
+        #pass
+
+    def test_level0(self):
+        store = AnnotationStore(file="stores/level0.store.stam.json", config={"use_include": True, "workdir": self.tempdir.name})
+        self.assertEqual( store.resources_len(), 1)
+        self.assertEqual( len(store.annotations()), 0)
+        self.assertEqual( store.datasets_len(), 0)
+
+    def test_level1a(self):
+        store = AnnotationStore(file="stores/level1meta.store.stam.json", config={"use_include": True, "workdir": self.tempdir.name})
+        self.assertEqual( store.resources_len(), 1)
+        self.assertEqual( len(store.annotations()), 1)
+        self.assertEqual( store.datasets_len(), 1)
+
+    def test_level1b(self):
+        store = AnnotationStore(file="stores/level1ann.store.stam.json", config={"use_include": True, "workdir": self.tempdir.name})
+        self.assertEqual( store.resources_len(), 1)
+        self.assertEqual( len(store.annotations()), 1)
+        self.assertEqual( store.datasets_len(), 1)
+
+    def test_level2(self):
+        store = AnnotationStore(file="stores/level2.store.stam.json", config={"use_include": True, "workdir": self.tempdir.name})
+        self.assertEqual( store.resources_len(), 1)
+        self.assertEqual( len(store.annotations()), 3)
+        self.assertEqual( store.datasets_len(), 3)
+
+
+class Test9bSubStoreAbsolute(unittest.TestCase):
+    def setUp(self):
+        """Create some data from scratch"""
+        self.tempdir = tempfile.TemporaryDirectory()
+        os.mkdir(f"{self.tempdir.name}/stores")
+        os.mkdir(f"{self.tempdir.name}/texts")
+        os.mkdir(f"{self.tempdir.name}/sets")
+
+
+        #base (level0) store, only contains a resource, nothing else
+        store = AnnotationStore(id="level0", config={"use_include": True})
+        store.set_filename(f"{self.tempdir.name}/stores/level0.store.stam.json")
+        store.add_resource(id="testres", text="Hello world", filename=f"{self.tempdir.name}/texts/hello.txt")
+        store.save()
+
+        #store with metadata (level1), includes level0
+        store = AnnotationStore(id="level1meta", config={"use_include": True})
+        store.set_filename(f"{self.tempdir.name}/stores/level1meta.store.stam.json")
+        store.add_substore(f"{self.tempdir.name}/stores/level0.store.stam.json")
+        dataset = store.add_dataset(id="testset", filename=f"{self.tempdir.name}/sets/meta.set.stam.json")
+        data = dataset.add_data("author", "proycon")
+        testres = store.resource("testres")
+        store.annotate(Selector.resourceselector(testres), data)
+        store.save()
+
+    def tearDown(self) -> None:
+        self.tempdir.cleanup()
+
+    def test_level0(self):
+        store = AnnotationStore(file=f"{self.tempdir.name}/stores/level0.store.stam.json", config={"use_include": True})
+        self.assertEqual( store.resources_len(), 1)
+        self.assertEqual( store.annotations_len(), 0)
+        self.assertEqual( store.datasets_len(), 0)
+
+    def test_level1(self):
+        store = AnnotationStore(file=f"{self.tempdir.name}/stores/level1meta.store.stam.json", config={"use_include": True})
+        self.assertEqual( store.resources_len(), 1)
+        self.assertEqual( store.annotations_len(), 1)
+        self.assertEqual( store.datasets_len(), 1)
+
+
 
 
 

@@ -41,9 +41,9 @@ class AnnotationStore:
         --------------------
 
         id: Optional[str], default: None
-            The public ID for a *new* store
+            The public ID for a *new* store. Only specify this if you want to create a new store, rather than load an existing one.
         file: Optional[str], default: None
-            The STAM JSON, STAM CSV or STAM CBOR file to load
+            The STAM JSON, STAM CSV or STAM CBOR file to load, or if used in combination with `id`, the filename for the new store.
         string: Optional[str], default: None
             STAM JSON as a string
         config: Optional[dict]
@@ -51,6 +51,8 @@ class AnnotationStore:
 
             * use_include: Optional[bool], default: True
                 Use the `@include` mechanism to point to external files, if unset, all data will be kept in a single STAM JSON file.
+            * workdir: Optional[str]
+                Set the working directory, all relative filenames (also for `@include`) will be interpreted relative to this.
             * debug: Optional[bool], default: False
                 Enable debug mode, outputs extra information to standard error output (verbose!)
             * annotation_annotation_map: Optional[bool], default: True
@@ -125,17 +127,20 @@ class AnnotationStore:
         """Create a new :class:`TextResource` and add it to the store. Returns the added instance.
 
         If you want to store the resource as a stand-off text file, you can specify a filename. Make sure to set `use_include = True` in the Annotation Store's configuration then.
+        Note that any relative paths will be interpreted relative to the directory the current (root) store is in.
         """
 
     def add_dataset(self, id: Optional[str] = None, filename: Optional[str] = None) -> AnnotationDataSet:
         """Create a new :class:`AnnotationDataSet` and add it to the store. Returns the added instance.
 
         If you want to store the dataset as a stand-off JSON file, you can specify a filename. The dataset will be loaded from file if it exists. Make sure to set `use_include = True` in the Annotation Store's configuration then.
+        Note that any relative paths will be interpreted relative to the directory the current (root) store is in.
         """
 
     def add_substore(self, filename: str) -> AnnotationSubStore:
         """
         Load an existing annotation store as a dependency to this one. It will be store in an stand-off JSON file and included using the @include mechanism.
+        Note that any relative paths will be interpreted relative to the directory the current (root) store is in.
         Returns the added substore.
         """
 
@@ -143,11 +148,12 @@ class AnnotationStore:
         """
         Add a new empty annotation store as a dependency to this one.
         It will be stored in an stand-off JSON file and included using the @include mechanism.
+        Note that any relative paths will be interpreted relative to the directory the current (root) store is in.
         Returns the added substore.
         """
 
     def set_filename(self, filename: str) -> None:
-        """Set the filename for the annotationstore, the format is derived from the extension, can be `.json` or `csv`"""
+        """Set the filename for the annotationstore, the format is derived from the extension, can be `.json` or `csv`. This may be also be a full absolute or relative path."""
     
     def annotate(self, target: Selector, data: Union[dict,List[dict],AnnotationData,List[AnnotationData]], id: Optional[str] = None) -> Annotation:
         """Adds a new annotation. Returns the :obj:`Annotation` instance that was just created.

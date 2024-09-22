@@ -189,19 +189,17 @@ impl PyAnnotationStore {
         }
         let store_clone = self.store.clone(); //just a smart pointer clone, not the whole store
         self.map_mut(|store| {
-            let mut resource = TextResourceBuilder::new()
-                .with_id(
-                    id.unwrap_or_else(|| filename.expect("filename"))
-                        .to_string(),
-                )
-                .with_config(store.new_config());
+            let mut resource = TextResourceBuilder::new().with_id(
+                id.unwrap_or_else(|| filename.expect("filename"))
+                    .to_string(),
+            );
             if let Some(text) = text {
                 resource = resource.with_text(text);
             }
             if let Some(filename) = filename {
                 resource = resource.with_filename(filename);
             }
-            let handle = store.insert(resource.build()?)?;
+            let handle = store.add_resource(resource)?;
             Ok(PyTextResource {
                 handle,
                 store: store_clone,
@@ -229,22 +227,14 @@ impl PyAnnotationStore {
         }
         let store_clone = self.store.clone();
         self.map_mut(|store| {
-            let mut dataset = if let Some(filename) = filename {
-                match AnnotationDataSet::from_file(filename, store.new_config()) {
-                    Ok(dataset) => dataset,
-                    Err(StamError::IOError(..)) => AnnotationDataSet::new(store.new_config()), //no such file, create anew
-                    Err(e) => return Err(e), //other error, propagate
-                }
-            } else {
-                AnnotationDataSet::new(store.new_config())
+            let mut dataset = AnnotationDataSetBuilder::new();
+            if let Some(filename) = filename {
+                dataset = dataset.with_filename(filename)
             };
             if let Some(id) = id {
                 dataset = dataset.with_id(id);
             }
-            if let Some(filename) = filename {
-                dataset.set_filename(filename);
-            }
-            let handle = store.insert(dataset)?;
+            let handle = store.add_dataset(dataset)?;
             Ok(PyAnnotationDataSet {
                 handle,
                 store: store_clone,

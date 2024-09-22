@@ -293,6 +293,7 @@ where
     'py: 'store,
 {
     let mut used_contextvarnames: usize = 0;
+    let substore = get_substore(kwargs);
     let operator = if let Some(kwargs) = kwargs {
         dataoperator_from_kwargs(kwargs).map_err(|e| PyStamError::new_err(format!("{}", e)))?
     } else {
@@ -348,6 +349,9 @@ where
                 used_contextvarnames,
             )?;
         }
+    }
+    if substore == Some(false) {
+        query.constrain(Constraint::SubStore(None));
     }
     Ok(query)
 }

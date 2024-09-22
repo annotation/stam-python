@@ -47,7 +47,7 @@ where
                 .get_item("substore")?
                 .expect("substore field was checked to exist in filter");
             if substore.is_instance_of::<PyAnnotationSubStore>() {
-                let substore: PyRef<'py, PyAnnotationSubStore> = filter.extract()?;
+                let substore: PyRef<'py, PyAnnotationSubStore> = substore.extract()?;
                 if let Some(substore) = store.substore(substore.handle) {
                     let varname = new_contextvar(&mut used_contextvarnames);
                     query.bind_substorevar(varname, &substore);
@@ -59,7 +59,7 @@ where
                 }
             } else if substore.is_instance_of::<PyBool>() {
                 //root store only
-                let substore: bool = filter.extract()?;
+                let substore: bool = substore.extract()?;
                 if !substore {
                     query.constrain(Constraint::SubStore(None));
                 }
@@ -293,7 +293,6 @@ where
     'py: 'store,
 {
     let mut used_contextvarnames: usize = 0;
-    let substore = get_substore(kwargs);
     let operator = if let Some(kwargs) = kwargs {
         dataoperator_from_kwargs(kwargs).map_err(|e| PyStamError::new_err(format!("{}", e)))?
     } else {
@@ -350,9 +349,6 @@ where
             )?;
         }
     }
-    if substore == Some(false) {
-        query.constrain(Constraint::SubStore(None));
-    }
     Ok(query)
 }
 
@@ -362,7 +358,8 @@ pub(crate) fn has_filters(args: &PyTuple, kwargs: Option<&PyDict>) -> bool {
     }
     if let Some(kwargs) = kwargs {
         for key in kwargs.keys() {
-            if let Ok(Some("limit")) | Ok(Some("recursive")) = key.extract() {
+            if let Ok(Some("limit")) | Ok(Some("recursive")) | Ok(Some("substore")) = key.extract()
+            {
                 continue; //this doesn't count as a filter
             } else {
                 return true;
@@ -426,9 +423,9 @@ pub(crate) fn get_limit(kwargs: Option<&PyDict>) -> Option<usize> {
 
 pub(crate) fn get_substore(kwargs: Option<&PyDict>) -> Option<bool> {
     if let Some(kwargs) = kwargs {
-        if let Ok(Some(limit)) = kwargs.get_item("substore") {
-            if let Ok(limit) = limit.extract::<bool>() {
-                return Some(limit);
+        if let Ok(Some(substore)) = kwargs.get_item("substore") {
+            if let Ok(substore) = substore.extract::<bool>() {
+                return Some(substore);
             }
         }
     }

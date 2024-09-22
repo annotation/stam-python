@@ -757,7 +757,13 @@ class Test9aSubStoreRelative(unittest.TestCase):
     def test_level1a(self):
         store = AnnotationStore(file="stores/level1meta.store.stam.json", config={"workdir": self.tempdir.name})
         self.assertEqual( store.resources_len(), 1)
-        self.assertEqual( len(store.annotations()), 1)
+        count = 0
+        for annotation in store.annotations():
+            count += 1
+            #check substore associated with annotation
+            self.assertEqual( annotation.substore(), None)
+        self.assertEqual(count,1, "number of annotations")
+        self.assertEqual( len(store.annotations(substore=False)), 1)
         self.assertEqual( store.datasets_len(), 1)
 
     def test_level1b(self):

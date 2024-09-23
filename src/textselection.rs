@@ -555,7 +555,16 @@ impl PyTextSelection {
         self.map_store_mut(|store| {
             let mut transpositions = Vec::with_capacity(buildtranspositions.len());
             for builder in buildtranspositions {
-                transpositions.push(store.annotate(builder)?);
+                let annotation_handle = store.annotate(builder)?;
+                if let Some(transposition_key) = store.key(
+                    "https://w3id.org/stam/extensions/stam-transpose/",
+                    "Transposition",
+                ) {
+                    let annotation = store.annotation(annotation_handle).or_fail()?;
+                    if annotation.keys().any(|key| key == transposition_key) {
+                        transpositions.push(annotation_handle);
+                    }
+                }
             }
             Ok(transpositions
                 .into_iter()

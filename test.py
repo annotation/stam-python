@@ -850,6 +850,36 @@ class Test10Alignment(unittest.TestCase):
             self.assertEqual(alignments[0][0].text(), alignments[0][1].text())
         self.assertEqual( count, 1, "number of transpositions returned")
 
+    def test_align2(self):
+        align1 = self.store.resource("align1").textselection(Offset.whole())
+        localalign2 = self.store.resource("localalign2").textselection(Offset.whole())
+        transpositions = localalign2.align_text(align1, algorithm="local")
+        count = 0
+        for transposition in transpositions:
+            count += 1
+            alignments = transposition.alignments()
+            #print([ [ y.text() for y in x ] for x in alignments])
+            self.assertEqual(len(alignments), 3)
+            for i in range(0,3):
+                self.assertEqual(len(alignments[i]), 2)
+                self.assertEqual(alignments[i][0].text(), alignments[i][1].text())
+        self.assertEqual( count, 1, "number of transpositions returned")
+
+    def test_align3(self):
+        align2 = self.store.resource("align2").textselection(Offset.whole())
+        localalign2 = self.store.resource("localalign2").textselection(Offset.whole())
+        transpositions = localalign2.align_text(align2, algorithm="global")
+        count = 0
+        for transposition in transpositions:
+            count += 1
+            alignments = transposition.alignments()
+            #print([ [ y.text() for y in x ] for x in alignments])
+            self.assertEqual(len(alignments), 3)
+            for i in range(0,3):
+                self.assertEqual(len(alignments[i]), 2)
+                self.assertEqual(alignments[i][0].text(), alignments[i][1].text())
+        self.assertEqual( count, 1, "number of transpositions returned")
+
 
 
 

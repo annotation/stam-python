@@ -844,6 +844,10 @@ class Test10Alignment(unittest.TestCase):
         count = 0
         for transposition in transpositions:
             count += 1
+            alignments = transposition.alignments()
+            self.assertEqual(len(alignments), 1)
+            self.assertEqual(len(alignments[0]), 2)
+            self.assertEqual(alignments[0][0].text(), alignments[0][1].text())
         self.assertEqual( count, 1, "number of transpositions returned")
 
 

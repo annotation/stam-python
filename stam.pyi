@@ -984,6 +984,20 @@ class Annotations:
         Returns the substore this annotation is a part of, or `None` if the annotation is part of the root store.
         """
 
+    def alignments(self) -> list[list[Union[TextSelection,Annotation]]]:
+        """
+        If this annotation describes a transposition (https://github.com/annotation/stam/blob/master/extensions/stam-transpose/README.md), 
+        this will extract the alignments in the transposition to a list of lists. Each inner lists hold `TextSelection` instances that are in alignment.
+        If you want to return `Annotation` instances instead, set the keyword argument:
+
+        Keyword arguments
+        ------------------
+
+        annotations: bool    
+           Return annotations instead of text selections, note that this only works for complex transpositions, for simple transpositions you always get text selections regardless of this setting.
+        """
+
+
 class AnnotationDataSet:
     """
     An `AnnotationDataSet` stores the keys (:class:`DataKey`) and values

@@ -41,6 +41,14 @@ impl PyAnnotation {
     ) -> PyAnnotation {
         PyAnnotation { handle, store }
     }
+
+    pub(crate) fn new_py<'py>(
+        handle: AnnotationHandle,
+        store: Arc<RwLock<AnnotationStore>>,
+        py: Python<'py>,
+    ) -> &'py PyAny {
+        Self::new(handle, store).into_py(py).into_ref(py)
+    }
 }
 
 #[pymethods]
@@ -545,6 +553,67 @@ impl PyAnnotation {
                 handle: s.handle(),
                 store: self.store.clone(),
             }))
+        })
+    }
+
+    #[pyo3(signature = (**kwargs))]
+    fn alignments<'py>(
+        &self,
+        py: Python<'py>,
+        kwargs: Option<&'py PyDict>,
+    ) -> PyResult<&'py PyList> {
+        let alignments = PyList::empty(py);
+        let storeclone = self.store.clone();
+        let mut annotations = false;
+        if let Some(kwargs) = kwargs {
+            if let Ok(Some(value)) = kwargs.get_item("annotations") {
+                if let Ok(value) = value.extract::<bool>() {
+                    annotations = value;
+                }
+            }
+        }
+        self.map(|annotation| {
+            let mut annoiter = annotation.annotations_in_targets(AnnotationDepth::One);
+            if let (Some(left), Some(right)) = (annoiter.next(), annoiter.next()) {
+                //complex transposition
+                for (text1, text2) in left.textselections().zip(right.textselections()) {
+                    let alignment = PyList::empty(py);
+                    if annotations {
+                        alignment
+                            .append(PyAnnotation::new_py(left.handle(), storeclone.clone(), py))
+                            .map_err(|_| StamError::OtherError("failed to extract alignment"))?;
+                        alignment
+                            .append(PyAnnotation::new_py(right.handle(), storeclone.clone(), py))
+                            .map_err(|_| StamError::OtherError("failed to extract alignment"))?;
+                    } else {
+                        alignment
+                            .append(PyTextSelection::from_result_to_py(text1, &storeclone, py))
+                            .map_err(|_| StamError::OtherError("failed to extract alignment"))?;
+                        alignment
+                            .append(PyTextSelection::from_result_to_py(text2, &storeclone, py))
+                            .map_err(|_| StamError::OtherError("failed to extract alignment"))?;
+                    }
+                    alignments
+                        .append(alignment)
+                        .map_err(|_| StamError::OtherError("failed to extract alignment"))?;
+                }
+            } else {
+                //simple transposition
+                let mut textiter = annotation.textselections();
+                if let (Some(text1), Some(text2)) = (textiter.next(), textiter.next()) {
+                    let alignment = PyList::empty(py);
+                    alignment
+                        .append(PyTextSelection::from_result_to_py(text1, &storeclone, py))
+                        .map_err(|_| StamError::OtherError("failed to extract alignment"))?;
+                    alignment
+                        .append(PyTextSelection::from_result_to_py(text2, &storeclone, py))
+                        .map_err(|_| StamError::OtherError("failed to extract alignment"))?;
+                    alignments
+                        .append(alignment)
+                        .map_err(|_| StamError::OtherError("failed to extract alignment"))?;
+                }
+            }
+            Ok(alignments)
         })
     }
 }

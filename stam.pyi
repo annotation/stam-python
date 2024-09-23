@@ -2023,6 +2023,39 @@ class TextSelection:
         Returns a sequence of minimum-length non-overlapping TextSelections, covering the selected text selection, in textual order
         """
 
+    def align_text(self, other: TextSelection, **kwargs) -> list[Annotation]:
+        """
+        Used to compute an alignment between two texts; it
+        identifies which parts of the two texts are identical and computes a mapping
+        between the two coordinate systems. Two related sequence alignments algorithms
+        from bioinformatics are implemented to accomplish this:
+        Smith-Waterman and Needleman-Wunsch.
+
+        The resulting alignment is added to the store as an annotation, a so called transposition,
+        according to the `STAM Transpose <https://github.com/annotation/stam/tree/master/extensions/stam-transpose>`_
+        extension. These annotations are also returned by this function.
+
+        Parameters
+        --------------
+        other: TextSelection
+            The other text selection to compare against
+
+        Keyword Arguments
+        -------------------
+        
+        case_insensitive: bool
+            Case-insensitive matching has more performance overhead
+        algorithm: str
+            The alignment algorithm to use, can be `smithwaterman`/`local` (local alignment) or `needlemanwunsch`/`global` (global alignment).
+        annotation_id_prefix: str
+            Prefix to use when assigning annotation IDs. The actual ID will have a random component
+        trim: bool
+            Strip leading and trailing whitespace/newlines from aligned text selections, keeping them as minimal as possible (default is to be as greedy as possible in selecting)
+            Setting this may lead to certain whitespaces not being covered even though they may align.
+        simple_only: bool
+            Only allow for alignments that consist of one contiguous text selection on either side. This is a so-called simple transposition.
+        """
+
 class TextSelectionOperator:
     """
     The TextSelectionOperator, simply put, allows comparison of two :class:`TextSelection` instances. It
@@ -2044,7 +2077,7 @@ class TextSelectionOperator:
         Parameters
         -----------------
         all: Optional[bool]
-            If this is set, then for each `TextSelection` in A, the relationship must hold with **ALL** of the text selections in B. The normal behaviour, when this is set to false, is a match with any item suffices (and may be returned).
+        If this is set, then for each `TextSelection` in A, the relationship must hold with **ALL** of the text selections in B. The normal behaviour, when this is set to false, is a match with any item suffices (and may be returned).
         negate: Optional[bool] 
             Inverses the operator (turns it into a negation).
         """

@@ -829,6 +829,30 @@ class Test9bSubStoreAbsolute(unittest.TestCase):
         self.assertEqual( store.annotations_len(), 1)
         self.assertEqual( store.datasets_len(), 1)
 
+class Test10Alignment(unittest.TestCase):
+    def setUp(self):
+        self.store = AnnotationStore(config={"debug": True})
+        self.store.add_resource(id="align1", text="All human beings are born free and equal in dignity and rights. They are endowed with reason and conscience and should act towards one another in a spirit of brotherhood.")
+        self.store.add_resource(id="align2", text="All human beings are born free and equal in dignity and rights.")
+        self.store.add_resource(id="localalign1", text="human beings are born free and equal in dignity and rights")
+        self.store.add_resource(id="localalign2", text="human beings are free and equal in rights")
+
+    def test_align1(self):
+        align1 = self.store.resource("align1").textselection(Offset.whole())
+        localalign1 = self.store.resource("localalign1").textselection(Offset.whole())
+        transpositions = localalign1.align_text(align1, algorithm="local")
+        count = 0
+        for transposition in transpositions:
+            count += 1
+        self.assertEqual( count, 1, "number of transpositions returned")
+
+
+
+
+
+    
+
+
 
 
 

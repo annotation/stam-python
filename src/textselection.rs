@@ -1,4 +1,4 @@
-use pyo3::exceptions::{PyIndexError, PyRuntimeError};
+use pyo3::exceptions::{PyIndexError, PyRuntimeError, PyValueError};
 use pyo3::prelude::*;
 use pyo3::pyclass::CompareOp;
 use pyo3::types::*;
@@ -9,11 +9,13 @@ use std::sync::{Arc, RwLock};
 
 use crate::annotation::{PyAnnotation, PyAnnotations};
 use crate::annotationdata::PyData;
+use crate::annotationstore::MapStore;
 use crate::error::PyStamError;
 use crate::query::*;
 use crate::resources::{PyOffset, PyTextResource};
 use crate::textselection::TextSelectionHandle;
 use stam::*;
+use stamtools::align::{align_texts, AlignmentAlgorithm, AlignmentConfig};
 
 #[pyclass(name = "TextSelection")]
 #[derive(Clone)]
@@ -490,6 +492,85 @@ impl PyTextSelection {
                 })
                 .collect())
         })
+    }
+
+    #[pyo3(signature = (other, **kwargs))]
+    fn align_text(
+        &mut self,
+        other: PyTextSelection,
+        kwargs: Option<&PyDict>,
+    ) -> PyResult<Vec<PyAnnotation>> {
+        let mut alignmentconfig = AlignmentConfig::default();
+        if let Some(kwargs) = kwargs {
+            if let Ok(Some(value)) = kwargs.get_item("case_sensitive") {
+                if let Ok(value) = value.extract::<bool>() {
+                    alignmentconfig.case_sensitive = value;
+                }
+            }
+            if let Ok(Some(value)) = kwargs.get_item("trim") {
+                if let Ok(value) = value.extract::<bool>() {
+                    alignmentconfig.trim = value;
+                }
+            }
+            if let Ok(Some(value)) = kwargs.get_item("simple_only") {
+                if let Ok(value) = value.extract::<bool>() {
+                    alignmentconfig.simple_only = value;
+                }
+            }
+            if let Ok(Some(value)) = kwargs.get_item("algorithm") {
+                if let Ok(value) = value.extract::<&str>() {
+                    alignmentconfig.algorithm = match value {
+                        "needlemanwunsch" | "NeedlemanWunsch" | "global" => {
+                            AlignmentAlgorithm::NeedlemanWunsch {
+                                equal: 1,
+                                align: -1,
+                                insert: -1,
+                                delete: -1,
+                            }
+                        }
+                        "smithwaterman" | "SmithWaterman" | "local" => {
+                            AlignmentAlgorithm::default()
+                        }
+                        _ => {
+                            return Err(PyValueError::new_err(
+                                "Algorithm must be 'needlemanwunsch' or 'smithwaterman'",
+                            ))
+                        }
+                    };
+                }
+            }
+            if let Ok(Some(value)) = kwargs.get_item("annotation_id_prefix") {
+                if let Ok(value) = value.extract::<String>() {
+                    alignmentconfig.annotation_id_prefix = Some(value);
+                }
+            }
+        }
+        let buildtranspositions = self.map(|textselection| {
+            let store = textselection.rootstore();
+            let otherresource = store.resource(other.resource_handle).or_fail()?;
+            let other = otherresource.textselection(&other.offset().offset)?;
+            align_texts(&textselection, &other, &alignmentconfig)
+        })?;
+        let storepointer = self.store.clone();
+        self.map_store_mut(|store| {
+            let mut transpositions = Vec::with_capacity(buildtranspositions.len());
+            for builder in buildtranspositions {
+                transpositions.push(store.annotate(builder)?);
+            }
+            Ok(transpositions
+                .into_iter()
+                .map(|handle| PyAnnotation::new(handle, storepointer.clone()))
+                .collect::<Vec<_>>())
+        })
+    }
+}
+
+impl MapStore for PyTextSelection {
+    fn get_store(&self) -> &Arc<RwLock<AnnotationStore>> {
+        &self.store
+    }
+    fn get_store_mut(&mut self) -> &mut Arc<RwLock<AnnotationStore>> {
+        &mut self.store
     }
 }
 

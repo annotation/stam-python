@@ -500,48 +500,90 @@ impl PyTextSelection {
         other: PyTextSelection,
         kwargs: Option<&PyDict>,
     ) -> PyResult<Vec<PyAnnotation>> {
-        let mut alignmentconfig = AlignmentConfig::default();
+        let mut alignmentconfig = AlignmentConfig {
+            ..AlignmentConfig::default()
+        };
         if let Some(kwargs) = kwargs {
-            if let Ok(Some(value)) = kwargs.get_item("case_sensitive") {
-                if let Ok(value) = value.extract::<bool>() {
-                    alignmentconfig.case_sensitive = value;
-                }
-            }
-            if let Ok(Some(value)) = kwargs.get_item("trim") {
-                if let Ok(value) = value.extract::<bool>() {
-                    alignmentconfig.trim = value;
-                }
-            }
-            if let Ok(Some(value)) = kwargs.get_item("simple_only") {
-                if let Ok(value) = value.extract::<bool>() {
-                    alignmentconfig.simple_only = value;
-                }
-            }
-            if let Ok(Some(value)) = kwargs.get_item("algorithm") {
-                if let Ok(value) = value.extract::<&str>() {
-                    alignmentconfig.algorithm = match value {
-                        "needlemanwunsch" | "NeedlemanWunsch" | "global" => {
-                            AlignmentAlgorithm::NeedlemanWunsch {
-                                equal: 1,
-                                align: -1,
-                                insert: -1,
-                                delete: -1,
+            for key in kwargs.keys() {
+                let key: &str = key.extract()?;
+                match key {
+                    "case_sensitive" => {
+                        if let Ok(Some(value)) = kwargs.get_item(key) {
+                            if let Ok(value) = value.extract::<bool>() {
+                                alignmentconfig.case_sensitive = value;
                             }
                         }
-                        "smithwaterman" | "SmithWaterman" | "local" => {
-                            AlignmentAlgorithm::default()
+                    }
+                    "trim" => {
+                        if let Ok(Some(value)) = kwargs.get_item(key) {
+                            if let Ok(value) = value.extract::<bool>() {
+                                alignmentconfig.trim = value;
+                            }
                         }
-                        _ => {
-                            return Err(PyValueError::new_err(
-                                "Algorithm must be 'needlemanwunsch' or 'smithwaterman'",
-                            ))
+                    }
+                    "simple_only" => {
+                        if let Ok(Some(value)) = kwargs.get_item(key) {
+                            if let Ok(value) = value.extract::<bool>() {
+                                alignmentconfig.simple_only = value;
+                            }
                         }
-                    };
-                }
-            }
-            if let Ok(Some(value)) = kwargs.get_item("annotation_id_prefix") {
-                if let Ok(value) = value.extract::<String>() {
-                    alignmentconfig.annotation_id_prefix = Some(value);
+                    }
+                    "algorithm" => {
+                        if let Ok(Some(value)) = kwargs.get_item(key) {
+                            if let Ok(value) = value.extract::<&str>() {
+                                alignmentconfig.algorithm = match value {
+                                    "needlemanwunsch" | "NeedlemanWunsch" | "global" => {
+                                        AlignmentAlgorithm::NeedlemanWunsch {
+                                            equal: 1,
+                                            align: -1,
+                                            insert: -1,
+                                            delete: -1,
+                                        }
+                                    }
+                                    "smithwaterman" | "SmithWaterman" | "local" => {
+                                        AlignmentAlgorithm::default()
+                                    }
+                                    _ => return Err(PyValueError::new_err(
+                                        "Algorithm must be 'needlemanwunsch' or 'smithwaterman'",
+                                    )),
+                                };
+                            }
+                        }
+                    }
+                    "annotation_id_prefix" => {
+                        if let Ok(Some(value)) = kwargs.get_item(key) {
+                            if let Ok(value) = value.extract::<String>() {
+                                alignmentconfig.annotation_id_prefix = Some(value);
+                            }
+                        }
+                    }
+                    "max_errors" => {
+                        if let Ok(Some(value)) = kwargs.get_item(key) {
+                            if let Ok(value) = value.extract::<usize>() {
+                                alignmentconfig.max_errors = Some(value);
+                            }
+                        }
+                    }
+                    "minimal_align_length" => {
+                        if let Ok(Some(value)) = kwargs.get_item(key) {
+                            if let Ok(value) = value.extract::<usize>() {
+                                alignmentconfig.minimal_align_length = value;
+                            }
+                        }
+                    }
+                    "grow" => {
+                        if let Ok(Some(value)) = kwargs.get_item(key) {
+                            if let Ok(value) = value.extract::<bool>() {
+                                alignmentconfig.grow = value;
+                            }
+                        }
+                    }
+                    other => {
+                        return Err(PyValueError::new_err(format!(
+                            "Unknown keyword argument for align_text: {}",
+                            other
+                        )))
+                    }
                 }
             }
         }
@@ -556,12 +598,23 @@ impl PyTextSelection {
             let mut transpositions = Vec::with_capacity(buildtranspositions.len());
             for builder in buildtranspositions {
                 let annotation_handle = store.annotate(builder)?;
-                if let Some(transposition_key) = store.key(
+                let transposition_key = store.key(
                     "https://w3id.org/stam/extensions/stam-transpose/",
                     "Transposition",
-                ) {
+                );
+                let translation_key = store.key(
+                    "https://w3id.org/stam/extensions/stam-translate/",
+                    "Translation",
+                );
+                if transposition_key.is_some() || translation_key.is_some() {
                     let annotation = store.annotation(annotation_handle).or_fail()?;
-                    if annotation.keys().any(|key| key == transposition_key) {
+                    if annotation.keys().any(|key| {
+                        transposition_key
+                            .as_ref()
+                            .map(|k| &key == k)
+                            .unwrap_or(false)
+                            || translation_key.as_ref().map(|k| &key == k).unwrap_or(false)
+                    }) {
                         transpositions.push(annotation_handle);
                     }
                 }

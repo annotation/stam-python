@@ -1857,6 +1857,9 @@ class TextSelection:
     def end(self) -> int:
         """Return the absolute end position in unicode points (non-inclusive)"""
 
+    def offset(self) -> Offset:
+        """Converts the TextSelection to an :class:`Offset` instance"""
+
     def select(self) -> Selector:
         """Returns a selector pointing to this resource"""
 

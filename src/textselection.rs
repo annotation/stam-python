@@ -13,6 +13,7 @@ use crate::annotationstore::MapStore;
 use crate::error::PyStamError;
 use crate::query::*;
 use crate::resources::{PyOffset, PyTextResource};
+use crate::selector::{PySelector, PySelectorKind};
 use crate::textselection::TextSelectionHandle;
 use stam::*;
 use stamtools::align::{align_texts, AlignmentAlgorithm, AlignmentConfig};
@@ -476,6 +477,26 @@ impl PyTextSelection {
             } else {
                 Ok(false)
             }
+        })
+    }
+
+    /// Returns a Selector (TextSelector) pointing to this TextSelection
+    fn select(&self) -> PyResult<PySelector> {
+        self.map(|textselection| {
+            Ok(PySelector {
+                kind: PySelectorKind {
+                    kind: SelectorKind::TextSelector,
+                },
+                resource: Some(textselection.resource().handle()),
+                annotation: None,
+                dataset: None,
+                key: None,
+                data: None,
+                offset: Some(PyOffset {
+                    offset: Offset::simple(textselection.begin(), textselection.end()),
+                }),
+                subselectors: Vec::new(),
+            })
         })
     }
 

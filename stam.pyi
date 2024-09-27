@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Iterator, List, Optional, Union
+from typing import Iterator, List, Optional, Union, Iterable
 
 """
 [STAM](https://github.com/annotation/stam) is a standalone data model for stand-off text
@@ -852,6 +852,9 @@ class Annotations:
     def __len__(self) -> int:
         """Returns the number of annotations in the collection"""
 
+    def __next__(self) -> Annotation:
+        """Return the next item in the iterator"""
+
     def __getitem__(self, int) -> Annotation:
         """Returns an annotation in the collection by index"""
 
@@ -1280,6 +1283,9 @@ class Data:
     def __iter__(self) -> Iterator[AnnotationData]:
         """Iterator over all data in this collection"""
 
+    def __next__(self) -> AnnotationData:
+        """Return the next item in the iterator"""
+
     def __len__(self) -> int:
         """Returns the number of data items in the collection"""
 
@@ -1309,6 +1315,9 @@ class TextSelections:
 
     def __iter__(self) -> Iterator[TextSelection]:
         """Iterator over all text selections in this collection"""
+
+    def __next__(self) -> TextSelection:
+        """Return the next item in the iterator"""
 
     def __len__(self) -> int:
         """Returns the number of data items in the collection"""

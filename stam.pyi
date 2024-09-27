@@ -838,6 +838,60 @@ class Annotation:
         A boolean is returned with the test result.
         """
 
+    def transpose(self, via: Annotation, **kwargs) -> Annotations:
+        """
+       The transpose function maps an annotation, textselection, or textselection set from
+       one coordinate system to another. These mappings are defined in annotations called
+       **transpositions** and are documented here: https://github.com/annotation/stam/blob/master/extensions/stam-transpose/README.md
+       Transpositions link identical textual parts across resources, any annotations within
+       the bounds of such a mapping can then be *transposed* using this function to the other coordinate system.
+       
+       The `via` parameter expresses the transposition that is being used.
+       The result of a transpose operation is itself again a transposition.
+
+       Keyword arguments
+       ------------------
+
+       allow_simple: bool    
+            Allow a simple transposition as output, by default this is set to `false` as we usually want to have an transposed annotation
+
+       no_transposition: bool
+            Do not produce a transposition annotation, only output the transposed annotation (allow_simple must be set to false)
+            This effectively throws away the provenance information.
+
+       no_resegmentation: bool
+            Do not produce a resegmentation annotation. If needed for a complex transposition, a resegmented annotation is still created, but
+            the resegmented version (used as source in the transposition) is not linked to the original source annotation. This effectively throws away provenance information.
+            This only comes into play if `no_transposition == False`
+
+       transposition_id: Optional[str]
+            An ID to assign to the transposition that is outputted
+
+       resegmentation_id: Optional[str]
+            An ID to assign to the resegmentation that is outputted (if any)
+
+       debug: bool
+            Output debug information to stderr
+       """
+
+    def substore(self) -> Optional[AnnotationSubStore]:
+        """
+        Returns the substore this annotation is a part of, or `None` if the annotation is part of the root store.
+        """
+
+    def alignments(self) -> list[list[Union[TextSelection,Annotation]]]:
+        """
+        If this annotation describes a transposition (https://github.com/annotation/stam/blob/master/extensions/stam-transpose/README.md), 
+        this will extract the alignments in the transposition to a list of lists. Each inner lists hold `TextSelection` instances that are in alignment.
+        If you want to return `Annotation` instances instead, set the keyword argument:
+
+        Keyword arguments
+        ------------------
+
+        annotations: bool    
+           Return annotations instead of text selections, note that this only works for complex transpositions, for simple transpositions you always get text selections regardless of this setting.
+        """
+
 
 class Annotations:
     """
@@ -946,59 +1000,6 @@ class Annotations:
         This has some performance cost, so prevent calling this method on methods like :meth:`Annotation.annotations_in_targets` which already produce textual order (in most cases)
         """
 
-    def transpose(self, via: Annotation, **kwargs) -> Annotations:
-        """
-       The transpose function maps an annotation, textselection, or textselection set from
-       one coordinate system to another. These mappings are defined in annotations called
-       **transpositions** and are documented here: https://github.com/annotation/stam/blob/master/extensions/stam-transpose/README.md
-       Transpositions link identical textual parts across resources, any annotations within
-       the bounds of such a mapping can then be *transposed* using this function to the other coordinate system.
-       
-       The `via` parameter expresses the transposition that is being used.
-       The result of a transpose operation is itself again a transposition.
-
-       Keyword arguments
-       ------------------
-
-       allow_simple: bool    
-            Allow a simple transposition as output, by default this is set to `false` as we usually want to have an transposed annotation
-
-       no_transposition: bool
-            Do not produce a transposition annotation, only output the transposed annotation (allow_simple must be set to false)
-            This effectively throws away the provenance information.
-
-       no_resegmentation: bool
-            Do not produce a resegmentation annotation. If needed for a complex transposition, a resegmented annotation is still created, but
-            the resegmented version (used as source in the transposition) is not linked to the original source annotation. This effectively throws away provenance information.
-            This only comes into play if `no_transposition == False`
-
-       transposition_id: Optional[str]
-            An ID to assign to the transposition that is outputted
-
-       resegmentation_id: Optional[str]
-            An ID to assign to the resegmentation that is outputted (if any)
-
-       debug: bool
-            Output debug information to stderr
-       """
-
-    def substore(self) -> Optional[AnnotationSubStore]:
-        """
-        Returns the substore this annotation is a part of, or `None` if the annotation is part of the root store.
-        """
-
-    def alignments(self) -> list[list[Union[TextSelection,Annotation]]]:
-        """
-        If this annotation describes a transposition (https://github.com/annotation/stam/blob/master/extensions/stam-transpose/README.md), 
-        this will extract the alignments in the transposition to a list of lists. Each inner lists hold `TextSelection` instances that are in alignment.
-        If you want to return `Annotation` instances instead, set the keyword argument:
-
-        Keyword arguments
-        ------------------
-
-        annotations: bool    
-           Return annotations instead of text selections, note that this only works for complex transpositions, for simple transpositions you always get text selections regardless of this setting.
-        """
 
 
 class AnnotationDataSet:

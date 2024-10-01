@@ -516,7 +516,7 @@ impl PyTextSelection {
     }
 
     #[pyo3(signature = (other, **kwargs))]
-    fn align_text(
+    fn align_texts(
         &mut self,
         other: PyTextSelection,
         kwargs: Option<&PyDict>,

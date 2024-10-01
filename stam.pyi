@@ -2050,7 +2050,7 @@ class TextSelection:
         Returns a sequence of minimum-length non-overlapping TextSelections, covering the selected text selection, in textual order
         """
 
-    def align_text(self, other: TextSelection, **kwargs) -> list[Annotation]:
+    def align_texts(self, other: TextSelection, **kwargs) -> list[Annotation]:
         """
         Used to compute an alignment between two texts; it
         identifies which parts of the two texts are identical and computes a mapping

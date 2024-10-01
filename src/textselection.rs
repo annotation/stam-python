@@ -599,6 +599,13 @@ impl PyTextSelection {
                             }
                         }
                     }
+                    "verbose" | "debug" => {
+                        if let Ok(Some(value)) = kwargs.get_item(key) {
+                            if let Ok(value) = value.extract::<bool>() {
+                                alignmentconfig.verbose = value;
+                            }
+                        }
+                    }
                     other => {
                         return Err(PyValueError::new_err(format!(
                             "Unknown keyword argument for align_text: {}",

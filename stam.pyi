@@ -2074,6 +2074,16 @@ class TextSelection:
             Case-insensitive matching has more performance overhead
         algorithm: str
             The alignment algorithm to use, can be `smithwaterman`/`local` (local alignment) or `needlemanwunsch`/`global` (global alignment).
+        grow: bool
+            Grow aligned parts into larger alignments by incorporating non-matching parts. If you set this, 
+            the function will return translations rather than transpositions.
+    		You'll want to set `max_errors` in combination with this one to prevent very low-quality alignments.
+        max_errors: int
+    		The maximum number of errors that may occur (absolute number) for a transposition to be valid, each insertion/deletion counts as 1. 
+    		In other words; this represents the number of characters in the search string that may be missed when matching in the larger text.
+    		The transposition itself will only consist of fully matching parts, use `grow` if you want to include non-matching parts.
+        minimal_align_length: int
+    		The minimal number of characters that must be aligned (absolute number) for a transposition/translation to be valid.
         annotation_id_prefix: str
             Prefix to use when assigning annotation IDs. The actual ID will have a random component
         trim: bool

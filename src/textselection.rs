@@ -10,13 +10,14 @@ use std::sync::{Arc, RwLock};
 use crate::annotation::{PyAnnotation, PyAnnotations};
 use crate::annotationdata::PyData;
 use crate::annotationstore::MapStore;
+use crate::config::get_alignmentconfig;
 use crate::error::PyStamError;
 use crate::query::*;
 use crate::resources::{PyOffset, PyTextResource};
 use crate::selector::{PySelector, PySelectorKind};
 use crate::textselection::TextSelectionHandle;
 use stam::*;
-use stamtools::align::{align_texts, AlignmentAlgorithm, AlignmentConfig};
+use stamtools::align::{align_texts, AlignmentConfig};
 
 #[pyclass(name = "TextSelection")]
 #[derive(Clone)]
@@ -521,100 +522,11 @@ impl PyTextSelection {
         other: PyTextSelection,
         kwargs: Option<&PyDict>,
     ) -> PyResult<Vec<PyAnnotation>> {
-        let mut alignmentconfig = AlignmentConfig {
-            ..AlignmentConfig::default()
+        let alignmentconfig = if let Some(kwargs) = kwargs {
+            get_alignmentconfig(kwargs)?
+        } else {
+            AlignmentConfig::default()
         };
-        if let Some(kwargs) = kwargs {
-            for key in kwargs.keys() {
-                let key: &str = key.extract()?;
-                match key {
-                    "case_sensitive" => {
-                        if let Ok(Some(value)) = kwargs.get_item(key) {
-                            if let Ok(value) = value.extract::<bool>() {
-                                alignmentconfig.case_sensitive = value;
-                            }
-                        }
-                    }
-                    "trim" => {
-                        if let Ok(Some(value)) = kwargs.get_item(key) {
-                            if let Ok(value) = value.extract::<bool>() {
-                                alignmentconfig.trim = value;
-                            }
-                        }
-                    }
-                    "simple_only" => {
-                        if let Ok(Some(value)) = kwargs.get_item(key) {
-                            if let Ok(value) = value.extract::<bool>() {
-                                alignmentconfig.simple_only = value;
-                            }
-                        }
-                    }
-                    "algorithm" => {
-                        if let Ok(Some(value)) = kwargs.get_item(key) {
-                            if let Ok(value) = value.extract::<&str>() {
-                                alignmentconfig.algorithm = match value {
-                                    "needlemanwunsch" | "NeedlemanWunsch" | "global" => {
-                                        AlignmentAlgorithm::NeedlemanWunsch {
-                                            equal: 1,
-                                            align: -1,
-                                            insert: -1,
-                                            delete: -1,
-                                        }
-                                    }
-                                    "smithwaterman" | "SmithWaterman" | "local" => {
-                                        AlignmentAlgorithm::default()
-                                    }
-                                    _ => return Err(PyValueError::new_err(
-                                        "Algorithm must be 'needlemanwunsch' or 'smithwaterman'",
-                                    )),
-                                };
-                            }
-                        }
-                    }
-                    "annotation_id_prefix" => {
-                        if let Ok(Some(value)) = kwargs.get_item(key) {
-                            if let Ok(value) = value.extract::<String>() {
-                                alignmentconfig.annotation_id_prefix = Some(value);
-                            }
-                        }
-                    }
-                    "max_errors" => {
-                        if let Ok(Some(value)) = kwargs.get_item(key) {
-                            if let Ok(value) = value.extract::<usize>() {
-                                alignmentconfig.max_errors = Some(value);
-                            }
-                        }
-                    }
-                    "minimal_align_length" => {
-                        if let Ok(Some(value)) = kwargs.get_item(key) {
-                            if let Ok(value) = value.extract::<usize>() {
-                                alignmentconfig.minimal_align_length = value;
-                            }
-                        }
-                    }
-                    "grow" => {
-                        if let Ok(Some(value)) = kwargs.get_item(key) {
-                            if let Ok(value) = value.extract::<bool>() {
-                                alignmentconfig.grow = value;
-                            }
-                        }
-                    }
-                    "verbose" | "debug" => {
-                        if let Ok(Some(value)) = kwargs.get_item(key) {
-                            if let Ok(value) = value.extract::<bool>() {
-                                alignmentconfig.verbose = value;
-                            }
-                        }
-                    }
-                    other => {
-                        return Err(PyValueError::new_err(format!(
-                            "Unknown keyword argument for align_text: {}",
-                            other
-                        )))
-                    }
-                }
-            }
-        }
         let buildtranspositions = self.map(|textselection| {
             let store = textselection.rootstore();
             let otherresource = store.resource(other.resource_handle).or_fail()?;

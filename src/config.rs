@@ -1,6 +1,9 @@
+use pyo3::exceptions::PyValueError;
+use pyo3::prelude::*;
 use pyo3::types::*;
 
 use stam::*;
+use stamtools::align::{AlignmentAlgorithm, AlignmentConfig};
 
 pub fn get_config(kwargs: &PyDict) -> Config {
     let mut config = Config::default();
@@ -77,4 +80,100 @@ pub fn get_config(kwargs: &PyDict) -> Config {
         }
     }
     config
+}
+
+pub fn get_alignmentconfig(kwargs: &PyDict) -> PyResult<AlignmentConfig> {
+    let mut alignmentconfig = AlignmentConfig::default();
+    for key in kwargs.keys() {
+        let key: &str = key.extract()?;
+        match key {
+            "case_sensitive" => {
+                if let Ok(Some(value)) = kwargs.get_item(key) {
+                    if let Ok(value) = value.extract::<bool>() {
+                        alignmentconfig.case_sensitive = value;
+                    }
+                }
+            }
+            "trim" => {
+                if let Ok(Some(value)) = kwargs.get_item(key) {
+                    if let Ok(value) = value.extract::<bool>() {
+                        alignmentconfig.trim = value;
+                    }
+                }
+            }
+            "simple_only" => {
+                if let Ok(Some(value)) = kwargs.get_item(key) {
+                    if let Ok(value) = value.extract::<bool>() {
+                        alignmentconfig.simple_only = value;
+                    }
+                }
+            }
+            "algorithm" => {
+                if let Ok(Some(value)) = kwargs.get_item(key) {
+                    if let Ok(value) = value.extract::<&str>() {
+                        alignmentconfig.algorithm = match value {
+                            "needlemanwunsch" | "NeedlemanWunsch" | "global" => {
+                                AlignmentAlgorithm::NeedlemanWunsch {
+                                    equal: 1,
+                                    align: -1,
+                                    insert: -1,
+                                    delete: -1,
+                                }
+                            }
+                            "smithwaterman" | "SmithWaterman" | "local" => {
+                                AlignmentAlgorithm::default()
+                            }
+                            _ => {
+                                return Err(PyValueError::new_err(
+                                    "Algorithm must be 'needlemanwunsch' or 'smithwaterman'",
+                                ))
+                            }
+                        };
+                    }
+                }
+            }
+            "annotation_id_prefix" => {
+                if let Ok(Some(value)) = kwargs.get_item(key) {
+                    if let Ok(value) = value.extract::<String>() {
+                        alignmentconfig.annotation_id_prefix = Some(value);
+                    }
+                }
+            }
+            "max_errors" => {
+                if let Ok(Some(value)) = kwargs.get_item(key) {
+                    if let Ok(value) = value.extract::<usize>() {
+                        alignmentconfig.max_errors = Some(value);
+                    }
+                }
+            }
+            "minimal_align_length" => {
+                if let Ok(Some(value)) = kwargs.get_item(key) {
+                    if let Ok(value) = value.extract::<usize>() {
+                        alignmentconfig.minimal_align_length = value;
+                    }
+                }
+            }
+            "grow" => {
+                if let Ok(Some(value)) = kwargs.get_item(key) {
+                    if let Ok(value) = value.extract::<bool>() {
+                        alignmentconfig.grow = value;
+                    }
+                }
+            }
+            "verbose" | "debug" => {
+                if let Ok(Some(value)) = kwargs.get_item(key) {
+                    if let Ok(value) = value.extract::<bool>() {
+                        alignmentconfig.verbose = value;
+                    }
+                }
+            }
+            other => {
+                return Err(PyValueError::new_err(format!(
+                    "Unknown keyword argument for align_text: {}",
+                    other
+                )))
+            }
+        }
+    }
+    Ok(alignmentconfig)
 }

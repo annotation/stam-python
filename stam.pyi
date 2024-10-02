@@ -1038,7 +1038,7 @@ class Annotations:
 
         Text selections will be returned in textual order. They may be filtered via keyword arguments. See :meth:`Annotation.textselections`.
 
-        See :meth:`Annotation.related_text` for allowed paramters/keyword arguments and examples.
+        See :meth:`Annotation.related_text` for allowed parameters/keyword arguments and examples.
         """
 
     def textual_order(self) -> Annotations:

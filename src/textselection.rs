@@ -1,4 +1,4 @@
-use pyo3::exceptions::{PyIndexError, PyRuntimeError, PyValueError};
+use pyo3::exceptions::{PyIndexError, PyRuntimeError};
 use pyo3::prelude::*;
 use pyo3::pyclass::CompareOp;
 use pyo3::types::*;
@@ -279,7 +279,7 @@ impl PyTextSelection {
     }
 
     /// Converts the TextSelection to an :obj:`Offset` instance
-    fn offset(&self) -> PyOffset {
+    pub(crate) fn offset(&self) -> PyOffset {
         PyOffset {
             offset: Offset::simple(self.begin(), self.end()),
         }
@@ -577,7 +577,7 @@ impl MapStore for PyTextSelection {
 }
 
 impl PyTextSelection {
-    fn map<T, F>(&self, f: F) -> Result<T, PyErr>
+    pub(crate) fn map<T, F>(&self, f: F) -> Result<T, PyErr>
     where
         F: FnOnce(ResultTextSelection) -> Result<T, StamError>,
     {

@@ -1,13 +1,15 @@
 use pyo3::exceptions::{PyRuntimeError, PyTypeError, PyValueError};
+use pyo3::ffi::PyVarObject;
 use pyo3::prelude::*;
 use pyo3::types::*;
+use rayon::iter::{IntoParallelIterator, ParallelIterator};
 use std::ops::FnOnce;
 use std::sync::{Arc, RwLock};
 
 use crate::annotation::{PyAnnotation, PyAnnotations};
 use crate::annotationdata::{annotationdata_builder, PyAnnotationData, PyData, PyDataKey};
 use crate::annotationdataset::PyAnnotationDataSet;
-use crate::config::get_config;
+use crate::config::{get_alignmentconfig, get_config};
 use crate::error::PyStamError;
 use crate::query::*;
 use crate::resources::PyTextResource;
@@ -15,6 +17,7 @@ use crate::selector::PySelector;
 use crate::substore::PyAnnotationSubStore;
 use crate::textselection::PyTextSelection;
 use stam::*;
+use stamtools::align::{align_texts, AlignmentConfig};
 use stamtools::split::{split, SplitMode};
 use stamtools::view::{AnsiWriter, HtmlWriter};
 
@@ -600,6 +603,72 @@ impl PyAnnotationStore {
             queries.push(query);
         }
         self.map_store_mut(|store| Ok(split(store, queries, mode, false)))
+    }
+
+    #[pyo3(signature = (*args, **kwargs))]
+    fn align_texts(
+        &mut self,
+        args: Vec<(PyTextSelection, PyTextSelection)>,
+        kwargs: Option<&PyDict>,
+    ) -> PyResult<Vec<Vec<PyAnnotation>>> {
+        let alignmentconfig = if let Some(kwargs) = kwargs {
+            get_alignmentconfig(kwargs)?
+        } else {
+            AlignmentConfig::default()
+        };
+        let results: Vec<Vec<AnnotationBuilder<'static>>> = args
+            .into_par_iter()
+            .filter_map(move |(textsel1, textsel2)| {
+                match textsel1.map(|textselection| {
+                    let store = textselection.rootstore();
+                    let otherresource = store.resource(textsel2.resource_handle).or_fail()?;
+                    let other = otherresource.textselection(&textsel2.offset().offset)?;
+                    align_texts(&textselection, &other, &alignmentconfig)
+                }) {
+                    Ok(buildtranspositions) => Some(buildtranspositions),
+                    Err(e) => {
+                        eprintln!("[STAM align_texts] {}", e);
+                        None
+                    }
+                }
+            })
+            .collect();
+        let storepointer = self.store.clone();
+        self.map_store_mut(move |store| {
+            results
+                .into_iter()
+                .map(|buildtranspositions| {
+                    let mut transpositions = Vec::with_capacity(buildtranspositions.len());
+                    for builder in buildtranspositions {
+                        let annotation_handle = store.annotate(builder)?;
+                        let transposition_key = store.key(
+                            "https://w3id.org/stam/extensions/stam-transpose/",
+                            "Transposition",
+                        );
+                        let translation_key = store.key(
+                            "https://w3id.org/stam/extensions/stam-translate/",
+                            "Translation",
+                        );
+                        if transposition_key.is_some() || translation_key.is_some() {
+                            let annotation = store.annotation(annotation_handle).or_fail()?;
+                            if annotation.keys().any(|key| {
+                                transposition_key
+                                    .as_ref()
+                                    .map(|k| &key == k)
+                                    .unwrap_or(false)
+                                    || translation_key.as_ref().map(|k| &key == k).unwrap_or(false)
+                            }) {
+                                transpositions.push(annotation_handle);
+                            }
+                        }
+                    }
+                    Ok(transpositions
+                        .into_iter()
+                        .map(|handle| PyAnnotation::new(handle, storepointer.clone()))
+                        .collect::<Vec<_>>())
+                })
+                .collect()
+        })
     }
 }
 

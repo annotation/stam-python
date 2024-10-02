@@ -3,7 +3,7 @@ use pyo3::prelude::*;
 use pyo3::types::*;
 
 use stam::*;
-use stamtools::align::{AlignmentAlgorithm, AlignmentConfig};
+use stamtools::align::{AbsoluteOrRelative, AlignmentAlgorithm, AlignmentConfig};
 
 pub fn get_config(kwargs: &PyDict) -> Config {
     let mut config = Config::default();
@@ -91,6 +91,11 @@ pub fn get_alignmentconfig(kwargs: &PyDict) -> PyResult<AlignmentConfig> {
                 if let Ok(Some(value)) = kwargs.get_item(key) {
                     if let Ok(value) = value.extract::<bool>() {
                         alignmentconfig.case_sensitive = value;
+                    } else {
+                        return Err(PyValueError::new_err(format!(
+                            "Keyword argument {} must be an boolean",
+                            key
+                        )));
                     }
                 }
             }
@@ -98,6 +103,11 @@ pub fn get_alignmentconfig(kwargs: &PyDict) -> PyResult<AlignmentConfig> {
                 if let Ok(Some(value)) = kwargs.get_item(key) {
                     if let Ok(value) = value.extract::<bool>() {
                         alignmentconfig.trim = value;
+                    } else {
+                        return Err(PyValueError::new_err(format!(
+                            "Keyword argument {} must be an boolean",
+                            key
+                        )));
                     }
                 }
             }
@@ -105,6 +115,11 @@ pub fn get_alignmentconfig(kwargs: &PyDict) -> PyResult<AlignmentConfig> {
                 if let Ok(Some(value)) = kwargs.get_item(key) {
                     if let Ok(value) = value.extract::<bool>() {
                         alignmentconfig.simple_only = value;
+                    } else {
+                        return Err(PyValueError::new_err(format!(
+                            "Keyword argument {} must be an boolean",
+                            key
+                        )));
                     }
                 }
             }
@@ -136,13 +151,25 @@ pub fn get_alignmentconfig(kwargs: &PyDict) -> PyResult<AlignmentConfig> {
                 if let Ok(Some(value)) = kwargs.get_item(key) {
                     if let Ok(value) = value.extract::<String>() {
                         alignmentconfig.annotation_id_prefix = Some(value);
+                    } else {
+                        return Err(PyValueError::new_err(format!(
+                            "Keyword argument {} must be a string",
+                            key
+                        )));
                     }
                 }
             }
             "max_errors" => {
                 if let Ok(Some(value)) = kwargs.get_item(key) {
                     if let Ok(value) = value.extract::<usize>() {
-                        alignmentconfig.max_errors = Some(value);
+                        alignmentconfig.max_errors = Some(AbsoluteOrRelative::Absolute(value));
+                    } else if let Ok(value) = value.extract::<f64>() {
+                        alignmentconfig.max_errors = Some(AbsoluteOrRelative::Relative(value));
+                    } else {
+                        return Err(PyValueError::new_err(format!(
+                            "Keyword argument {} must be an integer (absolute value) or float (relative value)",
+                            key
+                        )));
                     }
                 }
             }
@@ -150,6 +177,11 @@ pub fn get_alignmentconfig(kwargs: &PyDict) -> PyResult<AlignmentConfig> {
                 if let Ok(Some(value)) = kwargs.get_item(key) {
                     if let Ok(value) = value.extract::<usize>() {
                         alignmentconfig.minimal_align_length = value;
+                    } else {
+                        return Err(PyValueError::new_err(format!(
+                            "Keyword argument {} must be an integer",
+                            key
+                        )));
                     }
                 }
             }
@@ -157,6 +189,11 @@ pub fn get_alignmentconfig(kwargs: &PyDict) -> PyResult<AlignmentConfig> {
                 if let Ok(Some(value)) = kwargs.get_item(key) {
                     if let Ok(value) = value.extract::<bool>() {
                         alignmentconfig.grow = value;
+                    } else {
+                        return Err(PyValueError::new_err(format!(
+                            "Keyword argument {} must be an boolean",
+                            key
+                        )));
                     }
                 }
             }
@@ -164,6 +201,11 @@ pub fn get_alignmentconfig(kwargs: &PyDict) -> PyResult<AlignmentConfig> {
                 if let Ok(Some(value)) = kwargs.get_item(key) {
                     if let Ok(value) = value.extract::<bool>() {
                         alignmentconfig.verbose = value;
+                    } else {
+                        return Err(PyValueError::new_err(format!(
+                            "Keyword argument {} must be an boolean",
+                            key
+                        )));
                     }
                 }
             }

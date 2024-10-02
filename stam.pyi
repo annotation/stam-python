@@ -399,6 +399,54 @@ class AnnotationStore:
         This deletes items from the store along with all their dependencies and comes with a reasonable performance overhead.
         """
 
+    def align_texts(self, *args: list[tuple[TextSelection,TextSelection]], **kwargs) -> list[Annotation]:
+        """
+        Used to compute an alignment between two texts; it
+        identifies which parts of the two texts are identical and computes a mapping
+        between the two coordinate systems. Two related sequence alignments algorithms
+        from bioinformatics are implemented to accomplish this:
+        Smith-Waterman and Needleman-Wunsch.
+
+        The resulting alignment is added to the store as an annotation, a so called transposition,
+        according to the `STAM Transpose <https://github.com/annotation/stam/tree/master/extensions/stam-transpose>`_
+        extension. These annotations are also returned by this function.
+
+        Alignments between text selection pairs will be computed in parallel, it may be memory intensive.
+        For the simpler sequential variant, use :meth:`TextSelection.align_texts()` instead.
+
+        Positional Arguments
+        -------------------
+
+        Each argument is a two-tuple containing two text selections (:class:`TextSelection`) to align.
+
+        Keyword Arguments
+        -------------------
+        
+        case_insensitive: bool
+            Case-insensitive matching has more performance overhead
+        algorithm: str
+            The alignment algorithm to use, can be `smithwaterman`/`local` (local alignment) or `needlemanwunsch`/`global` (global alignment).
+        grow: bool
+            Grow aligned parts into larger alignments by incorporating non-matching parts. If you set this, 
+            the function will return translations rather than transpositions.
+    		You'll want to set `max_errors` in combination with this one to prevent very low-quality alignments.
+        max_errors: Union[int,float]
+    		The maximum number of errors (max edit distance) that may occur for a transposition to be valid.
+    		This is either an absolute integer or a relative ratio between 0.0 and 1.0, interpreted in relation to the length of the first text in the alignment.
+    		In other words; this represents the number of characters in the search string that may be missed when matching in the larger text.
+    		The transposition itself will only consist of fully matching parts, use `grow` if you want to include non-matching parts.
+        minimal_align_length: int
+    		The minimal number of characters that must be aligned (absolute number) for a transposition/translation to be valid.
+        annotation_id_prefix: str
+            Prefix to use when assigning annotation IDs. The actual ID will have a random component
+        trim: bool
+            Strip leading and trailing whitespace/newlines from aligned text selections, keeping them as minimal as possible (default is to be as greedy as possible in selecting)
+            Setting this may lead to certain whitespaces not being covered even though they may align.
+        simple_only: bool
+            Only allow for alignments that consist of one contiguous text selection on either side. This is a so-called simple transposition.
+        """
+
+
 
 
 #   def find_data(self,  **kwargs) -> Data:
@@ -2062,6 +2110,9 @@ class TextSelection:
         according to the `STAM Transpose <https://github.com/annotation/stam/tree/master/extensions/stam-transpose>`_
         extension. These annotations are also returned by this function.
 
+        If you want to parallelise execution rather than sequentially call this
+        function, then use :meth:`AnnotationStore.align_texts()` instead.
+
         Parameters
         --------------
         other: TextSelection
@@ -2078,8 +2129,9 @@ class TextSelection:
             Grow aligned parts into larger alignments by incorporating non-matching parts. If you set this, 
             the function will return translations rather than transpositions.
     		You'll want to set `max_errors` in combination with this one to prevent very low-quality alignments.
-        max_errors: int
-    		The maximum number of errors that may occur (absolute number) for a transposition to be valid, each insertion/deletion counts as 1. 
+        max_errors: Union[int,float]
+    		The maximum number of errors (max edit distance) that may occur for a transposition to be valid.
+    		This is either an absolute integer or a relative ratio between 0.0 and 1.0, interpreted in relation to the length of the first text in the alignment.
     		In other words; this represents the number of characters in the search string that may be missed when matching in the larger text.
     		The transposition itself will only consist of fully matching parts, use `grow` if you want to include non-matching parts.
         minimal_align_length: int

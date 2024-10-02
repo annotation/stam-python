@@ -871,7 +871,6 @@ impl PyData {
         wrappedstore: &Arc<RwLock<AnnotationStore>>,
         limit: Option<usize>,
     ) -> Result<Self, StamError> {
-        assert!(query.resulttype() == Some(Type::AnnotationData));
         Ok(Self {
             data: store
                 .query(query)?

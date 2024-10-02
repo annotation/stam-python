@@ -975,7 +975,6 @@ impl PyTextSelections {
         wrappedstore: &Arc<RwLock<AnnotationStore>>,
         limit: Option<usize>,
     ) -> Result<Self, StamError> {
-        assert!(query.resulttype() == Some(Type::TextSelection));
         Ok(Self {
             textselections: store
                 .query(query)?

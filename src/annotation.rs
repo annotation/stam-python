@@ -904,7 +904,6 @@ impl PyAnnotations {
         wrappedstore: &Arc<RwLock<AnnotationStore>>,
         limit: Option<usize>,
     ) -> Result<Self, StamError> {
-        assert!(query.resulttype() == Some(Type::Annotation));
         Ok(Self {
             annotations: store
                 .query(query)?

@@ -399,7 +399,7 @@ class AnnotationStore:
         This deletes items from the store along with all their dependencies and comes with a reasonable performance overhead.
         """
 
-    def align_texts(self, *args: list[tuple[TextSelection,TextSelection]], **kwargs) -> list[Annotation]:
+    def align_texts(self, *args: list[tuple[TextSelection,TextSelection]], **kwargs) -> list[list[Annotation]]:
         """
         Used to compute an alignment between two texts; it
         identifies which parts of the two texts are identical and computes a mapping

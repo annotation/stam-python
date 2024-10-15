@@ -297,6 +297,7 @@ impl PyAnnotationDataSet {
     where
         F: FnOnce(ResultItem<AnnotationDataSet>, Query) -> Result<T, StamError>,
     {
+        let debug = get_debug(kwargs);
         self.map(|dataset| {
             let query = build_query(
                 Query::new(QueryType::Select, Some(resulttype), Some("result"))
@@ -307,6 +308,9 @@ impl PyAnnotationDataSet {
             )
             .map_err(|e| StamError::QuerySyntaxError(format!("{}", e), "(python to query)"))?
             .with_datasetvar("main", &dataset);
+            if debug {
+                eprintln!("[STAM DEBUG]: {}", query.to_string()?);
+            }
             f(dataset, query)
         })
     }

@@ -421,6 +421,17 @@ pub(crate) fn get_limit(kwargs: Option<&PyDict>) -> Option<usize> {
     None
 }
 
+pub(crate) fn get_debug(kwargs: Option<&PyDict>) -> bool {
+    if let Some(kwargs) = kwargs {
+        if let Ok(Some(debug)) = kwargs.get_item("debug") {
+            if let Ok(debug) = debug.extract::<bool>() {
+                return debug;
+            }
+        }
+    }
+    false
+}
+
 pub(crate) fn get_substore(kwargs: Option<&PyDict>) -> Option<bool> {
     if let Some(kwargs) = kwargs {
         if let Ok(Some(substore)) = kwargs.get_item("substore") {

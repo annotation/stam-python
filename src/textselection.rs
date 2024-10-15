@@ -607,6 +607,7 @@ impl PyTextSelection {
     where
         F: FnOnce(ResultTextSelection, Query) -> Result<T, StamError>,
     {
+        let debug = get_debug(kwargs);
         self.map(|textselection| {
             let query = build_query(
                 Query::new(QueryType::Select, Some(resulttype), Some("result"))
@@ -617,6 +618,9 @@ impl PyTextSelection {
             )
             .map_err(|e| StamError::QuerySyntaxError(format!("{}", e), "(python to query)"))?
             .with_textvar("main", &textselection);
+            if debug {
+                eprintln!("[STAM DEBUG]: {}", query.to_string()?);
+            }
             f(textselection, query)
         })
     }
@@ -952,6 +956,7 @@ impl PyTextSelections {
     where
         F: FnOnce(Query, &AnnotationStore) -> Result<T, StamError>,
     {
+        let debug = get_debug(kwargs);
         self.map(|textselections, store| {
             let query = Query::new(QueryType::Select, Some(Type::Annotation), Some("main"))
                 .with_constraint(Constraint::TextSelections(
@@ -970,6 +975,9 @@ impl PyTextSelections {
                         StamError::QuerySyntaxError(format!("{}", e), "(python to query)")
                     })?,
                 );
+            if debug {
+                eprintln!("[STAM DEBUG]: {}", query.to_string()?);
+            }
             f(query, store)
         })
     }

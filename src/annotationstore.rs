@@ -739,6 +739,7 @@ impl PyAnnotationStore {
     where
         F: FnOnce(Query, &AnnotationStore) -> Result<T, StamError>,
     {
+        let debug = get_debug(kwargs);
         self.map_store(|store| {
             let query = build_query(
                 Query::new(QueryType::Select, Some(resulttype), None),
@@ -747,6 +748,9 @@ impl PyAnnotationStore {
                 store,
             )
             .map_err(|e| StamError::QuerySyntaxError(format!("{}", e), "(python to query)"))?;
+            if debug {
+                eprintln!("[STAM DEBUG]: {}", query.to_string()?);
+            }
             f(query, store)
         })
     }

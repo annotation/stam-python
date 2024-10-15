@@ -191,6 +191,7 @@ impl PyDataKey {
     where
         F: FnOnce(ResultItem<DataKey>, Query) -> Result<T, StamError>,
     {
+        let debug = get_debug(kwargs);
         self.map(|key| {
             let query = build_query(
                 Query::new(QueryType::Select, Some(resulttype), Some("result"))
@@ -201,6 +202,9 @@ impl PyDataKey {
             )
             .map_err(|e| StamError::QuerySyntaxError(format!("{}", e), "(python to query)"))?
             .with_keyvar("main", &key);
+            if debug {
+                eprintln!("[STAM DEBUG]: {}", query.to_string()?);
+            }
             f(key, query)
         })
     }
@@ -537,6 +541,7 @@ impl PyAnnotationData {
     where
         F: FnOnce(ResultItem<AnnotationData>, Query) -> Result<T, StamError>,
     {
+        let debug = get_debug(kwargs);
         self.map(|data| {
             let query = build_query(
                 Query::new(QueryType::Select, Some(resulttype), Some("result"))
@@ -547,6 +552,9 @@ impl PyAnnotationData {
             )
             .map_err(|e| StamError::QuerySyntaxError(format!("{}", e), "(python to query)"))?
             .with_datavar("main", &data);
+            if debug {
+                eprintln!("[STAM DEBUG]: {}", query.to_string()?);
+            }
             f(data, query)
         })
     }

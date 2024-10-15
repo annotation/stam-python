@@ -588,6 +588,7 @@ impl PyTextResource {
     where
         F: FnOnce(ResultItem<TextResource>, Query) -> Result<T, StamError>,
     {
+        let debug = get_debug(kwargs);
         self.map(|resource| {
             let query = build_query(
                 Query::new(QueryType::Select, Some(resulttype), Some("result"))
@@ -598,6 +599,9 @@ impl PyTextResource {
             )
             .map_err(|e| StamError::QuerySyntaxError(format!("{}", e), "(python to query)"))?
             .with_resourcevar("main", &resource);
+            if debug {
+                eprintln!("[STAM DEBUG]: {}", query.to_string()?);
+            }
             f(resource, query)
         })
     }

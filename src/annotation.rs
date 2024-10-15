@@ -960,6 +960,7 @@ impl PyAnnotations {
     where
         F: FnOnce(Query, &AnnotationStore) -> Result<T, StamError>,
     {
+        let debug = get_debug(kwargs);
         self.map(|annotations, store| {
             let query = Query::new(QueryType::Select, Some(Type::Annotation), Some("main"))
                 .with_constraint(Constraint::Annotations(
@@ -979,6 +980,9 @@ impl PyAnnotations {
                         StamError::QuerySyntaxError(format!("{}", e), "(python to query)")
                     })?,
                 );
+            if debug {
+                eprintln!("[STAM DEBUG]: {}", query.to_string()?);
+            }
             f(query, store)
         })
     }
@@ -1070,6 +1074,7 @@ impl PyAnnotation {
     where
         F: FnOnce(ResultItem<Annotation>, Query) -> Result<T, StamError>,
     {
+        let debug = get_debug(kwargs);
         self.map(|annotation| {
             let query = build_query(
                 Query::new(QueryType::Select, Some(resulttype), Some("result"))
@@ -1080,6 +1085,9 @@ impl PyAnnotation {
             )
             .map_err(|e| StamError::QuerySyntaxError(format!("{}", e), "(python to query)"))?
             .with_annotationvar("main", &annotation);
+            if debug {
+                eprintln!("[STAM DEBUG]: {}", query.to_string()?);
+            }
             f(annotation, query)
         })
     }

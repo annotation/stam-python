@@ -299,6 +299,7 @@ impl PySelector {
 
     #[staticmethod]
     /// Shortcut static method to construct a AnnotationSelector
+    #[pyo3(signature = (annotation, offset=None))]
     fn annotationselector(
         annotation: PyRef<PyAnnotation>,
         offset: Option<PyRef<PyOffset>>,

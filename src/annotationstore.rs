@@ -1,5 +1,4 @@
 use pyo3::exceptions::{PyRuntimeError, PyTypeError, PyValueError};
-use pyo3::ffi::PyVarObject;
 use pyo3::prelude::*;
 use pyo3::types::*;
 use rayon::iter::{IntoParallelIterator, ParallelIterator};
@@ -42,58 +41,51 @@ impl PyAnnotationStore {
     #[new]
     #[pyo3(signature = (**kwargs))]
     #[pyo3(text_signature = "(self, id=None, file=None, string=None, config=None)")]
-    fn new<'py>(kwargs: Option<&PyDict>, py: Python<'py>) -> PyResult<Self> {
+    fn new<'py>(kwargs: Option<Bound<'py, PyDict>>, py: Python<'py>) -> PyResult<Self> {
         if let Some(kwargs) = kwargs {
-            let mut config: &PyDict = PyDict::new(py);
-            for (key, value) in kwargs {
-                if let Some(key) = key.extract().unwrap() {
-                    match key {
-                        "config" => {
-                            if let Ok(Some(value)) = value.extract() {
-                                config = value;
-                            }
+            let mut config = PyDict::new_bound(py);
+            for (key, value) in kwargs.iter() {
+                match key.downcast()?.extract()? {
+                    "config" => {
+                        if let Ok(Some(value)) = value.extract() {
+                            config = value;
                         }
-                        _ => continue,
                     }
+                    _ => continue,
                 }
             }
-            for (key, value) in kwargs {
-                if let Some(key) = key.extract().unwrap() {
-                    match key {
-                        "config" => continue, //already handled
-                        "file" => {
-                            if let Ok(Some(value)) = value.extract() {
-                                return match AnnotationStore::from_file(value, get_config(config)) {
-                                    Ok(store) => Ok(PyAnnotationStore {
-                                        store: Arc::new(RwLock::new(store)),
-                                    }),
-                                    Err(err) => Err(PyStamError::new_err(format!("{}", err))),
-                                };
-                            }
-                        }
-                        "string" => {
-                            if let Ok(Some(value)) = value.extract() {
-                                return match AnnotationStore::from_str(value, get_config(config)) {
-                                    Ok(store) => Ok(PyAnnotationStore {
-                                        store: Arc::new(RwLock::new(store)),
-                                    }),
-                                    Err(err) => Err(PyStamError::new_err(format!("{}", err))),
-                                };
-                            }
-                        }
-                        "id" => {
-                            if let Ok(Some(value)) = value.extract::<Option<String>>() {
-                                return Ok(PyAnnotationStore {
-                                    store: Arc::new(RwLock::new(
-                                        AnnotationStore::default()
-                                            .with_id(value)
-                                            .with_config(get_config(config)),
-                                    )),
-                                });
-                            }
-                        }
-                        _ => eprintln!("Ignored unknown kwargs option {}", key),
+            for (key, value) in kwargs.iter() {
+                match key.downcast()?.extract()? {
+                    "config" => continue, //already handled
+                    "file" => {
+                        let value = value.downcast()?.extract()?;
+                        return match AnnotationStore::from_file(value, get_config(&config)?) {
+                            Ok(store) => Ok(PyAnnotationStore {
+                                store: Arc::new(RwLock::new(store)),
+                            }),
+                            Err(err) => Err(PyStamError::new_err(format!("{}", err))),
+                        };
                     }
+                    "string" => {
+                        let value = value.downcast()?.extract()?;
+                        return match AnnotationStore::from_str(value, get_config(&config)?) {
+                            Ok(store) => Ok(PyAnnotationStore {
+                                store: Arc::new(RwLock::new(store)),
+                            }),
+                            Err(err) => Err(PyStamError::new_err(format!("{}", err))),
+                        };
+                    }
+                    "id" => {
+                        let value: String = value.downcast()?.extract()?;
+                        return Ok(PyAnnotationStore {
+                            store: Arc::new(RwLock::new(
+                                AnnotationStore::default()
+                                    .with_id(value)
+                                    .with_config(get_config(&config)?),
+                            )),
+                        });
+                    }
+                    _ => eprintln!("Ignored unknown kwargs option {}", key),
                 }
             }
         }
@@ -179,6 +171,7 @@ impl PyAnnotationStore {
     }
 
     /// Create a new TextResource or load an existing one and adds it to the store
+    #[pyo3(signature = (filename=None, text=None, id=None))]
     fn add_resource(
         &mut self,
         filename: Option<&str>,
@@ -218,6 +211,7 @@ impl PyAnnotationStore {
     }
 
     /// Create a new AnnotationDataSet or load an existing one and adds it to the store
+    #[pyo3(signature = (id=None, filename=None))]
     fn add_dataset(
         &mut self,
         id: Option<&str>,
@@ -278,10 +272,10 @@ impl PyAnnotationStore {
     ///                              Alternatively, you can pass an existing`AnnotationData` instance.
     ///       `id` (:obj:`str`, `optional`) - The public ID for the annotation
     #[pyo3(signature = (target, data, id=None))]
-    fn annotate(
+    fn annotate<'py>(
         &mut self,
         target: PySelector,
-        data: &PyAny, //dictionary or list of dictionaries
+        data: Bound<'py, PyAny>, //dictionary or list of dictionaries
         id: Option<String>,
     ) -> PyResult<PyAnnotation> {
         let mut builder = AnnotationBuilder::new();
@@ -290,7 +284,7 @@ impl PyAnnotationStore {
         }
         builder = builder.with_target(target.build());
         if data.is_instance_of::<PyList>() {
-            let data: &PyList = data.downcast().unwrap();
+            let data: Bound<'py, PyList> = data.downcast()?.clone();
             for databuilder in data.iter() {
                 let databuilder = annotationdata_builder(databuilder)?;
                 builder = builder.with_data_builder(databuilder);
@@ -317,10 +311,14 @@ impl PyAnnotationStore {
     }
 
     #[pyo3(signature = (*args, **kwargs))]
-    fn annotations(&self, args: &PyTuple, kwargs: Option<&PyDict>) -> PyResult<PyAnnotations> {
-        let limit = get_limit(kwargs);
-        let substore = get_substore(kwargs);
-        if !has_filters(args, kwargs) {
+    fn annotations<'py>(
+        &self,
+        args: Bound<'py, PyTuple>,
+        kwargs: Option<Bound<'py, PyDict>>,
+    ) -> PyResult<PyAnnotations> {
+        let limit = get_limit(&kwargs);
+        let substore = get_substore(&kwargs);
+        if !has_filters(&args, &kwargs) {
             if substore == Some(false) {
                 self.map(|store| {
                     Ok(PyAnnotations::from_iter(
@@ -337,7 +335,7 @@ impl PyAnnotationStore {
                 })
             }
         } else {
-            self.map_with_query(Type::Annotation, args, kwargs, |query, store| {
+            self.map_with_query(Type::Annotation, &args, &kwargs, |query, store| {
                 PyAnnotations::from_query(query, store, &self.store, limit)
             })
         }
@@ -393,12 +391,16 @@ impl PyAnnotationStore {
     }
 
     #[pyo3(signature = (*args, **kwargs))]
-    fn data(&self, args: &PyTuple, kwargs: Option<&PyDict>) -> PyResult<PyData> {
-        let limit = get_limit(kwargs);
-        if !has_filters(args, kwargs) {
+    fn data<'py>(
+        &self,
+        args: Bound<'py, PyTuple>,
+        kwargs: Option<Bound<PyDict>>,
+    ) -> PyResult<PyData> {
+        let limit = get_limit(&kwargs);
+        if !has_filters(&args, &kwargs) {
             self.map(|store| Ok(PyData::from_iter(store.data().limit(limit), &self.store)))
         } else {
-            self.map_with_query(Type::AnnotationData, args, kwargs, |query, store| {
+            self.map_with_query(Type::AnnotationData, &args, &kwargs, |query, store| {
                 PyData::from_query(query, store, &self.store, limit)
             })
         }
@@ -408,13 +410,13 @@ impl PyAnnotationStore {
     fn query<'py>(
         &mut self,
         querystring: &str,
-        kwargs: Option<&'py PyDict>,
+        kwargs: Option<Bound<'py, PyDict>>,
         py: Python<'py>,
-    ) -> PyResult<&'py PyList> {
+    ) -> PyResult<Bound<'py, PyList>> {
         let clonedstore = self.store.clone();
         self.map_mut(|store| {
             let (mut query, _) = Query::parse(querystring)?;
-            let readonly = get_bool(kwargs, "readonly", false);
+            let readonly = get_bool(&kwargs, "readonly", false);
             if let Some(kwargs) = kwargs {
                 //bind keyword arguments as variables in the query
                 for (varname, value) in kwargs.iter() {
@@ -490,8 +492,12 @@ impl PyAnnotationStore {
     }
 
     #[pyo3(signature = (item, **kwargs))]
-    fn remove<'py>(&mut self, item: &'py PyAny, kwargs: Option<&'py PyDict>) -> PyResult<()> {
-        let strict = get_bool(kwargs, "strict", false);
+    fn remove<'py>(
+        &mut self,
+        item: Bound<'py, PyAny>,
+        kwargs: Option<Bound<'py, PyDict>>,
+    ) -> PyResult<()> {
+        let strict = get_bool(&kwargs, "strict", false);
         if item.is_instance_of::<PyAnnotation>() {
             let item: PyRef<'py, PyAnnotation> = item.extract()?;
             self.map_store_mut(|store| store.remove(item.handle))
@@ -516,8 +522,8 @@ impl PyAnnotationStore {
     fn view<'py>(
         &self,
         querystring: &str,
-        args: &'py PyTuple,
-        kwargs: Option<&'py PyDict>,
+        args: Bound<'py, PyTuple>,
+        kwargs: Option<Bound<'py, PyDict>>,
     ) -> PyResult<String> {
         let mut append_querystring = querystring.to_string();
         if querystring.trim().ends_with("}") {
@@ -544,14 +550,14 @@ impl PyAnnotationStore {
                 append_querystring.as_str()
             ))
         })?;
-        let legend = get_bool(kwargs, "legend", true);
-        let titles = get_bool(kwargs, "titles", true);
-        let interactive = get_bool(kwargs, "interactive", true);
-        let selectionvar = get_opt_string(kwargs, "use", None);
-        let autocollapse = get_bool(kwargs, "autocollapse", false);
-        let header = get_opt_string(kwargs, "header", None);
-        let footer = get_opt_string(kwargs, "footer", None);
-        let format = get_opt_string(kwargs, "format", Some("html"));
+        let legend = get_bool(&kwargs, "legend", true);
+        let titles = get_bool(&kwargs, "titles", true);
+        let interactive = get_bool(&kwargs, "interactive", true);
+        let selectionvar = get_opt_string(&kwargs, "use", None);
+        let autocollapse = get_bool(&kwargs, "autocollapse", false);
+        let header = get_opt_string(&kwargs, "header", None);
+        let footer = get_opt_string(&kwargs, "footer", None);
+        let format = get_opt_string(&kwargs, "format", Some("html"));
         match format.as_deref() {
             Some("html") => self
                 .map_store(|store| {
@@ -589,15 +595,16 @@ impl PyAnnotationStore {
     }
 
     #[pyo3(signature = (querystrings, retain))]
-    fn split<'py>(&mut self, querystrings: Vec<&str>, retain: bool) -> PyResult<()> {
+    fn split<'py>(&mut self, querystrings: Vec<String>, retain: bool) -> PyResult<()> {
         let mode = if retain {
             SplitMode::Retain
         } else {
             SplitMode::Delete
         };
         let mut queries: Vec<Query> = Vec::new();
-        for querystring in querystrings {
+        for querystring in querystrings.iter() {
             let query: Query = querystring
+                .as_str()
                 .try_into()
                 .map_err(|err| PyStamError::new_err(format!("{}", err)))?;
             queries.push(query);
@@ -606,13 +613,13 @@ impl PyAnnotationStore {
     }
 
     #[pyo3(signature = (*args, **kwargs))]
-    fn align_texts(
+    fn align_texts<'py>(
         &mut self,
         args: Vec<(PyTextSelection, PyTextSelection)>,
-        kwargs: Option<&PyDict>,
+        kwargs: Option<Bound<'py, PyDict>>,
     ) -> PyResult<Vec<Vec<PyAnnotation>>> {
         let alignmentconfig = if let Some(kwargs) = kwargs {
-            get_alignmentconfig(kwargs)?
+            get_alignmentconfig(&kwargs)?
         } else {
             AlignmentConfig::default()
         };
@@ -729,11 +736,11 @@ impl PyAnnotationStore {
         self.map_store_mut(f)
     }
 
-    pub(crate) fn map_with_query<T, F>(
+    pub(crate) fn map_with_query<'py, T, F>(
         &self,
         resulttype: Type,
-        args: &PyTuple,
-        kwargs: Option<&PyDict>,
+        args: &Bound<'py, PyTuple>,
+        kwargs: &Option<Bound<'py, PyDict>>,
         f: F,
     ) -> Result<T, PyErr>
     where

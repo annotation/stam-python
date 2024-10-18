@@ -29,7 +29,7 @@ fn new_contextvar(used_contextvarnames: &mut usize) -> &'static str {
 fn add_filter<'store, 'py, 'context>(
     query: &mut Query<'store>,
     store: &'store AnnotationStore,
-    filter: &'py PyAny,
+    filter: Bound<'py, PyAny>,
     operator: Option<DataOperator<'store>>,
     mut used_contextvarnames: usize,
 ) -> PyResult<usize>
@@ -38,8 +38,8 @@ where
     'context: 'store,
 {
     if filter.is_instance_of::<PyDict>() {
-        let filter: &PyDict = filter.extract()?;
-        let operator = dataoperator_from_kwargs(filter)
+        let filter = filter.downcast()?;
+        let operator = dataoperator_from_kwargs(&filter)
             .map_err(|err| PyValueError::new_err(format!("{}", err)))?
             .or(operator);
         if filter.contains("substore")? {
@@ -156,10 +156,10 @@ where
             query.constrain(Constraint::Value(operator, SelectionQualifier::Normal));
         }
     } else if filter.is_instance_of::<PyList>() {
-        let vec: Vec<&PyAny> = filter.extract()?;
+        let vec: Vec<Bound<'py, PyAny>> = filter.extract()?;
         used_contextvarnames = add_multi_filter(query, store, vec, used_contextvarnames)?;
     } else if filter.is_instance_of::<PyTuple>() {
-        let vec: Vec<&PyAny> = filter.extract()?;
+        let vec: Vec<Bound<'py, PyAny>> = filter.extract()?;
         used_contextvarnames = add_multi_filter(query, store, vec, used_contextvarnames)?;
     } else if filter.is_instance_of::<PyAnnotationData>() {
         let data: PyRef<'_, PyAnnotationData> = filter.extract()?;
@@ -246,7 +246,7 @@ where
 fn add_multi_filter<'a>(
     query: &mut Query<'a>,
     store: &'a AnnotationStore,
-    filter: Vec<&'a PyAny>,
+    filter: Vec<Bound<'a, PyAny>>,
     mut used_contextvarnames: usize,
 ) -> PyResult<usize> {
     if filter.iter().all(|x| x.is_instance_of::<PyAnnotation>()) {
@@ -277,7 +277,8 @@ fn add_multi_filter<'a>(
         ));
     } else {
         for item in filter.iter() {
-            used_contextvarnames = add_filter(query, store, item, None, used_contextvarnames)?;
+            used_contextvarnames =
+                add_filter(query, store, item.clone(), None, used_contextvarnames)?;
         }
     }
     Ok(used_contextvarnames)
@@ -285,8 +286,8 @@ fn add_multi_filter<'a>(
 
 pub(crate) fn build_query<'store, 'py>(
     mut query: Query<'store>,
-    args: &'py PyTuple,
-    kwargs: Option<&'py PyDict>,
+    args: &Bound<'py, PyTuple>,
+    kwargs: &Option<Bound<'py, PyDict>>,
     store: &'store AnnotationStore,
 ) -> PyResult<Query<'store>>
 where
@@ -343,7 +344,7 @@ where
             add_filter(
                 &mut query,
                 store,
-                kwargs.as_ref(),
+                kwargs.clone().into_any(),
                 None,
                 used_contextvarnames,
             )?;
@@ -352,15 +353,26 @@ where
     Ok(query)
 }
 
-pub(crate) fn has_filters(args: &PyTuple, kwargs: Option<&PyDict>) -> bool {
+pub(crate) fn has_filters<'py>(
+    args: &Bound<'py, PyTuple>,
+    kwargs: &Option<Bound<'py, PyDict>>,
+) -> bool {
     if !args.is_empty() {
         return true;
     }
     if let Some(kwargs) = kwargs {
         for key in kwargs.keys() {
-            if let Ok(Some("limit")) | Ok(Some("recursive")) | Ok(Some("substore")) = key.extract()
-            {
-                continue; //this doesn't count as a filter
+            if key.is_instance_of::<PyString>() {
+                let key: &str = key
+                    .downcast()
+                    .expect("downcast must work")
+                    .extract()
+                    .expect("extract must work");
+                if let "limit" | "recursive" | "substore" = key {
+                    continue; //this doesn't count as a filter
+                } else {
+                    return true;
+                }
             } else {
                 return true;
             }
@@ -369,7 +381,10 @@ pub(crate) fn has_filters(args: &PyTuple, kwargs: Option<&PyDict>) -> bool {
     false
 }
 
-pub(crate) fn get_recursive(kwargs: Option<&PyDict>, default: AnnotationDepth) -> AnnotationDepth {
+pub(crate) fn get_recursive(
+    kwargs: &Option<Bound<'_, PyDict>>,
+    default: AnnotationDepth,
+) -> AnnotationDepth {
     if let Some(kwargs) = kwargs {
         if let Ok(Some(v)) = kwargs.get_item("recursive") {
             if let Ok(v) = v.extract::<bool>() {
@@ -384,7 +399,7 @@ pub(crate) fn get_recursive(kwargs: Option<&PyDict>, default: AnnotationDepth) -
     default
 }
 
-pub(crate) fn get_bool(kwargs: Option<&PyDict>, name: &str, default: bool) -> bool {
+pub(crate) fn get_bool(kwargs: &Option<Bound<'_, PyDict>>, name: &str, default: bool) -> bool {
     if let Some(kwargs) = kwargs {
         if let Ok(Some(v)) = kwargs.get_item(name) {
             if let Ok(v) = v.extract::<bool>() {
@@ -396,7 +411,7 @@ pub(crate) fn get_bool(kwargs: Option<&PyDict>, name: &str, default: bool) -> bo
 }
 
 pub(crate) fn get_opt_string(
-    kwargs: Option<&PyDict>,
+    kwargs: &Option<Bound<'_, PyDict>>,
     name: &str,
     default: Option<&str>,
 ) -> Option<String> {
@@ -410,7 +425,7 @@ pub(crate) fn get_opt_string(
     default.map(|s| s.to_string())
 }
 
-pub(crate) fn get_limit(kwargs: Option<&PyDict>) -> Option<usize> {
+pub(crate) fn get_limit(kwargs: &Option<Bound<'_, PyDict>>) -> Option<usize> {
     if let Some(kwargs) = kwargs {
         if let Ok(Some(limit)) = kwargs.get_item("limit") {
             if let Ok(limit) = limit.extract::<usize>() {
@@ -421,7 +436,7 @@ pub(crate) fn get_limit(kwargs: Option<&PyDict>) -> Option<usize> {
     None
 }
 
-pub(crate) fn get_debug(kwargs: Option<&PyDict>) -> bool {
+pub(crate) fn get_debug(kwargs: &Option<Bound<'_, PyDict>>) -> bool {
     if let Some(kwargs) = kwargs {
         if let Ok(Some(debug)) = kwargs.get_item("debug") {
             if let Ok(debug) = debug.extract::<bool>() {
@@ -432,7 +447,7 @@ pub(crate) fn get_debug(kwargs: Option<&PyDict>) -> bool {
     false
 }
 
-pub(crate) fn get_substore(kwargs: Option<&PyDict>) -> Option<bool> {
+pub(crate) fn get_substore(kwargs: &Option<Bound<'_, PyDict>>) -> Option<bool> {
     if let Some(kwargs) = kwargs {
         if let Ok(Some(substore)) = kwargs.get_item("substore") {
             if let Ok(substore) = substore.extract::<bool>() {
@@ -484,10 +499,10 @@ pub(crate) fn query_to_python<'py>(
     iter: QueryIter,
     store: Arc<RwLock<AnnotationStore>>,
     py: Python<'py>,
-) -> Result<&'py PyList, StamError> {
-    let results = PyList::empty(py);
+) -> Result<Bound<'py, PyList>, StamError> {
+    let results = PyList::empty_bound(py);
     for resultitems in iter {
-        let dict = PyDict::new(py);
+        let dict = PyDict::new_bound(py);
         for (result, name) in resultitems.iter().zip(resultitems.names()) {
             if name.is_none() {
                 continue;
@@ -499,7 +514,7 @@ pub(crate) fn query_to_python<'py>(
                         name,
                         PyAnnotation::new(annotation.handle(), store.clone())
                             .into_py(py)
-                            .into_ref(py),
+                            .into_bound(py),
                     )
                     .unwrap();
                 }
@@ -508,7 +523,7 @@ pub(crate) fn query_to_python<'py>(
                         name,
                         PyAnnotationData::new(data.handle(), data.set().handle(), store.clone())
                             .into_py(py)
-                            .into_ref(py),
+                            .into_bound(py),
                     )
                     .unwrap();
                 }
@@ -517,7 +532,7 @@ pub(crate) fn query_to_python<'py>(
                         name,
                         PyDataKey::new(key.handle(), key.set().handle(), store.clone())
                             .into_py(py)
-                            .into_ref(py),
+                            .into_bound(py),
                     )
                     .unwrap();
                 }
@@ -526,7 +541,7 @@ pub(crate) fn query_to_python<'py>(
                         name,
                         PyTextResource::new(resource.handle(), store.clone())
                             .into_py(py)
-                            .into_ref(py),
+                            .into_bound(py),
                     )
                     .unwrap();
                 }
@@ -535,7 +550,7 @@ pub(crate) fn query_to_python<'py>(
                         name,
                         PyAnnotationDataSet::new(dataset.handle(), store.clone())
                             .into_py(py)
-                            .into_ref(py),
+                            .into_bound(py),
                     )
                     .unwrap();
                 }
@@ -551,7 +566,7 @@ pub(crate) fn query_to_python<'py>(
                             store.clone(),
                         )
                         .into_py(py)
-                        .into_ref(py),
+                        .into_bound(py),
                     )
                     .unwrap();
                 }
@@ -560,7 +575,7 @@ pub(crate) fn query_to_python<'py>(
                         name,
                         PyAnnotationSubStore::new(substore.handle(), store.clone())
                             .into_py(py)
-                            .into_ref(py),
+                            .into_bound(py),
                     )
                     .unwrap();
                 }

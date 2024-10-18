@@ -31,12 +31,13 @@ impl PyAnnotationSubStore {
         Self { handle, store }
     }
 
+    #[allow(dead_code)]
     pub(crate) fn new_py<'py>(
         handle: AnnotationSubStoreHandle,
         store: Arc<RwLock<AnnotationStore>>,
         py: Python<'py>,
-    ) -> &'py PyAny {
-        Self::new(handle, store).into_py(py).into_ref(py)
+    ) -> Bound<'py, PyAny> {
+        Self::new(handle, store).into_py(py).into_bound(py)
     }
 }
 
@@ -82,7 +83,7 @@ impl PyAnnotationSubStore {
         self.handle.as_usize()
     }
 
-    fn associate(&mut self, item: &PyAny) -> PyResult<()> {
+    fn associate<'py>(&mut self, item: Bound<'py, PyAny>) -> PyResult<()> {
         if item.is_instance_of::<PyAnnotation>() {
             let item: PyRef<PyAnnotation> = item.extract()?;
             let substore_handle = self.handle;

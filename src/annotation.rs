@@ -46,8 +46,8 @@ impl PyAnnotation {
         handle: AnnotationHandle,
         store: Arc<RwLock<AnnotationStore>>,
         py: Python<'py>,
-    ) -> &'py PyAny {
-        Self::new(handle, store).into_py(py).into_ref(py)
+    ) -> Bound<'py, PyAny> {
+        Self::new(handle, store).into_py(py).into_bound(py)
     }
 }
 
@@ -123,8 +123,8 @@ impl PyAnnotation {
     /// as an annotation may reference multiple texts.
     ///
     /// If you are sure an annotation only references a single contingent text slice or are okay with slices being concatenated, then you can use `str()` instead.
-    fn text<'py>(&self, py: Python<'py>) -> Py<PyList> {
-        let list: &PyList = PyList::empty(py);
+    fn text<'py>(&self, py: Python<'py>) -> Bound<'py, PyList> {
+        let list = PyList::empty_bound(py);
         self.map(|annotation| {
             for text in annotation.text() {
                 list.append(text).ok();
@@ -152,13 +152,13 @@ impl PyAnnotation {
     /// Note that this will always return a list (even it if only contains a single element),
     /// as an annotation may reference multiple text selections.
     #[pyo3(signature = (*args, **kwargs))]
-    fn textselections(
+    fn textselections<'py>(
         &self,
-        args: &PyTuple,
-        kwargs: Option<&PyDict>,
+        args: Bound<'py, PyTuple>,
+        kwargs: Option<Bound<'py, PyDict>>,
     ) -> PyResult<PyTextSelections> {
-        let limit = get_limit(kwargs);
-        if !has_filters(args, kwargs) {
+        let limit = get_limit(&kwargs);
+        if !has_filters(&args, &kwargs) {
             self.map(|annotation| {
                 Ok(PyTextSelections::from_iter(
                     annotation.textselections().limit(limit),
@@ -174,8 +174,8 @@ impl PyAnnotation {
                     AnnotationDepth::One,
                     None,
                 ),
-                args,
-                kwargs,
+                &args,
+                &kwargs,
                 |annotation, query| {
                     PyTextSelections::from_query(query, annotation.store(), &self.store, limit)
                 },
@@ -185,14 +185,14 @@ impl PyAnnotation {
 
     /// Returns annotations this annotation refers to (i.e. using an AnnotationSelector)
     #[pyo3(signature = (*args, **kwargs))]
-    fn annotations_in_targets(
+    fn annotations_in_targets<'py>(
         &self,
-        args: &PyTuple,
-        kwargs: Option<&PyDict>,
+        args: Bound<'py, PyTuple>,
+        kwargs: Option<Bound<'py, PyDict>>,
     ) -> PyResult<PyAnnotations> {
-        let limit = get_limit(kwargs);
-        let recursive = get_recursive(kwargs, AnnotationDepth::One);
-        if !has_filters(args, kwargs) {
+        let limit = get_limit(&kwargs);
+        let recursive = get_recursive(&kwargs, AnnotationDepth::One);
+        if !has_filters(&args, &kwargs) {
             self.map(|annotation| {
                 Ok(PyAnnotations::from_iter(
                     annotation.annotations_in_targets(recursive).limit(limit),
@@ -208,8 +208,8 @@ impl PyAnnotation {
                     recursive,
                     None,
                 ),
-                args,
-                kwargs,
+                &args,
+                &kwargs,
                 |annotation, query| {
                     PyAnnotations::from_query(query, annotation.store(), &self.store, limit)
                 },
@@ -219,9 +219,13 @@ impl PyAnnotation {
 
     /// Returns annotations that are referring to this annotation (i.e. others using an AnnotationSelector)
     #[pyo3(signature = (*args, **kwargs))]
-    fn annotations(&self, args: &PyTuple, kwargs: Option<&PyDict>) -> PyResult<PyAnnotations> {
-        let limit = get_limit(kwargs);
-        if !has_filters(args, kwargs) {
+    fn annotations<'py>(
+        &self,
+        args: Bound<'py, PyTuple>,
+        kwargs: Option<Bound<'py, PyDict>>,
+    ) -> PyResult<PyAnnotations> {
+        let limit = get_limit(&kwargs);
+        if !has_filters(&args, &kwargs) {
             self.map(|annotation| {
                 Ok(PyAnnotations::from_iter(
                     annotation.annotations().limit(limit),
@@ -237,8 +241,8 @@ impl PyAnnotation {
                     AnnotationDepth::One,
                     None,
                 ),
-                args,
-                kwargs,
+                &args,
+                &kwargs,
                 |annotation, query| {
                     PyAnnotations::from_query(query, annotation.store(), &self.store, limit)
                 },
@@ -247,8 +251,12 @@ impl PyAnnotation {
     }
 
     #[pyo3(signature = (*args, **kwargs))]
-    fn test_annotations(&self, args: &PyTuple, kwargs: Option<&PyDict>) -> PyResult<bool> {
-        if !has_filters(args, kwargs) {
+    fn test_annotations<'py>(
+        &self,
+        args: Bound<'py, PyTuple>,
+        kwargs: Option<Bound<'py, PyDict>>,
+    ) -> PyResult<bool> {
+        if !has_filters(&args, &kwargs) {
             self.map(|annotation| Ok(annotation.annotations().test()))
         } else {
             self.map_with_query(
@@ -259,21 +267,21 @@ impl PyAnnotation {
                     AnnotationDepth::One,
                     None,
                 ),
-                args,
-                kwargs,
+                &args,
+                &kwargs,
                 |annotation, query| Ok(annotation.store().query(query)?.test()),
             )
         }
     }
 
     #[pyo3(signature = (*args, **kwargs))]
-    fn test_annotations_in_targets(
+    fn test_annotations_in_targets<'py>(
         &self,
-        args: &PyTuple,
-        kwargs: Option<&PyDict>,
+        args: Bound<'py, PyTuple>,
+        kwargs: Option<Bound<'py, PyDict>>,
     ) -> PyResult<bool> {
-        let recursive = get_recursive(kwargs, AnnotationDepth::One);
-        if !has_filters(args, kwargs) {
+        let recursive = get_recursive(&kwargs, AnnotationDepth::One);
+        if !has_filters(&args, &kwargs) {
             self.map(|annotation| Ok(annotation.annotations_in_targets(recursive).test()))
         } else {
             self.map_with_query(
@@ -284,8 +292,8 @@ impl PyAnnotation {
                     recursive,
                     None,
                 ),
-                args,
-                kwargs,
+                &args,
+                &kwargs,
                 |annotation, query| Ok(annotation.store().query(query)?.test()),
             )
         }
@@ -293,8 +301,8 @@ impl PyAnnotation {
 
     /// Returns a list of resources this annotation refers to
     #[pyo3(signature = (limit=None))]
-    fn resources<'py>(&self, limit: Option<usize>, py: Python<'py>) -> Py<PyList> {
-        let list: &PyList = PyList::empty(py);
+    fn resources<'py>(&self, limit: Option<usize>, py: Python<'py>) -> Bound<'py, PyList> {
+        let list = PyList::empty_bound(py);
         self.map(|annotation| {
             for (i, resource) in annotation.resources().enumerate() {
                 list.append(PyTextResource::new_py(
@@ -315,8 +323,8 @@ impl PyAnnotation {
 
     /// Returns the resources this annotation refers to (as metadata) in a list
     #[pyo3(signature = (limit=None))]
-    fn datasets<'py>(&self, limit: Option<usize>, py: Python<'py>) -> Py<PyList> {
-        let list: &PyList = PyList::empty(py);
+    fn datasets<'py>(&self, limit: Option<usize>, py: Python<'py>) -> Bound<'py, PyList> {
+        let list = PyList::empty_bound(py);
         self.map(|annotation| {
             for (i, dataset) in annotation.datasets().enumerate() {
                 list.append(PyAnnotationDataSet::new_py(
@@ -367,9 +375,13 @@ impl PyAnnotation {
 
     /// Returns annotation data instances that pertain to this annotation.
     #[pyo3(signature = (*args, **kwargs))]
-    fn data(&self, args: &PyTuple, kwargs: Option<&PyDict>) -> PyResult<PyData> {
-        let limit = get_limit(kwargs);
-        if !has_filters(args, kwargs) {
+    fn data<'py>(
+        &self,
+        args: Bound<'py, PyTuple>,
+        kwargs: Option<Bound<'py, PyDict>>,
+    ) -> PyResult<PyData> {
+        let limit = get_limit(&kwargs);
+        if !has_filters(&args, &kwargs) {
             self.map(|annotation| {
                 Ok(PyData::from_iter(
                     annotation.data().limit(limit),
@@ -385,8 +397,8 @@ impl PyAnnotation {
                     AnnotationDepth::One,
                     None,
                 ),
-                args,
-                kwargs,
+                &args,
+                &kwargs,
                 |annotation, query| {
                     PyData::from_query(query, annotation.store(), &self.store, limit)
                 },
@@ -395,8 +407,12 @@ impl PyAnnotation {
     }
 
     #[pyo3(signature = (*args, **kwargs))]
-    fn test_data(&self, args: &PyTuple, kwargs: Option<&PyDict>) -> PyResult<bool> {
-        if !has_filters(args, kwargs) {
+    fn test_data<'py>(
+        &self,
+        args: Bound<'py, PyTuple>,
+        kwargs: Option<Bound<'py, PyDict>>,
+    ) -> PyResult<bool> {
+        if !has_filters(&args, &kwargs) {
             self.map(|annotation| Ok(annotation.data().test()))
         } else {
             self.map_with_query(
@@ -407,8 +423,8 @@ impl PyAnnotation {
                     AnnotationDepth::One,
                     None,
                 ),
-                args,
-                kwargs,
+                &args,
+                &kwargs,
                 |annotation, query| Ok(annotation.store().query(query)?.test()),
             )
         }
@@ -421,14 +437,14 @@ impl PyAnnotation {
     }
 
     #[pyo3(signature = (operator, *args, **kwargs))]
-    fn related_text(
+    fn related_text<'py>(
         &self,
         operator: PyTextSelectionOperator,
-        args: &PyTuple,
-        kwargs: Option<&PyDict>,
+        args: Bound<'py, PyTuple>,
+        kwargs: Option<Bound<'py, PyDict>>,
     ) -> PyResult<PyTextSelections> {
-        let limit = get_limit(kwargs);
-        if !has_filters(args, kwargs) {
+        let limit = get_limit(&kwargs);
+        if !has_filters(&args, &kwargs) {
             self.map(|annotation| {
                 Ok(PyTextSelections::from_iter(
                     annotation.related_text(operator.operator).limit(limit),
@@ -442,8 +458,8 @@ impl PyAnnotation {
                     var: "main",
                     operator: operator.operator, //MAYBE TODO: check if we need to invert an operator here?
                 },
-                args,
-                kwargs,
+                &args,
+                &kwargs,
                 |annotation, query| {
                     PyTextSelections::from_query(query, annotation.store(), &self.store, limit)
                 },
@@ -456,7 +472,8 @@ impl PyAnnotation {
     }
 
     /// Returns the annotation as a W3C Web Annotation in JSON-LD, as a string
-    fn webannotation(&self, kwargs: Option<&PyDict>) -> PyResult<String> {
+    #[pyo3(signature = (kwargs=None))]
+    fn webannotation<'py>(&self, kwargs: Option<&Bound<'py, PyDict>>) -> PyResult<String> {
         let mut config = WebAnnoConfig::default();
         if let Some(kwargs) = kwargs {
             if let Ok(Some(v)) = kwargs.get_item("default_annotation_iri") {
@@ -522,13 +539,13 @@ impl PyAnnotation {
     }
 
     #[pyo3(signature = (via, **kwargs))]
-    fn transpose(
+    fn transpose<'py>(
         &mut self,
         via: &PyAnnotation,
-        kwargs: Option<&PyDict>,
+        kwargs: Option<Bound<'py, PyDict>>,
     ) -> PyResult<PyAnnotations> {
         let transpose_config = if let Some(kwargs) = kwargs {
-            get_transpose_config(kwargs)
+            get_transpose_config(&kwargs)?
         } else {
             TransposeConfig::default()
         };
@@ -560,9 +577,9 @@ impl PyAnnotation {
     fn alignments<'py>(
         &self,
         py: Python<'py>,
-        kwargs: Option<&'py PyDict>,
-    ) -> PyResult<&'py PyList> {
-        let alignments = PyList::empty(py);
+        kwargs: Option<Bound<'py, PyDict>>,
+    ) -> PyResult<Bound<'py, PyList>> {
+        let alignments = PyList::empty_bound(py);
         let storeclone = self.store.clone();
         let mut annotations = false;
         if let Some(kwargs) = kwargs {
@@ -577,7 +594,7 @@ impl PyAnnotation {
             if let (Some(left), Some(right)) = (annoiter.next(), annoiter.next()) {
                 //complex transposition
                 for (text1, text2) in left.textselections().zip(right.textselections()) {
-                    let alignment = PyList::empty(py);
+                    let alignment = PyList::empty_bound(py);
                     if annotations {
                         alignment
                             .append(PyAnnotation::new_py(left.handle(), storeclone.clone(), py))
@@ -601,7 +618,7 @@ impl PyAnnotation {
                 //simple transposition
                 let mut textiter = annotation.textselections();
                 if let (Some(text1), Some(text2)) = (textiter.next(), textiter.next()) {
-                    let alignment = PyList::empty(py);
+                    let alignment = PyList::empty_bound(py);
                     alignment
                         .append(PyTextSelection::from_result_to_py(text1, &storeclone, py))
                         .map_err(|_| StamError::OtherError("failed to extract alignment"))?;
@@ -663,9 +680,13 @@ impl PyAnnotations {
 
     /// Returns annotation data instances used by the annotations in this collection.
     #[pyo3(signature = (*args, **kwargs))]
-    fn data(&self, args: &PyTuple, kwargs: Option<&PyDict>) -> PyResult<PyData> {
-        let limit = get_limit(kwargs);
-        if !has_filters(args, kwargs) {
+    fn data<'py>(
+        &self,
+        args: Bound<'py, PyTuple>,
+        kwargs: Option<Bound<'py, PyDict>>,
+    ) -> PyResult<PyData> {
+        let limit = get_limit(&kwargs);
+        if !has_filters(&args, &kwargs) {
             self.map(|annotations, _store| {
                 Ok(PyData::from_iter(
                     annotations.items().data().limit(limit),
@@ -681,16 +702,20 @@ impl PyAnnotations {
                     AnnotationDepth::One,
                     None,
                 ),
-                args,
-                kwargs,
+                &args,
+                &kwargs,
                 |query, store| PyData::from_query(query, store, &self.store, limit),
             )
         }
     }
 
     #[pyo3(signature = (*args, **kwargs))]
-    fn test_data(&self, args: &PyTuple, kwargs: Option<&PyDict>) -> PyResult<bool> {
-        if !has_filters(args, kwargs) {
+    fn test_data<'py>(
+        &self,
+        args: Bound<'py, PyTuple>,
+        kwargs: Option<Bound<'py, PyDict>>,
+    ) -> PyResult<bool> {
+        if !has_filters(&args, &kwargs) {
             self.map(|annotations, _| Ok(annotations.items().data().test()))
         } else {
             self.map_with_query(
@@ -701,17 +726,21 @@ impl PyAnnotations {
                     AnnotationDepth::One,
                     None,
                 ),
-                args,
-                kwargs,
+                &args,
+                &kwargs,
                 |query, store| Ok(store.query(query)?.test()),
             )
         }
     }
 
     #[pyo3(signature = (*args, **kwargs))]
-    fn annotations(&self, args: &PyTuple, kwargs: Option<&PyDict>) -> PyResult<PyAnnotations> {
-        let limit = get_limit(kwargs);
-        if !has_filters(args, kwargs) {
+    fn annotations<'py>(
+        &self,
+        args: Bound<'py, PyTuple>,
+        kwargs: Option<Bound<'py, PyDict>>,
+    ) -> PyResult<PyAnnotations> {
+        let limit = get_limit(&kwargs);
+        if !has_filters(&args, &kwargs) {
             self.map(|annotations, _store| {
                 Ok(PyAnnotations::from_iter(
                     annotations.items().annotations().limit(limit),
@@ -727,16 +756,20 @@ impl PyAnnotations {
                     AnnotationDepth::One,
                     None,
                 ),
-                args,
-                kwargs,
+                &args,
+                &kwargs,
                 |query, store| PyAnnotations::from_query(query, store, &self.store, limit),
             )
         }
     }
 
     #[pyo3(signature = (*args, **kwargs))]
-    fn test_annotations(&self, args: &PyTuple, kwargs: Option<&PyDict>) -> PyResult<bool> {
-        if !has_filters(args, kwargs) {
+    fn test_annotationsi<'py>(
+        &self,
+        args: Bound<'py, PyTuple>,
+        kwargs: Option<Bound<'py, PyDict>>,
+    ) -> PyResult<bool> {
+        if !has_filters(&args, &kwargs) {
             self.map(|annotations, _| Ok(annotations.items().annotations().test()))
         } else {
             self.map_with_query(
@@ -747,22 +780,22 @@ impl PyAnnotations {
                     AnnotationDepth::One,
                     None,
                 ),
-                args,
-                kwargs,
+                &args,
+                &kwargs,
                 |query, store| Ok(store.query(query)?.test()),
             )
         }
     }
 
     #[pyo3(signature = (*args, **kwargs))]
-    fn annotations_in_targets(
+    fn annotations_in_targets<'py>(
         &self,
-        args: &PyTuple,
-        kwargs: Option<&PyDict>,
+        args: Bound<'py, PyTuple>,
+        kwargs: Option<Bound<'py, PyDict>>,
     ) -> PyResult<PyAnnotations> {
-        let limit = get_limit(kwargs);
-        let recursive = get_recursive(kwargs, AnnotationDepth::One);
-        if !has_filters(args, kwargs) {
+        let limit = get_limit(&kwargs);
+        let recursive = get_recursive(&kwargs, AnnotationDepth::One);
+        if !has_filters(&args, &kwargs) {
             self.map(|annotations, _store| {
                 Ok(PyAnnotations::from_iter(
                     annotations
@@ -776,21 +809,21 @@ impl PyAnnotations {
             self.map_with_query(
                 Type::Annotation,
                 Constraint::AnnotationVariable("main", SelectionQualifier::Normal, recursive, None),
-                args,
-                kwargs,
+                &args,
+                &kwargs,
                 |query, store| PyAnnotations::from_query(query, store, &self.store, limit),
             )
         }
     }
 
     #[pyo3(signature = (*args, **kwargs))]
-    fn test_annotations_in_targets(
+    fn test_annotations_in_targets<'py>(
         &self,
-        args: &PyTuple,
-        kwargs: Option<&PyDict>,
+        args: Bound<'py, PyTuple>,
+        kwargs: Option<Bound<'py, PyDict>>,
     ) -> PyResult<bool> {
-        let recursive = get_recursive(kwargs, AnnotationDepth::One);
-        if !has_filters(args, kwargs) {
+        let recursive = get_recursive(&kwargs, AnnotationDepth::One);
+        if !has_filters(&args, &kwargs) {
             self.map(|annotations, _| {
                 Ok(annotations.items().annotations_in_targets(recursive).test())
             })
@@ -798,21 +831,21 @@ impl PyAnnotations {
             self.map_with_query(
                 Type::Annotation,
                 Constraint::AnnotationVariable("main", SelectionQualifier::Normal, recursive, None),
-                args,
-                kwargs,
+                &args,
+                &kwargs,
                 |query, store| Ok(store.query(query)?.test()),
             )
         }
     }
 
     #[pyo3(signature = (*args,**kwargs))]
-    fn textselections(
+    fn textselections<'py>(
         &self,
-        args: &PyTuple,
-        kwargs: Option<&PyDict>,
+        args: Bound<'py, PyTuple>,
+        kwargs: Option<Bound<'py, PyDict>>,
     ) -> PyResult<PyTextSelections> {
-        let limit = get_limit(kwargs);
-        if !has_filters(args, kwargs) {
+        let limit = get_limit(&kwargs);
+        if !has_filters(&args, &kwargs) {
             self.map(|annotations, _store| {
                 Ok(PyTextSelections::from_iter(
                     annotations.items().textselections().limit(limit),
@@ -828,22 +861,22 @@ impl PyAnnotations {
                     AnnotationDepth::One,
                     None,
                 ),
-                args,
-                kwargs,
+                &args,
+                &kwargs,
                 |query, store| PyTextSelections::from_query(query, store, &self.store, limit),
             )
         }
     }
 
     #[pyo3(signature = (operator, *args, **kwargs))]
-    fn related_text(
+    fn related_text<'py>(
         &self,
         operator: PyTextSelectionOperator,
-        args: &PyTuple,
-        kwargs: Option<&PyDict>,
+        args: Bound<'py, PyTuple>,
+        kwargs: Option<Bound<'py, PyDict>>,
     ) -> PyResult<PyTextSelections> {
-        let limit = get_limit(kwargs);
-        if !has_filters(args, kwargs) {
+        let limit = get_limit(&kwargs);
+        if !has_filters(&args, &kwargs) {
             self.map(|annotations, _store| {
                 Ok(PyTextSelections::from_iter(
                     annotations
@@ -860,8 +893,8 @@ impl PyAnnotations {
                     var: "main",
                     operator: operator.operator, //MAYBE TODO: check if we need to invert an operator here?
                 },
-                args,
-                kwargs,
+                &args,
+                &kwargs,
                 |query, store| PyTextSelections::from_query(query, store, &self.store, limit),
             )
         }
@@ -949,12 +982,12 @@ impl PyAnnotations {
         }
     }
 
-    fn map_with_query<T, F>(
+    pub(crate) fn map_with_query<'py, T, F>(
         &self,
         resulttype: Type,
         constraint: Constraint,
-        args: &PyTuple,
-        kwargs: Option<&PyDict>,
+        args: &Bound<'py, PyTuple>,
+        kwargs: &Option<Bound<'py, PyDict>>,
         f: F,
     ) -> Result<T, PyErr>
     where
@@ -1063,12 +1096,12 @@ impl PyAnnotation {
         }
     }
 
-    fn map_with_query<T, F>(
+    pub(crate) fn map_with_query<'py, T, F>(
         &self,
         resulttype: Type,
         constraint: Constraint,
-        args: &PyTuple,
-        kwargs: Option<&PyDict>,
+        args: &Bound<'py, PyTuple>,
+        kwargs: &Option<Bound<'py, PyDict>>,
         f: F,
     ) -> Result<T, PyErr>
     where
@@ -1093,44 +1126,42 @@ impl PyAnnotation {
     }
 }
 
-pub fn get_transpose_config(kwargs: &PyDict) -> TransposeConfig {
+pub fn get_transpose_config(kwargs: &Bound<PyDict>) -> PyResult<TransposeConfig> {
     let mut config = TransposeConfig::default();
     for (key, value) in kwargs {
-        if let Some(key) = key.extract().unwrap() {
-            match key {
-                "debug" => {
-                    if let Ok(Some(value)) = value.extract() {
-                        config.debug = value;
-                    }
+        match key.downcast()?.extract()? {
+            "debug" => {
+                if let Ok(Some(value)) = value.extract() {
+                    config.debug = value;
                 }
-                "allow_simple" => {
-                    if let Ok(Some(value)) = value.extract() {
-                        config.allow_simple = value;
-                    }
-                }
-                "no_transposition" => {
-                    if let Ok(Some(value)) = value.extract() {
-                        config.no_transposition = value;
-                    }
-                }
-                "no_resegmentation" => {
-                    if let Ok(Some(value)) = value.extract() {
-                        config.no_resegmentation = value;
-                    }
-                }
-                "transposition_id" => {
-                    if let Ok(Some(value)) = value.extract() {
-                        config.transposition_id = value;
-                    }
-                }
-                "resegmentation_id" => {
-                    if let Ok(Some(value)) = value.extract() {
-                        config.resegmentation_id = value;
-                    }
-                }
-                _ => eprintln!("Ignored unknown kwargs option for transpose(): {}", key),
             }
+            "allow_simple" => {
+                if let Ok(Some(value)) = value.extract() {
+                    config.allow_simple = value;
+                }
+            }
+            "no_transposition" => {
+                if let Ok(Some(value)) = value.extract() {
+                    config.no_transposition = value;
+                }
+            }
+            "no_resegmentation" => {
+                if let Ok(Some(value)) = value.extract() {
+                    config.no_resegmentation = value;
+                }
+            }
+            "transposition_id" => {
+                if let Ok(Some(value)) = value.extract() {
+                    config.transposition_id = value;
+                }
+            }
+            "resegmentation_id" => {
+                if let Ok(Some(value)) = value.extract() {
+                    config.resegmentation_id = value;
+                }
+            }
+            _ => eprintln!("Ignored unknown kwargs option for transpose(): {}", key),
         }
     }
-    config
+    Ok(config)
 }

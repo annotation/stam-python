@@ -35,8 +35,8 @@ impl PyAnnotationDataSet {
         handle: AnnotationDataSetHandle,
         store: Arc<RwLock<AnnotationStore>>,
         py: Python<'py>,
-    ) -> &'py PyAny {
-        Self::new(handle, store).into_py(py).into_ref(py)
+    ) -> Bound<'py, PyAny> {
+        Self::new(handle, store).into_py(py).into_bound(py)
     }
 }
 
@@ -131,10 +131,11 @@ impl PyAnnotationDataSet {
     }
 
     /// Create a new AnnotationData instance and adds it to the dataset
+    #[pyo3(signature=(key, value, id=None))]
     fn add_data<'py>(
         &self,
         key: &str,
-        value: &'py PyAny,
+        value: Bound<'py, PyAny>,
         id: Option<&str>,
     ) -> PyResult<PyAnnotationData> {
         let datakey = if let Ok(datakey) = self.key(key) {
@@ -190,31 +191,39 @@ impl PyAnnotationDataSet {
     }
 
     #[pyo3(signature = (*args, **kwargs))]
-    fn data(&self, args: &PyTuple, kwargs: Option<&PyDict>) -> PyResult<PyData> {
-        let limit = get_limit(kwargs);
-        if !has_filters(args, kwargs) {
+    fn data<'py>(
+        &self,
+        args: Bound<'py, PyTuple>,
+        kwargs: Option<Bound<'py, PyDict>>,
+    ) -> PyResult<PyData> {
+        let limit = get_limit(&kwargs);
+        if !has_filters(&args, &kwargs) {
             self.map(|dataset| Ok(PyData::from_iter(dataset.data().limit(limit), &self.store)))
         } else {
             self.map_with_query(
                 Type::AnnotationData,
                 Constraint::DataSetVariable("main", SelectionQualifier::Normal),
-                args,
-                kwargs,
+                &args,
+                &kwargs,
                 |dataset, query| PyData::from_query(query, dataset.store(), &self.store, limit),
             )
         }
     }
 
     #[pyo3(signature = (*args, **kwargs))]
-    fn test_data(&self, args: &PyTuple, kwargs: Option<&PyDict>) -> PyResult<bool> {
-        if !has_filters(args, kwargs) {
+    fn test_data<'py>(
+        &self,
+        args: Bound<'py, PyTuple>,
+        kwargs: Option<Bound<'py, PyDict>>,
+    ) -> PyResult<bool> {
+        if !has_filters(&args, &kwargs) {
             self.map(|dataset| Ok(dataset.data().test()))
         } else {
             self.map_with_query(
                 Type::AnnotationData,
                 Constraint::DataSetVariable("main", SelectionQualifier::Normal),
-                args,
-                kwargs,
+                &args,
+                &kwargs,
                 |dataset, query| Ok(dataset.store().query(query)?.test()),
             )
         }
@@ -286,12 +295,12 @@ impl PyAnnotationDataSet {
         }
     }
 
-    fn map_with_query<T, F>(
+    pub(crate) fn map_with_query<'py, T, F>(
         &self,
         resulttype: Type,
         constraint: Constraint,
-        args: &PyTuple,
-        kwargs: Option<&PyDict>,
+        args: &Bound<'py, PyTuple>,
+        kwargs: &Option<Bound<'py, PyDict>>,
         f: F,
     ) -> Result<T, PyErr>
     where

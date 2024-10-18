@@ -79,32 +79,44 @@ impl PyDataKey {
     }
 
     #[pyo3(signature = (*args, **kwargs))]
-    fn data(&self, args: &PyTuple, kwargs: Option<&PyDict>) -> PyResult<PyData> {
-        let limit = get_limit(kwargs);
-        if !has_filters(args, kwargs) {
+    fn data<'py>(
+        &self,
+        args: Bound<'py, PyTuple>,
+        kwargs: Option<Bound<'py, PyDict>>,
+    ) -> PyResult<PyData> {
+        let limit = get_limit(&kwargs);
+        if !has_filters(&args, &kwargs) {
             self.map(|key| Ok(PyData::from_iter(key.data().limit(limit), &self.store)))
         } else {
-            self.map_with_query(Type::AnnotationData, args, kwargs, |key, query| {
+            self.map_with_query(Type::AnnotationData, &args, &kwargs, |key, query| {
                 PyData::from_query(query, key.rootstore(), &self.store, limit)
             })
         }
     }
 
     #[pyo3(signature = (*args, **kwargs))]
-    fn test_data(&self, args: &PyTuple, kwargs: Option<&PyDict>) -> PyResult<bool> {
-        if !has_filters(args, kwargs) {
+    fn test_data<'py>(
+        &self,
+        args: Bound<'py, PyTuple>,
+        kwargs: Option<Bound<'py, PyDict>>,
+    ) -> PyResult<bool> {
+        if !has_filters(&args, &kwargs) {
             self.map(|key| Ok(key.data().test()))
         } else {
-            self.map_with_query(Type::AnnotationData, args, kwargs, |key, query| {
+            self.map_with_query(Type::AnnotationData, &args, &kwargs, |key, query| {
                 Ok(key.rootstore().query(query)?.test())
             })
         }
     }
 
     #[pyo3(signature = (*args, **kwargs))]
-    fn annotations(&self, args: &PyTuple, kwargs: Option<&PyDict>) -> PyResult<PyAnnotations> {
-        let limit = get_limit(kwargs);
-        if !has_filters(args, kwargs) {
+    fn annotations<'py>(
+        &self,
+        args: Bound<'py, PyTuple>,
+        kwargs: Option<Bound<'py, PyDict>>,
+    ) -> PyResult<PyAnnotations> {
+        let limit = get_limit(&kwargs);
+        if !has_filters(&args, &kwargs) {
             self.map(|key| {
                 Ok(PyAnnotations::from_iter(
                     key.annotations().limit(limit),
@@ -112,18 +124,22 @@ impl PyDataKey {
                 ))
             })
         } else {
-            self.map_with_query(Type::Annotation, args, kwargs, |key, query| {
+            self.map_with_query(Type::Annotation, &args, &kwargs, |key, query| {
                 PyAnnotations::from_query(query, key.rootstore(), &self.store, limit)
             })
         }
     }
 
     #[pyo3(signature = (*args, **kwargs))]
-    fn test_annotations(&self, args: &PyTuple, kwargs: Option<&PyDict>) -> PyResult<bool> {
-        if !has_filters(args, kwargs) {
+    fn test_annotations<'py>(
+        &self,
+        args: Bound<'py, PyTuple>,
+        kwargs: Option<Bound<'py, PyDict>>,
+    ) -> PyResult<bool> {
+        if !has_filters(&args, &kwargs) {
             self.map(|key| Ok(key.annotations().test()))
         } else {
-            self.map_with_query(Type::Annotation, args, kwargs, |key, query| {
+            self.map_with_query(Type::Annotation, &args, &kwargs, |key, query| {
                 Ok(key.rootstore().query(query)?.test())
             })
         }
@@ -181,11 +197,11 @@ impl PyDataKey {
         }
     }
 
-    fn map_with_query<T, F>(
+    pub(crate) fn map_with_query<'py, T, F>(
         &self,
         resulttype: Type,
-        args: &PyTuple,
-        kwargs: Option<&PyDict>,
+        args: &Bound<'py, PyTuple>,
+        kwargs: &Option<Bound<'py, PyDict>>,
         f: F,
     ) -> Result<T, PyErr>
     where
@@ -238,7 +254,7 @@ impl PyAnnotationData {
     }
 }
 
-pub(crate) fn datavalue_from_py<'py>(value: &'py PyAny) -> Result<DataValue, StamError> {
+pub(crate) fn datavalue_from_py<'py>(value: Bound<'py, PyAny>) -> Result<DataValue, StamError> {
     if let Ok(value) = value.extract() {
         Ok(DataValue::String(value))
     } else if let Ok(value) = value.extract() {
@@ -253,7 +269,7 @@ pub(crate) fn datavalue_from_py<'py>(value: &'py PyAny) -> Result<DataValue, Sta
         Ok(DataValue::Datetime(value))
     } else {
         if value.is_instance_of::<PyList>() {
-            let value: &PyList = value.downcast().unwrap();
+            let value: &Bound<'py, PyList> = value.downcast().expect("downcast must succeed");
             let mut list: Vec<DataValue> = Vec::new();
             for item in value {
                 let pyitem = datavalue_from_py(item)?;
@@ -270,25 +286,25 @@ pub(crate) fn datavalue_from_py<'py>(value: &'py PyAny) -> Result<DataValue, Sta
 pub(crate) fn datavalue_into_py<'py>(
     datavalue: &DataValue,
     py: Python<'py>,
-) -> Result<&'py PyAny, StamError> {
+) -> Result<Bound<'py, PyAny>, StamError> {
     match datavalue {
-        DataValue::String(s) => Ok(s.into_py(py).into_ref(py)),
-        DataValue::Float(f) => Ok(f.into_py(py).into_ref(py)),
-        DataValue::Int(v) => Ok(v.into_py(py).into_ref(py)),
-        DataValue::Bool(v) => Ok(v.into_py(py).into_ref(py)),
-        DataValue::Datetime(v) => Ok(v.into_py(py).into_ref(py)),
+        DataValue::String(s) => Ok(s.into_py(py).into_bound(py)),
+        DataValue::Float(f) => Ok(f.into_py(py).into_bound(py)),
+        DataValue::Int(v) => Ok(v.into_py(py).into_bound(py)),
+        DataValue::Bool(v) => Ok(v.into_py(py).into_bound(py)),
+        DataValue::Datetime(v) => Ok(v.into_py(py).into_bound(py)),
         DataValue::Null => {
             //feels a bit hacky, but I can't find a PyNone to return as PyAny
             let x: Option<bool> = None;
-            Ok(x.into_py(py).into_ref(py))
+            Ok(x.into_py(py).into_bound(py))
         }
         DataValue::List(v) => {
-            let pylist = PyList::empty(py);
+            let pylist = PyList::empty_bound(py);
             for item in v.iter() {
                 let pyvalue = datavalue_into_py(item, py)?;
                 pylist.append(pyvalue).expect("adding value to list");
             }
-            Ok(pylist)
+            Ok(pylist.into_any())
         }
     }
 }
@@ -309,12 +325,12 @@ impl std::fmt::Display for PyDataValue {
 #[pymethods]
 impl PyDataValue {
     // Get the actual value
-    fn get<'py>(&self, py: Python<'py>) -> PyResult<&'py PyAny> {
+    fn get<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyAny>> {
         datavalue_into_py(&self.value, py).map_err(|err| PyStamError::new_err(format!("{}", err)))
     }
 
     #[new]
-    fn new<'py>(value: &PyAny) -> PyResult<Self> {
+    fn new<'py>(value: Bound<'py, PyAny>) -> PyResult<Self> {
         Ok(PyDataValue {
             value: datavalue_from_py(value)
                 .map_err(|err| PyStamError::new_err(format!("{}", err)))?,
@@ -452,9 +468,13 @@ impl PyAnnotationData {
     }
 
     #[pyo3(signature = (*args, **kwargs))]
-    fn annotations(&self, args: &PyTuple, kwargs: Option<&PyDict>) -> PyResult<PyAnnotations> {
-        let limit = get_limit(kwargs);
-        if !has_filters(args, kwargs) {
+    fn annotations<'py>(
+        &self,
+        args: Bound<'py, PyTuple>,
+        kwargs: Option<Bound<'py, PyDict>>,
+    ) -> PyResult<PyAnnotations> {
+        let limit = get_limit(&kwargs);
+        if !has_filters(&args, &kwargs) {
             self.map(|data| {
                 Ok(PyAnnotations::from_iter(
                     data.annotations().limit(limit),
@@ -462,18 +482,22 @@ impl PyAnnotationData {
                 ))
             })
         } else {
-            self.map_with_query(Type::Annotation, args, kwargs, |data, query| {
+            self.map_with_query(Type::Annotation, &args, &kwargs, |data, query| {
                 PyAnnotations::from_query(query, data.rootstore(), &self.store, limit)
             })
         }
     }
 
     #[pyo3(signature = (*args, **kwargs))]
-    fn test_annotations(&self, args: &PyTuple, kwargs: Option<&PyDict>) -> PyResult<bool> {
-        if !has_filters(args, kwargs) {
+    fn test_annotations<'py>(
+        &self,
+        args: Bound<'py, PyTuple>,
+        kwargs: Option<Bound<'py, PyDict>>,
+    ) -> PyResult<bool> {
+        if !has_filters(&args, &kwargs) {
             self.map(|key| Ok(key.annotations().test()))
         } else {
-            self.map_with_query(Type::Annotation, args, kwargs, |key, query| {
+            self.map_with_query(Type::Annotation, &args, &kwargs, |key, query| {
                 Ok(key.rootstore().query(query)?.test())
             })
         }
@@ -531,11 +555,11 @@ impl PyAnnotationData {
         }
     }
 
-    fn map_with_query<T, F>(
+    pub(crate) fn map_with_query<'py, T, F>(
         &self,
         resulttype: Type,
-        args: &PyTuple,
-        kwargs: Option<&PyDict>,
+        args: &Bound<'py, PyTuple>,
+        kwargs: &Option<Bound<'py, PyDict>>,
         f: F,
     ) -> Result<T, PyErr>
     where
@@ -563,7 +587,9 @@ impl PyAnnotationData {
 /// Build an AnnotationDataBuilder from a python dictionary (or string referring to an existing public ID)
 /// Expects a Python dictionary with fields "id", "key","set", "value" (or a subpart thereof). The field values
 /// may be STAM data types or plain strings with public IDs.
-pub(crate) fn annotationdata_builder<'a>(data: &'a PyAny) -> PyResult<AnnotationDataBuilder<'a>> {
+pub(crate) fn annotationdata_builder<'py>(
+    data: Bound<'py, PyAny>,
+) -> PyResult<AnnotationDataBuilder<'py>> {
     let mut builder = AnnotationDataBuilder::new();
     if data.is_instance_of::<PyAnnotationData>() {
         let adata: PyRef<'_, PyAnnotationData> = data.extract()?;
@@ -608,8 +634,8 @@ pub(crate) fn annotationdata_builder<'a>(data: &'a PyAny) -> PyResult<Annotation
         }
         Ok(builder)
     } else if data.is_instance_of::<PyString>() {
-        let id = data.downcast::<PyString>()?;
-        Ok(AnnotationDataBuilder::new().with_id(id.to_str()?.into()))
+        let id: String = data.downcast()?.extract()?;
+        Ok(AnnotationDataBuilder::new().with_id(id.into()))
     } else {
         Err(PyValueError::new_err(
             "Argument to build AnnotationData must be a dictionary (with fields id, key, set, value), a string (with a public ID), or an AnnotationData instance. A list containing any multiple of those types is also allowed in certain circumstances.",
@@ -617,7 +643,9 @@ pub(crate) fn annotationdata_builder<'a>(data: &'a PyAny) -> PyResult<Annotation
     }
 }
 
-pub(crate) fn dataoperator_from_kwargs(kwargs: &PyDict) -> Result<Option<DataOperator>, StamError> {
+pub(crate) fn dataoperator_from_kwargs<'py>(
+    kwargs: &Bound<'py, PyDict>,
+) -> Result<Option<DataOperator<'py>>, StamError> {
     if let Ok(Some(value)) = kwargs.get_item("value") {
         Ok(Some(dataoperator_from_py(value)?))
     } else if let Ok(Some(value)) = kwargs.get_item("value_not") {
@@ -650,7 +678,7 @@ pub(crate) fn dataoperator_from_kwargs(kwargs: &PyDict) -> Result<Option<DataOpe
         ))))
     } else if let Ok(Some(values)) = kwargs.get_item("value_in") {
         if values.is_instance_of::<PyTuple>() {
-            let values: &PyTuple = values.downcast().unwrap();
+            let values: &Bound<'py, PyTuple> = values.downcast().unwrap();
             let mut suboperators = Vec::with_capacity(values.len());
             for value in values {
                 suboperators.push(dataoperator_from_py(value)?)
@@ -661,7 +689,7 @@ pub(crate) fn dataoperator_from_kwargs(kwargs: &PyDict) -> Result<Option<DataOpe
         }
     } else if let Ok(Some(values)) = kwargs.get_item("value_not_in") {
         if values.is_instance_of::<PyTuple>() {
-            let values: &PyTuple = values.downcast().unwrap();
+            let values: &Bound<'py, PyTuple> = values.downcast().unwrap();
             let mut suboperators = Vec::with_capacity(values.len());
             for value in values {
                 suboperators.push(dataoperator_from_py(value)?)
@@ -709,11 +737,13 @@ pub(crate) fn dataoperator_from_kwargs(kwargs: &PyDict) -> Result<Option<DataOpe
     }
 }
 
-pub(crate) fn dataoperator_from_py(value: &PyAny) -> Result<DataOperator, StamError> {
+pub(crate) fn dataoperator_from_py<'py>(
+    value: Bound<'py, PyAny>,
+) -> Result<DataOperator<'py>, StamError> {
     if value.is_none() {
         Ok(DataOperator::Null)
-    } else if let Ok(value) = value.extract() {
-        Ok(DataOperator::Equals(value))
+    } else if let Ok(value) = value.extract::<String>() {
+        Ok(DataOperator::Equals(value.into()))
     } else if let Ok(value) = value.extract() {
         Ok(DataOperator::EqualsInt(value))
     } else if let Ok(value) = value.extract() {
@@ -731,7 +761,9 @@ pub(crate) fn dataoperator_from_py(value: &PyAny) -> Result<DataOperator, StamEr
     }
 }
 
-pub(crate) fn dataoperator_greater_from_py(value: &PyAny) -> Result<DataOperator, StamError> {
+pub(crate) fn dataoperator_greater_from_py<'py>(
+    value: Bound<'py, PyAny>,
+) -> Result<DataOperator, StamError> {
     if let Ok(value) = value.extract() {
         Ok(DataOperator::GreaterThan(value))
     } else if let Ok(value) = value.extract() {
@@ -743,7 +775,9 @@ pub(crate) fn dataoperator_greater_from_py(value: &PyAny) -> Result<DataOperator
     }
 }
 
-pub(crate) fn dataoperator_less_from_py(value: &PyAny) -> Result<DataOperator, StamError> {
+pub(crate) fn dataoperator_less_from_py<'py>(
+    value: Bound<'py, PyAny>,
+) -> Result<DataOperator, StamError> {
     if let Ok(value) = value.extract() {
         Ok(DataOperator::LessThan(value))
     } else if let Ok(value) = value.extract() {
@@ -755,7 +789,9 @@ pub(crate) fn dataoperator_less_from_py(value: &PyAny) -> Result<DataOperator, S
     }
 }
 
-pub(crate) fn dataoperator_greatereq_from_py(value: &PyAny) -> Result<DataOperator, StamError> {
+pub(crate) fn dataoperator_greatereq_from_py<'py>(
+    value: Bound<'py, PyAny>,
+) -> Result<DataOperator, StamError> {
     if let Ok(value) = value.extract() {
         Ok(DataOperator::GreaterThanOrEqual(value))
     } else if let Ok(value) = value.extract() {
@@ -767,7 +803,9 @@ pub(crate) fn dataoperator_greatereq_from_py(value: &PyAny) -> Result<DataOperat
     }
 }
 
-pub(crate) fn dataoperator_lesseq_from_py(value: &PyAny) -> Result<DataOperator, StamError> {
+pub(crate) fn dataoperator_lesseq_from_py<'py>(
+    value: Bound<'py, PyAny>,
+) -> Result<DataOperator, StamError> {
     if let Ok(value) = value.extract() {
         Ok(DataOperator::LessThanOrEqual(value))
     } else if let Ok(value) = value.extract() {
@@ -831,9 +869,13 @@ impl PyData {
     }
 
     #[pyo3(signature = (*args, **kwargs))]
-    fn annotations(&self, args: &PyTuple, kwargs: Option<&PyDict>) -> PyResult<PyAnnotations> {
-        let limit = get_limit(kwargs);
-        if !has_filters(args, kwargs) {
+    fn annotations<'py>(
+        &self,
+        args: Bound<'py, PyTuple>,
+        kwargs: Option<Bound<'py, PyDict>>,
+    ) -> PyResult<PyAnnotations> {
+        let limit = get_limit(&kwargs);
+        if !has_filters(&args, &kwargs) {
             self.map(|data, _store| {
                 Ok(PyAnnotations::from_iter(
                     data.items().annotations().limit(limit),
@@ -841,18 +883,22 @@ impl PyData {
                 ))
             })
         } else {
-            self.map_with_query(Type::Annotation, args, kwargs, |query, store| {
+            self.map_with_query(Type::Annotation, &args, &kwargs, |query, store| {
                 PyAnnotations::from_query(query, store, &self.store, limit)
             })
         }
     }
 
     #[pyo3(signature = (*args, **kwargs))]
-    fn test_annotations(&self, args: &PyTuple, kwargs: Option<&PyDict>) -> PyResult<bool> {
-        if !has_filters(args, kwargs) {
+    fn test_annotations<'py>(
+        &self,
+        args: Bound<'py, PyTuple>,
+        kwargs: Option<Bound<'py, PyDict>>,
+    ) -> PyResult<bool> {
+        if !has_filters(&args, &kwargs) {
             self.map(|data, _| Ok(data.items().annotations().test()))
         } else {
-            self.map_with_query(Type::Annotation, args, kwargs, |query, store| {
+            self.map_with_query(Type::Annotation, &args, &kwargs, |query, store| {
                 Ok(store.query(query)?.test())
             })
         }
@@ -911,11 +957,11 @@ impl PyData {
         }
     }
 
-    fn map_with_query<T, F>(
+    pub(crate) fn map_with_query<'py, T, F>(
         &self,
         resulttype: Type,
-        args: &PyTuple,
-        kwargs: Option<&PyDict>,
+        args: &Bound<'py, PyTuple>,
+        kwargs: &Option<Bound<'py, PyDict>>,
         f: F,
     ) -> Result<T, PyErr>
     where

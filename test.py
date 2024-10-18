@@ -840,7 +840,7 @@ class Test10Alignment(unittest.TestCase):
     def test_align1(self):
         align1 = self.store.resource("align1").textselection(Offset.whole())
         localalign1 = self.store.resource("localalign1").textselection(Offset.whole())
-        transpositions = localalign1.align_text(align1, algorithm="local")
+        transpositions = localalign1.align_texts(align1, algorithm="local")
         count = 0
         for transposition in transpositions:
             count += 1
@@ -853,7 +853,7 @@ class Test10Alignment(unittest.TestCase):
     def test_align2(self):
         align1 = self.store.resource("align1").textselection(Offset.whole())
         localalign2 = self.store.resource("localalign2").textselection(Offset.whole())
-        transpositions = localalign2.align_text(align1, algorithm="local")
+        transpositions = localalign2.align_texts(align1, algorithm="local")
         count = 0
         for transposition in transpositions:
             count += 1
@@ -868,7 +868,7 @@ class Test10Alignment(unittest.TestCase):
     def test_align3(self):
         align2 = self.store.resource("align2").textselection(Offset.whole())
         localalign2 = self.store.resource("localalign2").textselection(Offset.whole())
-        transpositions = localalign2.align_text(align2, algorithm="global")
+        transpositions = localalign2.align_texts(align2, algorithm="global")
         count = 0
         for transposition in transpositions:
             count += 1

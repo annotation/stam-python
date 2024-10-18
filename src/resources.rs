@@ -36,8 +36,8 @@ impl PyTextResource {
         handle: TextResourceHandle,
         store: Arc<RwLock<AnnotationStore>>,
         py: Python<'py>,
-    ) -> &'py PyAny {
-        Self::new(handle, store).into_py(py).into_ref(py)
+    ) -> Bound<'py, PyAny> {
+        Self::new(handle, store).into_py(py).into_bound(py)
     }
 }
 
@@ -84,17 +84,21 @@ impl PyTextResource {
     }
 
     /// Returns the full text of the resource (by value, aka a copy)
-    fn __str__<'py>(&self, py: Python<'py>) -> PyResult<&'py PyString> {
+    fn __str__<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyString>> {
         self.text(py)
     }
 
     /// Returns a string (by value, aka copy) of a slice of the text
-    fn __getitem__<'py>(&self, slice: &PySlice, py: Python<'py>) -> PyResult<&'py PyString> {
+    fn __getitem__<'py>(
+        &self,
+        slice: Bound<'py, PySlice>,
+        py: Python<'py>,
+    ) -> PyResult<Bound<'py, PyString>> {
         self.map(|resource| {
             let slice = slice
                 .indices(resource.textlen().try_into().unwrap())
                 .expect("expected valid slice");
-            Ok(PyString::new(
+            Ok(PyString::new_bound(
                 py,
                 resource
                     .text_by_offset(&Offset::simple(slice.start as usize, slice.stop as usize))?,
@@ -103,8 +107,8 @@ impl PyTextResource {
     }
 
     /// 'Returns the full text of the resource (by value, aka a copy)
-    fn text<'py>(&self, py: Python<'py>) -> PyResult<&'py PyString> {
-        self.map(|resource| Ok(PyString::new(py, resource.text())))
+    fn text<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyString>> {
+        self.map(|resource| Ok(PyString::new_bound(py, resource.text())))
     }
 
     /// Returns the length of the resources's text in unicode points (same as `len(self.text())` but more performant)
@@ -125,14 +129,15 @@ impl PyTextResource {
     }
 
     /// Searches for the text fragment and returns a list of [`TextSelection`] instances with all matches (or up to the specified limit)
-    fn find_text(
+    #[pyo3(signature=(fragment,limit=None,case_sensitive=None))]
+    fn find_text<'py>(
         &self,
         fragment: &str,
         limit: Option<usize>,
         case_sensitive: Option<bool>,
-        py: Python,
-    ) -> Py<PyList> {
-        let list: &PyList = PyList::empty(py);
+        py: Python<'py>,
+    ) -> Bound<'py, PyList> {
+        let list = PyList::empty_bound(py);
         self.map(|res| {
             if case_sensitive == Some(false) {
                 for (i, textselection) in res.find_text_nocase(fragment).enumerate() {
@@ -166,17 +171,19 @@ impl PyTextResource {
         list.into()
     }
 
-    fn find_text_sequence(
+    #[pyo3(signature=(fragments,case_sensitive=None, allow_skip_whitespace=None, allow_skip_punctuation=None,allow_skip_numeric=None,allow_skip_alphabetic=None))]
+    fn find_text_sequence<'py>(
         &self,
-        fragments: Vec<&str>,
+        fragments: Vec<String>,
         case_sensitive: Option<bool>,
         allow_skip_whitespace: Option<bool>,
         allow_skip_punctuation: Option<bool>,
         allow_skip_numeric: Option<bool>,
         allow_skip_alphabetic: Option<bool>,
-        py: Python,
-    ) -> Py<PyList> {
-        let list: &PyList = PyList::empty(py);
+        py: Python<'py>,
+    ) -> Bound<'py, PyList> {
+        let fragments: Vec<&str> = fragments.iter().map(|s| s.as_str()).collect();
+        let list = PyList::empty_bound(py);
         self.map(|res| {
             let results = res.find_text_sequence(
                 &fragments,
@@ -222,13 +229,14 @@ impl PyTextResource {
     /// false. All of this only matters if you supply multiple regular expressions.
     ///
     /// Results are returned in the exact order they are found in the text
-    fn find_text_regex(
+    #[pyo3(signature=(expressions,allow_overlap=None, limit=None))]
+    fn find_text_regex<'py>(
         &self,
-        expressions: &PyList,
+        expressions: Bound<'py, PyList>,
         allow_overlap: Option<bool>,
         limit: Option<usize>,
-        py: Python,
-    ) -> PyResult<Py<PyList>> {
+        py: Python<'py>,
+    ) -> PyResult<Bound<'py, PyList>> {
         //MAYBE TODO: there's room for performance improvement here probably
         let mut regexps: Vec<Regex> = Vec::new();
         for expression in expressions.iter() {
@@ -241,13 +249,13 @@ impl PyTextResource {
                 ))
             })?);
         }
-        let list: &PyList = PyList::empty(py);
+        let list = PyList::empty_bound(py);
         self.map(|res| {
             for (i, regexmatch) in res
                 .find_text_regex(&regexps, None, allow_overlap.unwrap_or(false))?
                 .enumerate()
             {
-                let textselections: &PyList = PyList::empty(py);
+                let textselections = PyList::empty_bound(py);
                 for textselection in regexmatch.textselections() {
                     textselections
                         .append(PyTextSelection::from_result_to_py(
@@ -257,7 +265,7 @@ impl PyTextResource {
                         ))
                         .ok();
                 }
-                let dict: &PyDict = PyDict::new(py);
+                let dict = PyDict::new_bound(py);
                 dict.set_item("textselections", textselections).unwrap();
                 dict.set_item("expression_index", regexmatch.expression_index())
                     .unwrap();
@@ -276,8 +284,14 @@ impl PyTextResource {
 
     /// Returns a list of [`TextSelection`] instances that split the text according to the specified delimiter.
     /// You can set `limit` to the max number of elements you want to return.
-    fn split_text(&self, delimiter: &str, limit: Option<usize>, py: Python) -> Py<PyList> {
-        let list: &PyList = PyList::empty(py);
+    #[pyo3(signature=(delimiter,limit=None))]
+    fn split_text<'py>(
+        &self,
+        delimiter: &str,
+        limit: Option<usize>,
+        py: Python<'py>,
+    ) -> Bound<'py, PyList> {
+        let list = PyList::empty_bound(py);
         self.map(|res| {
             for (i, textselection) in res.split_text(delimiter).enumerate() {
                 list.append(PyTextSelection::from_result_to_py(
@@ -425,9 +439,13 @@ impl PyTextResource {
 
     /// Returns annotations that are referring to this resource via a TextSelector
     #[pyo3(signature = (*args, **kwargs))]
-    fn annotations(&self, args: &PyTuple, kwargs: Option<&PyDict>) -> PyResult<PyAnnotations> {
-        let limit = get_limit(kwargs);
-        if !has_filters(args, kwargs) {
+    fn annotations<'py>(
+        &self,
+        args: Bound<'py, PyTuple>,
+        kwargs: Option<Bound<'py, PyDict>>,
+    ) -> PyResult<PyAnnotations> {
+        let limit = get_limit(&kwargs);
+        if !has_filters(&args, &kwargs) {
             self.map(|resource| {
                 Ok(PyAnnotations::from_iter(
                     resource.annotations().limit(limit),
@@ -438,8 +456,8 @@ impl PyTextResource {
             self.map_with_query(
                 Type::Annotation,
                 Constraint::ResourceVariable("main", SelectionQualifier::Normal, None),
-                args,
-                kwargs,
+                &args,
+                &kwargs,
                 |annotation, query| {
                     PyAnnotations::from_query(query, annotation.store(), &self.store, limit)
                 },
@@ -448,13 +466,13 @@ impl PyTextResource {
     }
 
     #[pyo3(signature = (*args, **kwargs))]
-    fn annotations_as_metadata(
+    fn annotations_as_metadata<'py>(
         &self,
-        args: &PyTuple,
-        kwargs: Option<&PyDict>,
+        args: Bound<'py, PyTuple>,
+        kwargs: Option<Bound<'py, PyDict>>,
     ) -> PyResult<PyAnnotations> {
-        let limit = get_limit(kwargs);
-        if !has_filters(args, kwargs) {
+        let limit = get_limit(&kwargs);
+        if !has_filters(&args, &kwargs) {
             self.map(|resource| {
                 Ok(PyAnnotations::from_iter(
                     resource.annotations_as_metadata().limit(limit),
@@ -465,8 +483,8 @@ impl PyTextResource {
             self.map_with_query(
                 Type::Annotation,
                 Constraint::ResourceVariable("main", SelectionQualifier::Metadata, None),
-                args,
-                kwargs,
+                &args,
+                &kwargs,
                 |annotation, query| {
                     PyAnnotations::from_query(query, annotation.store(), &self.store, limit)
                 },
@@ -475,34 +493,38 @@ impl PyTextResource {
     }
 
     #[pyo3(signature = (*args, **kwargs))]
-    fn test_annotations(&self, args: &PyTuple, kwargs: Option<&PyDict>) -> PyResult<bool> {
-        if !has_filters(args, kwargs) {
+    fn test_annotations<'py>(
+        &self,
+        args: Bound<'py, PyTuple>,
+        kwargs: Option<Bound<'py, PyDict>>,
+    ) -> PyResult<bool> {
+        if !has_filters(&args, &kwargs) {
             self.map(|resource| Ok(resource.annotations().test()))
         } else {
             self.map_with_query(
                 Type::Annotation,
                 Constraint::ResourceVariable("main", SelectionQualifier::Normal, None),
-                args,
-                kwargs,
+                &args,
+                &kwargs,
                 |resource, query| Ok(resource.store().query(query)?.test()),
             )
         }
     }
 
     #[pyo3(signature = (*args, **kwargs))]
-    fn test_annotations_as_metadata(
+    fn test_annotations_as_metadata<'py>(
         &self,
-        args: &PyTuple,
-        kwargs: Option<&PyDict>,
+        args: Bound<'py, PyTuple>,
+        kwargs: Option<Bound<'py, PyDict>>,
     ) -> PyResult<bool> {
-        if !has_filters(args, kwargs) {
+        if !has_filters(&args, &kwargs) {
             self.map(|resource| Ok(resource.annotations_as_metadata().test()))
         } else {
             self.map_with_query(
                 Type::Annotation,
                 Constraint::ResourceVariable("main", SelectionQualifier::Metadata, None),
-                args,
-                kwargs,
+                &args,
+                &kwargs,
                 |resource, query| Ok(resource.store().query(query)?.test()),
             )
         }
@@ -530,7 +552,7 @@ impl PyTextResource {
         &self,
         operator: PyTextSelectionOperator,
         referenceselections: Vec<PyTextSelection>,
-        kwargs: Option<&PyDict>,
+        kwargs: Option<Bound<'py, PyDict>>,
     ) -> PyResult<PyTextSelections> {
         self.map(|textselection| {
             let mut refset = TextSelectionSet::new(self.handle);
@@ -577,12 +599,12 @@ impl PyTextResource {
         }
     }
 
-    fn map_with_query<T, F>(
+    pub(crate) fn map_with_query<'py, T, F>(
         &self,
         resulttype: Type,
         constraint: Constraint,
-        args: &PyTuple,
-        kwargs: Option<&PyDict>,
+        args: &Bound<'py, PyTuple>,
+        kwargs: &Option<Bound<'py, PyDict>>,
         f: F,
     ) -> Result<T, PyErr>
     where
@@ -626,7 +648,7 @@ pub(crate) struct PyCursor {
 #[pymethods]
 impl PyCursor {
     #[new]
-    #[pyo3(text_signature = "(self, index, endaliged=None)")]
+    #[pyo3(signature = (index, endaligned=None))]
     fn new(index: isize, endaligned: Option<bool>) -> PyResult<Self> {
         if endaligned.unwrap_or(false) {
             if index <= 0 {

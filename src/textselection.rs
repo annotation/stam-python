@@ -59,29 +59,33 @@ impl PyTextSelection {
         result: ResultTextSelection<'_>,
         store: &Arc<RwLock<AnnotationStore>>,
         py: Python<'py>,
-    ) -> &'py PyAny {
-        Self::from_result(result, store).into_py(py).into_ref(py)
+    ) -> Bound<'py, PyAny> {
+        Self::from_result(result, store).into_py(py).into_bound(py)
     }
 }
 
 #[pymethods]
 impl PyTextSelection {
     /// Resolves a text selection to the actual underlying text
-    fn text<'py>(&self, py: Python<'py>) -> PyResult<&'py PyString> {
-        self.map(|textselection| Ok(PyString::new(py, textselection.text())))
+    fn text<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyString>> {
+        self.map(|textselection| Ok(PyString::new_bound(py, textselection.text())))
     }
 
-    fn __str__<'py>(&self, py: Python<'py>) -> PyResult<&'py PyString> {
+    fn __str__<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyString>> {
         self.text(py)
     }
 
     /// Returns a string (by value, aka copy) of a slice of the text
-    fn __getitem__<'py>(&self, slice: &PySlice, py: Python<'py>) -> PyResult<&'py PyString> {
+    fn __getitem__<'py>(
+        &self,
+        slice: Bound<'py, PySlice>,
+        py: Python<'py>,
+    ) -> PyResult<Bound<'py, PyString>> {
         self.map(|textselection| {
             let slice = slice
                 .indices(textselection.textlen().try_into().unwrap())
                 .expect("expected valid slice");
-            Ok(PyString::new(
+            Ok(PyString::new_bound(
                 py,
                 textselection
                     .text_by_offset(&Offset::simple(slice.start as usize, slice.stop as usize))?,
@@ -149,14 +153,15 @@ impl PyTextSelection {
     }
 
     /// Searches for the text fragment and returns a list of [`TextSelection`] instances with all matches (or up to the specified limit)
-    fn find_text(
+    #[pyo3(signature = (fragment,limit=None,case_sensitive=None))]
+    fn find_text<'py>(
         &self,
         fragment: &str,
         limit: Option<usize>,
         case_sensitive: Option<bool>,
-        py: Python,
-    ) -> Py<PyList> {
-        let list: &PyList = PyList::empty(py);
+        py: Python<'py>,
+    ) -> Bound<'py, PyList> {
+        let list = PyList::empty_bound(py);
         self.map(|textselection| {
             if case_sensitive == Some(false) {
                 for (i, textselection) in textselection.find_text_nocase(fragment).enumerate() {
@@ -190,20 +195,21 @@ impl PyTextSelection {
         list.into()
     }
 
-    fn find_text_sequence(
+    #[pyo3(signature = (fragments,case_sensitive=None, allow_skip_whitespace=None, allow_skip_punctuation=None, allow_skip_numeric=None, allow_skip_alphabetic=None))]
+    fn find_text_sequence<'py>(
         &self,
-        fragments: Vec<&str>,
+        fragments: Vec<String>,
         case_sensitive: Option<bool>,
         allow_skip_whitespace: Option<bool>,
         allow_skip_punctuation: Option<bool>,
         allow_skip_numeric: Option<bool>,
         allow_skip_alphabetic: Option<bool>,
-        py: Python,
-    ) -> Py<PyList> {
-        let list: &PyList = PyList::empty(py);
+        py: Python<'py>,
+    ) -> Bound<'py, PyList> {
+        let list: Bound<'py, PyList> = PyList::empty_bound(py);
         self.map(|textselection| {
             let results = textselection.find_text_sequence(
-                &fragments,
+                &fragments.iter().map(|s| s.as_str()).collect::<Vec<_>>(),
                 |c| {
                     if (allow_skip_whitespace == Some(false) && c.is_whitespace())
                         || (allow_skip_punctuation == Some(false) && c.is_ascii_punctuation())
@@ -235,8 +241,9 @@ impl PyTextSelection {
 
     /// Returns a tuple of [`TextSelection`] instances that split the text according to the specified delimiter.
     /// You can set `limit` to the max number of elements you want to return.
+    #[pyo3(signature = (delimiter,limit=None))]
     fn split_text(&self, delimiter: &str, limit: Option<usize>, py: Python) -> Py<PyList> {
-        let list: &PyList = PyList::empty(py);
+        let list = PyList::empty_bound(py);
         self.map(|textselection| {
             for (i, textselection) in textselection.split_text(delimiter).enumerate() {
                 list.append(PyTextSelection::from_result_to_py(
@@ -305,9 +312,13 @@ impl PyTextSelection {
     }
 
     #[pyo3(signature = (*args, **kwargs))]
-    fn annotations(&self, args: &PyTuple, kwargs: Option<&PyDict>) -> PyResult<PyAnnotations> {
-        let limit = get_limit(kwargs);
-        if !has_filters(args, kwargs) {
+    fn annotations<'py>(
+        &self,
+        args: Bound<'py, PyTuple>,
+        kwargs: Option<Bound<'py, PyDict>>,
+    ) -> PyResult<PyAnnotations> {
+        let limit = get_limit(&kwargs);
+        if !has_filters(&args, &kwargs) {
             self.map(|textselection| {
                 Ok(PyAnnotations::from_iter(
                     textselection.annotations().limit(limit),
@@ -318,8 +329,8 @@ impl PyTextSelection {
             self.map_with_query(
                 Type::Annotation,
                 Constraint::TextVariable("main"),
-                args,
-                kwargs,
+                &args,
+                &kwargs,
                 |textselection, query| {
                     PyAnnotations::from_query(query, textselection.rootstore(), &self.store, limit)
                 },
@@ -328,44 +339,52 @@ impl PyTextSelection {
     }
 
     #[pyo3(signature = (*args, **kwargs))]
-    fn test_annotations(&self, args: &PyTuple, kwargs: Option<&PyDict>) -> PyResult<bool> {
-        if !has_filters(args, kwargs) {
+    fn test_annotations<'py>(
+        &self,
+        args: Bound<'py, PyTuple>,
+        kwargs: Option<Bound<'py, PyDict>>,
+    ) -> PyResult<bool> {
+        if !has_filters(&args, &kwargs) {
             self.map(|textselection| Ok(textselection.annotations().test()))
         } else {
             self.map_with_query(
                 Type::Annotation,
                 Constraint::TextVariable("main"),
-                args,
-                kwargs,
+                &args,
+                &kwargs,
                 |textselection, query| Ok(textselection.rootstore().query(query)?.test()),
             )
         }
     }
 
     #[pyo3(signature = (*args, **kwargs))]
-    fn test_data(&self, args: &PyTuple, kwargs: Option<&PyDict>) -> PyResult<bool> {
-        if !has_filters(args, kwargs) {
+    fn test_data<'py>(
+        &self,
+        args: Bound<'py, PyTuple>,
+        kwargs: Option<Bound<'py, PyDict>>,
+    ) -> PyResult<bool> {
+        if !has_filters(&args, &kwargs) {
             self.map(|textselection| Ok(textselection.annotations().data().test()))
         } else {
             self.map_with_query(
                 Type::AnnotationData,
                 Constraint::TextVariable("main"),
-                args,
-                kwargs,
+                &args,
+                &kwargs,
                 |textselection, query| Ok(textselection.rootstore().query(query)?.test()),
             )
         }
     }
 
     #[pyo3(signature = (operator, *args, **kwargs))]
-    fn related_text(
+    fn related_text<'py>(
         &self,
         operator: PyTextSelectionOperator,
-        args: &PyTuple,
-        kwargs: Option<&PyDict>,
+        args: Bound<'py, PyTuple>,
+        kwargs: Option<Bound<'py, PyDict>>,
     ) -> PyResult<PyTextSelections> {
-        let limit = get_limit(kwargs);
-        if !has_filters(args, kwargs) {
+        let limit = get_limit(&kwargs);
+        if !has_filters(&args, &kwargs) {
             self.map(|textselection| {
                 Ok(PyTextSelections::from_iter(
                     textselection.related_text(operator.operator).limit(limit),
@@ -379,8 +398,8 @@ impl PyTextSelection {
                     var: "main",
                     operator: operator.operator, //MAYBE TODO: check if we need to invert an operator here?
                 },
-                args,
-                kwargs,
+                &args,
+                &kwargs,
                 |textselection, query| {
                     PyTextSelections::from_query(
                         query,
@@ -517,13 +536,13 @@ impl PyTextSelection {
     }
 
     #[pyo3(signature = (other, **kwargs))]
-    fn align_texts(
+    fn align_texts<'py>(
         &mut self,
         other: PyTextSelection,
-        kwargs: Option<&PyDict>,
+        kwargs: Option<Bound<'py, PyDict>>,
     ) -> PyResult<Vec<PyAnnotation>> {
         let alignmentconfig = if let Some(kwargs) = kwargs {
-            get_alignmentconfig(kwargs)?
+            get_alignmentconfig(&kwargs)?
         } else {
             AlignmentConfig::default()
         };
@@ -596,12 +615,12 @@ impl PyTextSelection {
         }
     }
 
-    fn map_with_query<T, F>(
+    pub(crate) fn map_with_query<'py, T, F>(
         &self,
         resulttype: Type,
         constraint: Constraint,
-        args: &PyTuple,
-        kwargs: Option<&PyDict>,
+        args: &Bound<'py, PyTuple>,
+        kwargs: &Option<Bound<'py, PyDict>>,
         f: F,
     ) -> Result<T, PyErr>
     where
@@ -713,9 +732,13 @@ impl PyTextSelections {
     }
 
     #[pyo3(signature = (*args, **kwargs))]
-    fn annotations(&self, args: &PyTuple, kwargs: Option<&PyDict>) -> PyResult<PyAnnotations> {
-        let limit = get_limit(kwargs);
-        if !has_filters(args, kwargs) {
+    fn annotations<'py>(
+        &self,
+        args: Bound<'py, PyTuple>,
+        kwargs: Option<Bound<'py, PyDict>>,
+    ) -> PyResult<PyAnnotations> {
+        let limit = get_limit(&kwargs);
+        if !has_filters(&args, &kwargs) {
             self.map(|textselections, _store| {
                 Ok(PyAnnotations::from_iter(
                     textselections
@@ -730,16 +753,20 @@ impl PyTextSelections {
             self.map_with_query(
                 Type::Annotation,
                 Constraint::TextVariable("main"),
-                args,
-                kwargs,
+                &args,
+                &kwargs,
                 |query, store| PyAnnotations::from_query(query, store, &self.store, limit),
             )
         }
     }
 
     #[pyo3(signature = (*args, **kwargs))]
-    fn test_annotations(&self, args: &PyTuple, kwargs: Option<&PyDict>) -> PyResult<bool> {
-        if !has_filters(args, kwargs) {
+    fn test_annotations<'py>(
+        &self,
+        args: Bound<'py, PyTuple>,
+        kwargs: Option<Bound<'py, PyDict>>,
+    ) -> PyResult<bool> {
+        if !has_filters(&args, &kwargs) {
             self.map(|annotations, _| {
                 Ok(annotations
                     .items()
@@ -751,17 +778,21 @@ impl PyTextSelections {
             self.map_with_query(
                 Type::Annotation,
                 Constraint::TextVariable("main"),
-                args,
-                kwargs,
+                &args,
+                &kwargs,
                 |query, store| Ok(store.query(query)?.test()),
             )
         }
     }
 
     #[pyo3(signature = (*args, **kwargs))]
-    fn data(&self, args: &PyTuple, kwargs: Option<&PyDict>) -> PyResult<PyData> {
-        let limit = get_limit(kwargs);
-        if !has_filters(args, kwargs) {
+    fn data<'py>(
+        &self,
+        args: Bound<'py, PyTuple>,
+        kwargs: Option<Bound<'py, PyDict>>,
+    ) -> PyResult<PyData> {
+        let limit = get_limit(&kwargs);
+        if !has_filters(&args, &kwargs) {
             self.map(|textselections, _store| {
                 Ok(PyData::from_iter(
                     textselections
@@ -777,16 +808,20 @@ impl PyTextSelections {
             self.map_with_query(
                 Type::AnnotationData,
                 Constraint::TextVariable("main"),
-                args,
-                kwargs,
+                &args,
+                &kwargs,
                 |query, store| PyData::from_query(query, store, &self.store, limit),
             )
         }
     }
 
     #[pyo3(signature = (*args, **kwargs))]
-    fn test_data(&self, args: &PyTuple, kwargs: Option<&PyDict>) -> PyResult<bool> {
-        if !has_filters(args, kwargs) {
+    fn test_data<'py>(
+        &self,
+        args: Bound<'py, PyTuple>,
+        kwargs: Option<Bound<'py, PyDict>>,
+    ) -> PyResult<bool> {
+        if !has_filters(&args, &kwargs) {
             self.map(|textselections, _| {
                 Ok(textselections
                     .items()
@@ -799,22 +834,22 @@ impl PyTextSelections {
             self.map_with_query(
                 Type::AnnotationData,
                 Constraint::TextVariable("main"),
-                args,
-                kwargs,
+                &args,
+                &kwargs,
                 |query, store| Ok(store.query(query)?.test()),
             )
         }
     }
 
     #[pyo3(signature = (operator, *args, **kwargs))]
-    fn related_text(
+    fn related_text<'py>(
         &self,
         operator: PyTextSelectionOperator,
-        args: &PyTuple,
-        kwargs: Option<&PyDict>,
+        args: Bound<'py, PyTuple>,
+        kwargs: Option<Bound<'py, PyDict>>,
     ) -> PyResult<PyTextSelections> {
-        let limit = get_limit(kwargs);
-        if !has_filters(args, kwargs) {
+        let limit = get_limit(&kwargs);
+        if !has_filters(&args, &kwargs) {
             self.map(|textselections, _store| {
                 Ok(PyTextSelections::from_iter(
                     textselections
@@ -832,8 +867,8 @@ impl PyTextSelections {
                     var: "main",
                     operator: operator.operator, //MAYBE TODO: check if we need to invert an operator here?
                 },
-                args,
-                kwargs,
+                &args,
+                &kwargs,
                 |query, store| PyTextSelections::from_query(query, store, &self.store, limit),
             )
         }
@@ -945,12 +980,12 @@ impl PyTextSelections {
         }
     }
 
-    fn map_with_query<T, F>(
+    pub(crate) fn map_with_query<'py, T, F>(
         &self,
         resulttype: Type,
         constraint: Constraint,
-        args: &PyTuple,
-        kwargs: Option<&PyDict>,
+        args: &Bound<'py, PyTuple>,
+        kwargs: &Option<Bound<'py, PyDict>>,
         f: F,
     ) -> Result<T, PyErr>
     where
@@ -1060,6 +1095,7 @@ pub(crate) struct PyTextSelectionOperator {
 impl PyTextSelectionOperator {
     #[staticmethod]
     /// Create an operator to test if two textselection(sets) occupy cover the exact same TextSelections, and all are covered (cf. textfabric's `==`), commutative, transitive
+    #[pyo3(signature = (all=None,negate=None))]
     fn equals(all: Option<bool>, negate: Option<bool>) -> PyResult<Self> {
         Ok(Self {
             operator: TextSelectionOperator::Equals {
@@ -1073,6 +1109,7 @@ impl PyTextSelectionOperator {
     /// Create an operator to test if two textselection(sets) overlap.
     /// Each TextSelection in A overlaps with a TextSelection in B (cf. textfabric's `&&`), commutative
     /// If modifier `all` is set: Each TextSelection in A overlaps with all TextSelection in B (cf. textfabric's `&&`), commutative
+    #[pyo3(signature = (all=None,negate=None))]
     fn overlaps(all: Option<bool>, negate: Option<bool>) -> PyResult<Self> {
         Ok(Self {
             operator: TextSelectionOperator::Overlaps {
@@ -1086,6 +1123,7 @@ impl PyTextSelectionOperator {
     /// Create an operator to test if two textselection(sets) are embedded.
     /// All TextSelections in B are embedded by a TextSelection in A (cf. textfabric's `[[`)
     /// If modifier `all` is set: All TextSelections in B are embedded by all TextSelection in A (cf. textfabric's `[[`)
+    #[pyo3(signature = (all=None,negate=None))]
     fn embeds(all: Option<bool>, negate: Option<bool>) -> PyResult<Self> {
         Ok(Self {
             operator: TextSelectionOperator::Embeds {
@@ -1099,6 +1137,7 @@ impl PyTextSelectionOperator {
     /// Create an operator to test if two textselection(sets) are embedded.
     /// All TextSelections in B are embedded by a TextSelection in A (cf. textfabric's `[[`)
     /// If modifier `all` is set: All TextSelections in B are embedded by all TextSelection in A (cf. textfabric's `[[`)
+    #[pyo3(signature = (all=None,negate=None, limit=None))]
     fn embedded(all: Option<bool>, negate: Option<bool>, limit: Option<usize>) -> PyResult<Self> {
         Ok(Self {
             operator: TextSelectionOperator::Embedded {
@@ -1110,6 +1149,7 @@ impl PyTextSelectionOperator {
     }
 
     #[staticmethod]
+    #[pyo3(signature = (all=None,negate=None, limit=None))]
     fn before(all: Option<bool>, negate: Option<bool>, limit: Option<usize>) -> PyResult<Self> {
         Ok(Self {
             operator: TextSelectionOperator::Before {
@@ -1121,6 +1161,7 @@ impl PyTextSelectionOperator {
     }
 
     #[staticmethod]
+    #[pyo3(signature = (all=None,negate=None, limit=None))]
     fn after(all: Option<bool>, negate: Option<bool>, limit: Option<usize>) -> PyResult<Self> {
         Ok(Self {
             operator: TextSelectionOperator::After {
@@ -1132,6 +1173,7 @@ impl PyTextSelectionOperator {
     }
 
     #[staticmethod]
+    #[pyo3(signature = (all=None,negate=None, allow_whitespace=None))]
     fn precedes(
         all: Option<bool>,
         negate: Option<bool>,
@@ -1147,6 +1189,7 @@ impl PyTextSelectionOperator {
     }
 
     #[staticmethod]
+    #[pyo3(signature = (all=None,negate=None, allow_whitespace=None))]
     fn succeeds(
         all: Option<bool>,
         negate: Option<bool>,
@@ -1165,6 +1208,7 @@ impl PyTextSelectionOperator {
     /// Create an operator to test if two textselection(sets) have the same begin position
     /// Each TextSelection in A starts where a TextSelection in B starts
     /// If modifier `all` is set: The leftmost TextSelection in A starts where the leftmost TextSelection in B start  (cf. textfabric's `=:`)
+    #[pyo3(signature = (all=None,negate=None))]
     fn samebegin(all: Option<bool>, negate: Option<bool>) -> PyResult<Self> {
         Ok(Self {
             operator: TextSelectionOperator::SameBegin {
@@ -1178,6 +1222,7 @@ impl PyTextSelectionOperator {
     /// Create an operator to test if two textselection(sets) have the same end position
     /// Each TextSelection in A ends where a TextSelection in B ends
     /// If modifier `all` is set: The rightmost TextSelection in A ends where the rights TextSelection in B ends  (cf. textfabric's `:=`)
+    #[pyo3(signature = (all=None,negate=None))]
     fn sameend(all: Option<bool>, negate: Option<bool>) -> PyResult<Self> {
         Ok(Self {
             operator: TextSelectionOperator::SameEnd {

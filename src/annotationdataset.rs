@@ -94,11 +94,7 @@ impl PyAnnotationDataSet {
 
     /// Returns the annotation stdataset as one big STAM JSON string
     fn to_json_string(&self) -> PyResult<String> {
-        self.map(|annotationset| {
-            annotationset
-                .as_ref()
-                .to_json_string(annotationset.as_ref().config())
-        })
+        self.map(|annotationset| annotationset.as_ref().to_json_string())
     }
 
     /// Get a DataKey instance by ID, raises an exception if not found

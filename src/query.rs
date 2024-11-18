@@ -500,9 +500,9 @@ pub(crate) fn query_to_python<'py>(
     store: Arc<RwLock<AnnotationStore>>,
     py: Python<'py>,
 ) -> Result<Bound<'py, PyList>, StamError> {
-    let results = PyList::empty_bound(py);
+    let results = PyList::empty(py);
     for resultitems in iter {
-        let dict = PyDict::new_bound(py);
+        let dict = PyDict::new(py);
         for (result, name) in resultitems.iter().zip(resultitems.names()) {
             if name.is_none() {
                 continue;
@@ -512,70 +512,62 @@ pub(crate) fn query_to_python<'py>(
                 QueryResultItem::Annotation(annotation) => {
                     dict.set_item(
                         name,
-                        PyAnnotation::new(annotation.handle(), store.clone())
-                            .into_py(py)
-                            .into_bound(py),
+                        PyAnnotation::new_py(annotation.handle(), store.clone(), py),
                     )
                     .unwrap();
                 }
                 QueryResultItem::AnnotationData(data) => {
                     dict.set_item(
                         name,
-                        PyAnnotationData::new(data.handle(), data.set().handle(), store.clone())
-                            .into_py(py)
-                            .into_bound(py),
+                        PyAnnotationData::new_py(
+                            data.handle(),
+                            data.set().handle(),
+                            store.clone(),
+                            py,
+                        ),
                     )
                     .unwrap();
                 }
                 QueryResultItem::DataKey(key) => {
                     dict.set_item(
                         name,
-                        PyDataKey::new(key.handle(), key.set().handle(), store.clone())
-                            .into_py(py)
-                            .into_bound(py),
+                        PyDataKey::new_py(key.handle(), key.set().handle(), store.clone(), py),
                     )
                     .unwrap();
                 }
                 QueryResultItem::TextResource(resource) => {
                     dict.set_item(
                         name,
-                        PyTextResource::new(resource.handle(), store.clone())
-                            .into_py(py)
-                            .into_bound(py),
+                        PyTextResource::new_py(resource.handle(), store.clone(), py),
                     )
                     .unwrap();
                 }
                 QueryResultItem::AnnotationDataSet(dataset) => {
                     dict.set_item(
                         name,
-                        PyAnnotationDataSet::new(dataset.handle(), store.clone())
-                            .into_py(py)
-                            .into_bound(py),
+                        PyAnnotationDataSet::new_py(dataset.handle(), store.clone(), py),
                     )
                     .unwrap();
                 }
                 QueryResultItem::TextSelection(textselection) => {
                     dict.set_item(
                         name,
-                        PyTextSelection::new(
+                        PyTextSelection::new_py(
                             textselection
                                 .as_ref()
                                 .expect("textselection must be bound")
                                 .clone(),
                             textselection.resource().handle(),
                             store.clone(),
-                        )
-                        .into_py(py)
-                        .into_bound(py),
+                            py,
+                        ),
                     )
                     .unwrap();
                 }
                 QueryResultItem::AnnotationSubStore(substore) => {
                     dict.set_item(
                         name,
-                        PyAnnotationSubStore::new(substore.handle(), store.clone())
-                            .into_py(py)
-                            .into_bound(py),
+                        PyAnnotationSubStore::new_py(substore.handle(), store.clone(), py),
                     )
                     .unwrap();
                 }

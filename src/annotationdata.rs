@@ -33,6 +33,18 @@ impl PyDataKey {
     ) -> PyDataKey {
         PyDataKey { set, handle, store }
     }
+
+    pub(crate) fn new_py<'py>(
+        handle: DataKeyHandle,
+        set: AnnotationDataSetHandle,
+        store: Arc<RwLock<AnnotationStore>>,
+        py: Python<'py>,
+    ) -> Bound<'py, PyAny> {
+        Self::new(handle, set, store)
+            .into_pyobject(py)
+            .expect("infallible")
+            .into_any()
+    }
 }
 
 #[pymethods]
@@ -54,12 +66,11 @@ impl PyDataKey {
         self.map(|datakey| Ok(datakey.id() == Some(other)))
     }
 
-    fn __richcmp__(&self, other: PyRef<Self>, op: CompareOp) -> Py<PyAny> {
-        let py = other.py();
+    fn __richcmp__(&self, other: PyRef<Self>, op: CompareOp) -> bool {
         match op {
-            CompareOp::Eq => (self.set == other.set && self.handle == other.handle).into_py(py),
-            CompareOp::Ne => (self.set != other.set || self.handle != other.handle).into_py(py),
-            _ => py.NotImplemented(),
+            CompareOp::Eq => self.set == other.set && self.handle == other.handle,
+            CompareOp::Ne => self.set != other.set || self.handle != other.handle,
+            _ => false,
         }
     }
 
@@ -252,6 +263,18 @@ impl PyAnnotationData {
     ) -> PyAnnotationData {
         PyAnnotationData { set, handle, store }
     }
+
+    pub(crate) fn new_py<'py>(
+        handle: AnnotationDataHandle,
+        set: AnnotationDataSetHandle,
+        store: Arc<RwLock<AnnotationStore>>,
+        py: Python<'py>,
+    ) -> Bound<'py, PyAny> {
+        Self::new(handle, set, store)
+            .into_pyobject(py)
+            .expect("infallible")
+            .into_any()
+    }
 }
 
 pub(crate) fn datavalue_from_py<'py>(value: Bound<'py, PyAny>) -> Result<DataValue, StamError> {
@@ -288,18 +311,22 @@ pub(crate) fn datavalue_into_py<'py>(
     py: Python<'py>,
 ) -> Result<Bound<'py, PyAny>, StamError> {
     match datavalue {
-        DataValue::String(s) => Ok(s.into_py(py).into_bound(py)),
-        DataValue::Float(f) => Ok(f.into_py(py).into_bound(py)),
-        DataValue::Int(v) => Ok(v.into_py(py).into_bound(py)),
-        DataValue::Bool(v) => Ok(v.into_py(py).into_bound(py)),
-        DataValue::Datetime(v) => Ok(v.into_py(py).into_bound(py)),
+        DataValue::String(s) => Ok(s.into_pyobject(py).expect("infallible").into_any()),
+        DataValue::Float(f) => Ok(f.into_pyobject(py).expect("infallible").into_any()),
+        DataValue::Int(v) => Ok(v.into_pyobject(py).expect("infallible").into_any()),
+        DataValue::Bool(v) => Ok(<pyo3::Bound<'_, pyo3::types::PyBool> as Clone>::clone(
+            //ugly, compiler suggested this! doesn't work without for pyo3 0.23
+            &v.into_pyobject(py).expect("infallible"),
+        )
+        .into_any()),
+        DataValue::Datetime(v) => Ok(v.into_pyobject(py).expect("infallible").into_any()),
         DataValue::Null => {
             //feels a bit hacky, but I can't find a PyNone to return as PyAny
             let x: Option<bool> = None;
-            Ok(x.into_py(py).into_bound(py))
+            Ok(x.into_pyobject(py).expect("infallible").into_any())
         }
         DataValue::List(v) => {
-            let pylist = PyList::empty_bound(py);
+            let pylist = PyList::empty(py);
             for item in v.iter() {
                 let pyvalue = datavalue_into_py(item, py)?;
                 pylist.append(pyvalue).expect("adding value to list");
@@ -337,12 +364,11 @@ impl PyDataValue {
         })
     }
 
-    fn __richcmp__(&self, other: PyRef<Self>, op: CompareOp) -> Py<PyAny> {
-        let py = other.py();
+    fn __richcmp__(&self, other: PyRef<Self>, op: CompareOp) -> bool {
         match op {
-            CompareOp::Eq => (self.value == other.value).into_py(py),
-            CompareOp::Ne => (self.value != other.value).into_py(py),
-            _ => py.NotImplemented(),
+            CompareOp::Eq => self.value == other.value,
+            CompareOp::Ne => self.value != other.value,
+            _ => false,
         }
     }
 
@@ -446,12 +472,11 @@ impl PyAnnotationData {
         self.map(|annotationdata| Ok(annotationdata.id() == Some(other)))
     }
 
-    fn __richcmp__(&self, other: PyRef<Self>, op: CompareOp) -> Py<PyAny> {
-        let py = other.py();
+    fn __richcmp__(&self, other: PyRef<Self>, op: CompareOp) -> bool {
         match op {
-            CompareOp::Eq => (self.set == other.set && self.handle == other.handle).into_py(py),
-            CompareOp::Ne => (self.set != other.set || self.handle != other.handle).into_py(py),
-            _ => py.NotImplemented(),
+            CompareOp::Eq => self.set == other.set && self.handle == other.handle,
+            CompareOp::Ne => self.set != other.set || self.handle != other.handle,
+            _ => false,
         }
     }
 

@@ -27,7 +27,7 @@ const VERSION: &'static str = env!("CARGO_PKG_VERSION");
 
 #[pymodule]
 fn stam(py: Python<'_>, m: Bound<'_, PyModule>) -> PyResult<()> {
-    m.add("StamError", py.get_type_bound::<PyStamError>())?;
+    m.add("StamError", py.get_type::<PyStamError>())?;
     m.add("VERSION", VERSION)?;
     m.add_class::<PyAnnotationStore>()?;
     m.add_class::<PyAnnotationDataSet>()?;

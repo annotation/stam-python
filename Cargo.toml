@@ -17,10 +17,10 @@ name = "stam"
 crate-type = ["cdylib"]
 
 [dependencies]
-pyo3 = { version = "0.22.3", features = ["chrono"] }
+pyo3 = { version = "0.23.1", features = ["chrono"] }
 rayon = "1.10.0"
-stam = "0.16.4"
-stam-tools = "0.9.1"
+stam = "0.16.5"
+stam-tools = "0.9.2"
 
 [features]
 default = ["pyo3/extension-module"]

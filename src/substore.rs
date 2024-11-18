@@ -37,7 +37,10 @@ impl PyAnnotationSubStore {
         store: Arc<RwLock<AnnotationStore>>,
         py: Python<'py>,
     ) -> Bound<'py, PyAny> {
-        Self::new(handle, store).into_py(py).into_bound(py)
+        Self::new(handle, store)
+            .into_pyobject(py)
+            .expect("infallible")
+            .into_any()
     }
 }
 

@@ -40,6 +40,18 @@ impl PyTextSelection {
         }
     }
 
+    pub(crate) fn new_py<'py>(
+        textselection: TextSelection,
+        resource: TextResourceHandle,
+        store: Arc<RwLock<AnnotationStore>>,
+        py: Python<'py>,
+    ) -> Bound<'py, PyAny> {
+        Self::new(textselection, resource, store)
+            .into_pyobject(py)
+            .expect("infallible")
+            .into_any()
+    }
+
     pub(crate) fn from_result(
         result: ResultTextSelection<'_>,
         store: &Arc<RwLock<AnnotationStore>>,
@@ -60,7 +72,10 @@ impl PyTextSelection {
         store: &Arc<RwLock<AnnotationStore>>,
         py: Python<'py>,
     ) -> Bound<'py, PyAny> {
-        Self::from_result(result, store).into_py(py).into_bound(py)
+        Self::from_result(result, store)
+            .into_pyobject(py)
+            .expect("infallible")
+            .into_any()
     }
 }
 
@@ -68,7 +83,7 @@ impl PyTextSelection {
 impl PyTextSelection {
     /// Resolves a text selection to the actual underlying text
     fn text<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyString>> {
-        self.map(|textselection| Ok(PyString::new_bound(py, textselection.text())))
+        self.map(|textselection| Ok(PyString::new(py, textselection.text())))
     }
 
     fn __str__<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyString>> {
@@ -85,7 +100,7 @@ impl PyTextSelection {
             let slice = slice
                 .indices(textselection.textlen().try_into().unwrap())
                 .expect("expected valid slice");
-            Ok(PyString::new_bound(
+            Ok(PyString::new(
                 py,
                 textselection
                     .text_by_offset(&Offset::simple(slice.start as usize, slice.stop as usize))?,
@@ -93,19 +108,20 @@ impl PyTextSelection {
         })
     }
 
-    fn __richcmp__(&self, other: PyRef<Self>, op: CompareOp) -> Py<PyAny> {
-        let py = other.py();
+    fn __richcmp__(&self, other: PyRef<Self>, op: CompareOp) -> bool {
         match op {
-            CompareOp::Eq => (self.resource_handle == other.resource_handle
-                && self.textselection == other.textselection)
-                .into_py(py),
-            CompareOp::Ne => (self.resource_handle != other.resource_handle
-                || self.textselection != other.textselection)
-                .into_py(py),
-            CompareOp::Lt => (self.textselection < other.textselection).into_py(py),
-            CompareOp::Le => (self.textselection <= other.textselection).into_py(py),
-            CompareOp::Gt => (self.textselection > other.textselection).into_py(py),
-            CompareOp::Ge => (self.textselection >= other.textselection).into_py(py),
+            CompareOp::Eq => {
+                self.resource_handle == other.resource_handle
+                    && self.textselection == other.textselection
+            }
+            CompareOp::Ne => {
+                self.resource_handle != other.resource_handle
+                    || self.textselection != other.textselection
+            }
+            CompareOp::Lt => self.textselection < other.textselection,
+            CompareOp::Le => self.textselection <= other.textselection,
+            CompareOp::Gt => self.textselection > other.textselection,
+            CompareOp::Ge => self.textselection >= other.textselection,
         }
     }
 
@@ -161,7 +177,7 @@ impl PyTextSelection {
         case_sensitive: Option<bool>,
         py: Python<'py>,
     ) -> Bound<'py, PyList> {
-        let list = PyList::empty_bound(py);
+        let list = PyList::empty(py);
         self.map(|textselection| {
             if case_sensitive == Some(false) {
                 for (i, textselection) in textselection.find_text_nocase(fragment).enumerate() {
@@ -206,7 +222,7 @@ impl PyTextSelection {
         allow_skip_alphabetic: Option<bool>,
         py: Python<'py>,
     ) -> Bound<'py, PyList> {
-        let list: Bound<'py, PyList> = PyList::empty_bound(py);
+        let list: Bound<'py, PyList> = PyList::empty(py);
         self.map(|textselection| {
             let results = textselection.find_text_sequence(
                 &fragments.iter().map(|s| s.as_str()).collect::<Vec<_>>(),
@@ -243,7 +259,7 @@ impl PyTextSelection {
     /// You can set `limit` to the max number of elements you want to return.
     #[pyo3(signature = (delimiter,limit=None))]
     fn split_text(&self, delimiter: &str, limit: Option<usize>, py: Python) -> Py<PyList> {
-        let list = PyList::empty_bound(py);
+        let list = PyList::empty(py);
         self.map(|textselection| {
             for (i, textselection) in textselection.split_text(delimiter).enumerate() {
                 list.append(PyTextSelection::from_result_to_py(

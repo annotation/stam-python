@@ -46,12 +46,11 @@ impl PySelectorKind {
         kind: SelectorKind::DirectionalSelector,
     };
 
-    fn __richcmp__(&self, other: PyRef<Self>, op: CompareOp) -> Py<PyAny> {
-        let py = other.py();
+    fn __richcmp__(&self, other: PyRef<Self>, op: CompareOp) -> bool {
         match op {
-            CompareOp::Eq => (*self == *other).into_py(py),
-            CompareOp::Ne => (*self != *other).into_py(py),
-            _ => py.NotImplemented(),
+            CompareOp::Eq => *self == *other,
+            CompareOp::Ne => *self != *other,
+            _ => false,
         }
     }
 }
@@ -496,12 +495,11 @@ impl PySelector {
         })
     }
 
-    fn __richcmp__(&self, other: PyRef<Self>, op: CompareOp) -> Py<PyAny> {
-        let py = other.py();
+    fn __richcmp__(&self, other: PyRef<Self>, op: CompareOp) -> bool {
         match op {
-            CompareOp::Eq => (*self == *other).into_py(py),
-            CompareOp::Ne => (*self != *other).into_py(py),
-            _ => py.NotImplemented(),
+            CompareOp::Eq => *self == *other,
+            CompareOp::Ne => *self != *other,
+            _ => false,
         }
     }
 }

@@ -3,6 +3,7 @@ use pyo3::exceptions::{PyIndexError, PyRuntimeError};
 use pyo3::prelude::*;
 use pyo3::pyclass::CompareOp;
 use pyo3::types::*;
+use pyo3::IntoPyObject;
 use std::borrow::Cow;
 use std::ops::FnOnce;
 use std::sync::{Arc, RwLock};
@@ -47,7 +48,10 @@ impl PyAnnotation {
         store: Arc<RwLock<AnnotationStore>>,
         py: Python<'py>,
     ) -> Bound<'py, PyAny> {
-        Self::new(handle, store).into_py(py).into_bound(py)
+        Self::new(handle, store)
+            .into_pyobject(py)
+            .expect("infallible")
+            .into_any()
     }
 }
 
@@ -124,7 +128,7 @@ impl PyAnnotation {
     ///
     /// If you are sure an annotation only references a single contingent text slice or are okay with slices being concatenated, then you can use `str()` instead.
     fn text<'py>(&self, py: Python<'py>) -> Bound<'py, PyList> {
-        let list = PyList::empty_bound(py);
+        let list = PyList::empty(py);
         self.map(|annotation| {
             for text in annotation.text() {
                 list.append(text).ok();
@@ -302,7 +306,7 @@ impl PyAnnotation {
     /// Returns a list of resources this annotation refers to
     #[pyo3(signature = (limit=None))]
     fn resources<'py>(&self, limit: Option<usize>, py: Python<'py>) -> Bound<'py, PyList> {
-        let list = PyList::empty_bound(py);
+        let list = PyList::empty(py);
         self.map(|annotation| {
             for (i, resource) in annotation.resources().enumerate() {
                 list.append(PyTextResource::new_py(
@@ -324,7 +328,7 @@ impl PyAnnotation {
     /// Returns the resources this annotation refers to (as metadata) in a list
     #[pyo3(signature = (limit=None))]
     fn datasets<'py>(&self, limit: Option<usize>, py: Python<'py>) -> Bound<'py, PyList> {
-        let list = PyList::empty_bound(py);
+        let list = PyList::empty(py);
         self.map(|annotation| {
             for (i, dataset) in annotation.datasets().enumerate() {
                 list.append(PyAnnotationDataSet::new_py(
@@ -579,7 +583,7 @@ impl PyAnnotation {
         py: Python<'py>,
         kwargs: Option<Bound<'py, PyDict>>,
     ) -> PyResult<Bound<'py, PyList>> {
-        let alignments = PyList::empty_bound(py);
+        let alignments = PyList::empty(py);
         let storeclone = self.store.clone();
         let mut annotations = false;
         if let Some(kwargs) = kwargs {
@@ -594,7 +598,7 @@ impl PyAnnotation {
             if let (Some(left), Some(right)) = (annoiter.next(), annoiter.next()) {
                 //complex transposition
                 for (text1, text2) in left.textselections().zip(right.textselections()) {
-                    let alignment = PyList::empty_bound(py);
+                    let alignment = PyList::empty(py);
                     if annotations {
                         alignment
                             .append(PyAnnotation::new_py(left.handle(), storeclone.clone(), py))
@@ -618,7 +622,7 @@ impl PyAnnotation {
                 //simple transposition
                 let mut textiter = annotation.textselections();
                 if let (Some(text1), Some(text2)) = (textiter.next(), textiter.next()) {
-                    let alignment = PyList::empty_bound(py);
+                    let alignment = PyList::empty(py);
                     alignment
                         .append(PyTextSelection::from_result_to_py(text1, &storeclone, py))
                         .map_err(|_| StamError::OtherError("failed to extract alignment"))?;

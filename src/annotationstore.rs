@@ -43,7 +43,7 @@ impl PyAnnotationStore {
     #[pyo3(text_signature = "(self, id=None, file=None, string=None, config=None)")]
     fn new<'py>(kwargs: Option<Bound<'py, PyDict>>, py: Python<'py>) -> PyResult<Self> {
         if let Some(kwargs) = kwargs {
-            let mut config = PyDict::new_bound(py);
+            let mut config = PyDict::new(py);
             for (key, value) in kwargs.iter() {
                 match key.downcast()?.extract()? {
                     "config" => {

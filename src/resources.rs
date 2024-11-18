@@ -37,7 +37,10 @@ impl PyTextResource {
         store: Arc<RwLock<AnnotationStore>>,
         py: Python<'py>,
     ) -> Bound<'py, PyAny> {
-        Self::new(handle, store).into_py(py).into_bound(py)
+        Self::new(handle, store)
+            .into_pyobject(py)
+            .expect("infallible")
+            .into_any()
     }
 }
 
@@ -98,7 +101,7 @@ impl PyTextResource {
             let slice = slice
                 .indices(resource.textlen().try_into().unwrap())
                 .expect("expected valid slice");
-            Ok(PyString::new_bound(
+            Ok(PyString::new(
                 py,
                 resource
                     .text_by_offset(&Offset::simple(slice.start as usize, slice.stop as usize))?,
@@ -108,7 +111,7 @@ impl PyTextResource {
 
     /// 'Returns the full text of the resource (by value, aka a copy)
     fn text<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyString>> {
-        self.map(|resource| Ok(PyString::new_bound(py, resource.text())))
+        self.map(|resource| Ok(PyString::new(py, resource.text())))
     }
 
     /// Returns the length of the resources's text in unicode points (same as `len(self.text())` but more performant)
@@ -137,7 +140,7 @@ impl PyTextResource {
         case_sensitive: Option<bool>,
         py: Python<'py>,
     ) -> Bound<'py, PyList> {
-        let list = PyList::empty_bound(py);
+        let list = PyList::empty(py);
         self.map(|res| {
             if case_sensitive == Some(false) {
                 for (i, textselection) in res.find_text_nocase(fragment).enumerate() {
@@ -183,7 +186,7 @@ impl PyTextResource {
         py: Python<'py>,
     ) -> Bound<'py, PyList> {
         let fragments: Vec<&str> = fragments.iter().map(|s| s.as_str()).collect();
-        let list = PyList::empty_bound(py);
+        let list = PyList::empty(py);
         self.map(|res| {
             let results = res.find_text_sequence(
                 &fragments,
@@ -249,13 +252,13 @@ impl PyTextResource {
                 ))
             })?);
         }
-        let list = PyList::empty_bound(py);
+        let list = PyList::empty(py);
         self.map(|res| {
             for (i, regexmatch) in res
                 .find_text_regex(&regexps, None, allow_overlap.unwrap_or(false))?
                 .enumerate()
             {
-                let textselections = PyList::empty_bound(py);
+                let textselections = PyList::empty(py);
                 for textselection in regexmatch.textselections() {
                     textselections
                         .append(PyTextSelection::from_result_to_py(
@@ -265,7 +268,7 @@ impl PyTextResource {
                         ))
                         .ok();
                 }
-                let dict = PyDict::new_bound(py);
+                let dict = PyDict::new(py);
                 dict.set_item("textselections", textselections).unwrap();
                 dict.set_item("expression_index", regexmatch.expression_index())
                     .unwrap();
@@ -291,7 +294,7 @@ impl PyTextResource {
         limit: Option<usize>,
         py: Python<'py>,
     ) -> Bound<'py, PyList> {
-        let list = PyList::empty_bound(py);
+        let list = PyList::empty(py);
         self.map(|res| {
             for (i, textselection) in res.split_text(delimiter).enumerate() {
                 list.append(PyTextSelection::from_result_to_py(
@@ -697,12 +700,11 @@ impl PyCursor {
         }
     }
 
-    fn __richcmp__(&self, other: PyRef<Self>, op: CompareOp) -> Py<PyAny> {
-        let py = other.py();
+    fn __richcmp__(&self, other: PyRef<Self>, op: CompareOp) -> bool {
         match op {
-            CompareOp::Eq => (self.cursor == other.cursor).into_py(py),
-            CompareOp::Ne => (self.cursor != other.cursor).into_py(py),
-            _ => py.NotImplemented(),
+            CompareOp::Eq => self.cursor == other.cursor,
+            CompareOp::Ne => self.cursor != other.cursor,
+            _ => false,
         }
     }
 
@@ -797,16 +799,15 @@ impl PyOffset {
             .ok_or(PyValueError::new_err(format!("Offset has unknown length",)))
     }
 
-    pub(crate) fn __richcmp__(&self, other: PyRef<Self>, op: CompareOp) -> Py<PyAny> {
-        let py = other.py();
+    pub(crate) fn __richcmp__(&self, other: PyRef<Self>, op: CompareOp) -> bool {
         match op {
-            CompareOp::Eq => (self.offset.begin == other.offset.begin
-                && self.offset.end == other.offset.end)
-                .into_py(py),
-            CompareOp::Ne => (self.offset.begin != other.offset.begin
-                || self.offset.end != other.offset.end)
-                .into_py(py),
-            _ => py.NotImplemented(),
+            CompareOp::Eq => {
+                self.offset.begin == other.offset.begin && self.offset.end == other.offset.end
+            }
+            CompareOp::Ne => {
+                self.offset.begin != other.offset.begin || self.offset.end != other.offset.end
+            }
+            _ => false,
         }
     }
 

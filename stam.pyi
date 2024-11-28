@@ -927,7 +927,7 @@ class Annotation:
         Returns the substore this annotation is a part of, or `None` if the annotation is part of the root store.
         """
 
-    def alignments(self) -> list[list[Union[TextSelection,Annotation]]]:
+    def alignments(self, **kwargs) -> list[list[Union[TextSelection,Annotation]]]:
         """
         If this annotation describes a transposition (https://github.com/annotation/stam/blob/master/extensions/stam-transpose/README.md), 
         this will extract the alignments in the transposition to a list of lists. Each inner lists hold `TextSelection` instances that are in alignment.

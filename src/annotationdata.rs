@@ -788,7 +788,7 @@ pub(crate) fn dataoperator_from_py<'py>(
 
 pub(crate) fn dataoperator_greater_from_py<'py>(
     value: Bound<'py, PyAny>,
-) -> Result<DataOperator, StamError> {
+) -> Result<DataOperator<'py>, StamError> {
     if let Ok(value) = value.extract() {
         Ok(DataOperator::GreaterThan(value))
     } else if let Ok(value) = value.extract() {
@@ -802,7 +802,7 @@ pub(crate) fn dataoperator_greater_from_py<'py>(
 
 pub(crate) fn dataoperator_less_from_py<'py>(
     value: Bound<'py, PyAny>,
-) -> Result<DataOperator, StamError> {
+) -> Result<DataOperator<'py>, StamError> {
     if let Ok(value) = value.extract() {
         Ok(DataOperator::LessThan(value))
     } else if let Ok(value) = value.extract() {
@@ -816,7 +816,7 @@ pub(crate) fn dataoperator_less_from_py<'py>(
 
 pub(crate) fn dataoperator_greatereq_from_py<'py>(
     value: Bound<'py, PyAny>,
-) -> Result<DataOperator, StamError> {
+) -> Result<DataOperator<'py>, StamError> {
     if let Ok(value) = value.extract() {
         Ok(DataOperator::GreaterThanOrEqual(value))
     } else if let Ok(value) = value.extract() {
@@ -830,7 +830,7 @@ pub(crate) fn dataoperator_greatereq_from_py<'py>(
 
 pub(crate) fn dataoperator_lesseq_from_py<'py>(
     value: Bound<'py, PyAny>,
-) -> Result<DataOperator, StamError> {
+) -> Result<DataOperator<'py>, StamError> {
     if let Ok(value) = value.extract() {
         Ok(DataOperator::LessThanOrEqual(value))
     } else if let Ok(value) = value.extract() {

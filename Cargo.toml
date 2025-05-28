@@ -19,8 +19,8 @@ crate-type = ["cdylib"]
 [dependencies]
 pyo3 = { version = "0.23.1", features = ["chrono"] }
 rayon = "1.10.0"
-stam = "0.16.5"
-stam-tools = "0.9.2"
+stam = "0.16.6"
+stam-tools = "0.9.3"
 
 [features]
 default = ["pyo3/extension-module"]

@@ -32,7 +32,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: ${{matrix.python.cp}}-${{matrix.buildplat.sys}}-${{matrix.buildplat.arch}}
-          path: dist
+          path: dist/*
 
   windows:
     runs-on: windows-latest
@@ -55,7 +55,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: ${{matrix.python.cp}}-${{matrix.buildplat.sys}}-${{matrix.buildplat.arch}}
-          path: dist
+          path: dist/*
 
   macos:
     runs-on: macos-latest
@@ -77,7 +77,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: ${{matrix.python.cp}}-${{matrix.buildplat.sys}}-${{matrix.buildplat.arch}}
-          path: dist
+          path: dist/*
 
   sdist:
     runs-on: ubuntu-latest
@@ -92,7 +92,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: ${{matrix.python.cp}}-${{matrix.buildplat.sys}}-${{matrix.buildplat.arch}}
-          path: dist
+          path: dist/*
 
   release:
     name: Release

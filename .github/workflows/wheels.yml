@@ -31,7 +31,7 @@ jobs:
       - name: Upload wheels
         uses: actions/upload-artifact@v4
         with:
-          name: stam-${{matrix.python.cp}}-${{matrix.target}}-linux
+          name: stam-${{matrix.target}}-linux
           path: dist/*
 
   windows:
@@ -54,7 +54,7 @@ jobs:
       - name: Upload wheels
         uses: actions/upload-artifact@v4
         with:
-          name: stam-${{matrix.python.cp}}-${{matrix.target}}-win
+          name: stam-${{matrix.target}}-win
           path: dist/*
 
   macos:
@@ -76,7 +76,7 @@ jobs:
       - name: Upload wheels
         uses: actions/upload-artifact@v4
         with:
-          name: stam-${{matrix.python.cp}}-${{matrix.target}}-macos
+          name: stam-${{matrix.target}}-macos
           path: dist/*
 
   sdist:
@@ -91,7 +91,7 @@ jobs:
       - name: Upload sdist
         uses: actions/upload-artifact@v4
         with:
-          name: stam-${{matrix.python.cp}}-${{matrix.target}}-source
+          name: stam-source
           path: dist/*
 
   release:
@@ -102,7 +102,7 @@ jobs:
     steps:
       - uses: actions/download-artifact@v4
         with:
-          name: wheels
+          name: dist
             #     - name: Publish to PyPI
             #       uses: PyO3/maturin-action@v1
             #       env:

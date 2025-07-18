@@ -1,6 +1,6 @@
 [package]
 name = "stam-python"
-version = "0.10.2"
+version = "0.11.0"
 edition = "2021"
 authors = ["Maarten van Gompel <proycon@anaproy.nl>"]
 description = "STAM is a library for dealing with standoff annotations on text, this is the python binding."
@@ -19,8 +19,8 @@ crate-type = ["cdylib"]
 [dependencies]
 pyo3 = { version = "0.25.0", features = ["chrono"] }
 rayon = "1.10.0"
-stam = "0.16.6"
-stam-tools = "0.9.3"
+stam = "0.17.0"
+stam-tools = "0.11.0"
 
 [features]
 default = ["pyo3/extension-module"]

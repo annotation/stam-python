@@ -3,6 +3,7 @@ use pyo3::prelude::*;
 use pyo3::pyclass::CompareOp;
 use pyo3::types::*;
 use std::borrow::Cow;
+use std::collections::BTreeMap;
 use std::hash::{Hash, Hasher};
 use std::ops::FnOnce;
 use std::sync::{Arc, RwLock};
@@ -299,6 +300,14 @@ pub(crate) fn datavalue_from_py<'py>(value: Bound<'py, PyAny>) -> Result<DataVal
                 list.push(pyitem);
             }
             return Ok(DataValue::List(list));
+        } else if value.is_instance_of::<PyDict>() {
+            let value: &Bound<'py, PyDict> = value.downcast().expect("downcast must succeed");
+            let mut map: BTreeMap<String, DataValue> = BTreeMap::new();
+            for (key, item) in value.iter() {
+                let pyitem = datavalue_from_py(item)?;
+                map.insert(key.to_string(), pyitem);
+            }
+            return Ok(DataValue::Map(map));
         }
         Err(StamError::OtherError(
             "Can't convert supplied Python object to a DataValue",
@@ -332,6 +341,14 @@ pub(crate) fn datavalue_into_py<'py>(
                 pylist.append(pyvalue).expect("adding value to list");
             }
             Ok(pylist.into_any())
+        }
+        DataValue::Map(v) => {
+            let pydict = PyDict::new(py);
+            for (key, value) in v.iter() {
+                let pyvalue = datavalue_into_py(value, py)?;
+                pydict.add((key, pyvalue)).expect("adding value to dict");
+            }
+            Ok(pydict.into_any())
         }
     }
 }

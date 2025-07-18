@@ -503,7 +503,7 @@ impl PyAnnotation {
                 config.skip_context = v.extract()?;
             }
             if let Ok(Some(v)) = kwargs.get_item("no_auto_context") {
-                let no_auto_context = v.extract()?;
+                let no_auto_context: bool = v.extract()?;
                 auto_context = !no_auto_context;
             }
             if let Ok(Some(v)) = kwargs.get_item("context_namespaces") {

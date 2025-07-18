@@ -498,6 +498,9 @@ impl PyAnnotation {
             if let Ok(Some(v)) = kwargs.get_item("extra_context") {
                 config.extra_context = v.extract()?;
             }
+            if let Ok(Some(v)) = kwargs.get_item("skip_context") {
+                config.skip_context = v.extract()?;
+            }
             if let Ok(Some(v)) = kwargs.get_item("context_namespaces") {
                 config.context_namespaces = {
                     let mut namespaces = Vec::new();

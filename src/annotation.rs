@@ -479,6 +479,7 @@ impl PyAnnotation {
     #[pyo3(signature = (kwargs=None))]
     fn webannotation<'py>(&self, kwargs: Option<&Bound<'py, PyDict>>) -> PyResult<String> {
         let mut config = WebAnnoConfig::default();
+        let mut auto_context = true;
         if let Some(kwargs) = kwargs {
             if let Ok(Some(v)) = kwargs.get_item("default_annotation_iri") {
                 config.default_annotation_iri = v.extract()?;
@@ -501,6 +502,10 @@ impl PyAnnotation {
             if let Ok(Some(v)) = kwargs.get_item("skip_context") {
                 config.skip_context = v.extract()?;
             }
+            if let Ok(Some(v)) = kwargs.get_item("no_auto_context") {
+                let no_auto_context = v.extract()?;
+                let auto_context = !no_auto_context;
+            }
             if let Ok(Some(v)) = kwargs.get_item("context_namespaces") {
                 config.context_namespaces = {
                     let mut namespaces = Vec::new();
@@ -518,7 +523,12 @@ impl PyAnnotation {
                 }
             }
         }
-        self.map(|annotation| Ok(annotation.to_webannotation(&config)))
+        self.map(|annotation| {
+            if auto_context {
+                config = config.auto_extra_context(annotation.store());
+            }
+            Ok(annotation.to_webannotation(&config))
+        })
     }
 
     fn test_textselection(

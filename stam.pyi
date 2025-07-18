@@ -859,15 +859,18 @@ class Annotation:
         `default_resource_iri`: `str`
             IRI prefix for Text Resources. Will be prepended if the resource public ID is not an IRI yet.
 
-        'extra_context`: `[str]`
+        `extra_context`: `[str]`
             Extra JSON-LD context to export, these must be URLs to JSONLD files. 
             The contexts you provide also double as possible STAM dataset IDs. 
             Any keys in these sets that are not full IRIs will
             be copied as-is to the output (as alias rather than joined with the set ID to form a
             full IRI ), leaving interpretation it up to the JSON-LD context.
 
-        'skip_context`: `bool`
+        `skip_context`: `bool`
             Do not output @context when outputting web annotations (useful if already done at an earlier stage) 
+
+        `no_auto_context`: `bool`
+            Do not automatically add any used STAM datasets ending in `.jsonld` or `.json` to the `extra_context` list. (default: false)
             
         `auto_generated`: `bool`
             Automatically add a 'generated' triple for each annotation, with the timestamp of serialisation

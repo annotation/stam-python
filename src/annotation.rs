@@ -504,7 +504,7 @@ impl PyAnnotation {
             }
             if let Ok(Some(v)) = kwargs.get_item("no_auto_context") {
                 let no_auto_context = v.extract()?;
-                let auto_context = !no_auto_context;
+                auto_context = !no_auto_context;
             }
             if let Ok(Some(v)) = kwargs.get_item("context_namespaces") {
                 config.context_namespaces = {

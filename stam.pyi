@@ -932,6 +932,45 @@ class Annotation:
             Output debug information to stderr
        """
 
+    def translate(self, via: Annotation, **kwargs) -> Annotations:
+       """
+       The translate function maps an annotation, textselection, or textselection set from
+       one coordinate system to another. These mappings are defined in annotations called
+       **translations** and are documented here: https://github.com/annotation/stam/blob/master/extensions/stam-translate/README.md
+       Translations link possibly *different* textual parts across resources.
+       
+       The `via` parameter expresses the translation that is being used.
+       The result of a translate operation is itself again a translation.
+
+       Keyword arguments
+       ------------------
+
+       allow_simple: bool    
+            Allow a simple translation as output, by default this is set to `false` as we usually want to have an translated annotation
+
+       no_translation: bool
+            Do not produce a translation annotation, only output the translated annotation (allow_simple must be set to false)
+            This effectively throws away the provenance information.
+
+       no_resegmentation: bool
+            Do not produce a resegmentation annotation. 
+            This maps a translation directly and allows losing segmentation information. 
+            In doing so, it reduces complexity of the output annotations.
+            If this is set, no resegmentations will be produced, but the resulting translations
+            may lose some of its fine-grained information, which limits the ability to reuse them as a translation pivot
+            for further translations.
+            This only comes into play if `no_translation == false` , `existing_source_side == true` and `source_side_id.is_some()`.
+
+       translation_id: Optional[str]
+            An ID to assign to the translation that is outputted
+
+       resegmentation_id: Optional[str]
+            An ID to assign to the resegmentation that is outputted (if any)
+
+       debug: bool
+            Output debug information to stderr
+       """
+
     def substore(self) -> Optional[AnnotationSubStore]:
         """
         Returns the substore this annotation is a part of, or `None` if the annotation is part of the root store.

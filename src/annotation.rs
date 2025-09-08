@@ -580,6 +580,31 @@ impl PyAnnotation {
         })
     }
 
+    #[pyo3(signature = (via, **kwargs))]
+    fn translate<'py>(
+        &mut self,
+        via: &PyAnnotation,
+        kwargs: Option<Bound<'py, PyDict>>,
+    ) -> PyResult<PyAnnotations> {
+        let translate_config = if let Some(kwargs) = kwargs {
+            get_translate_config(&kwargs)?
+        } else {
+            TranslateConfig::default()
+        };
+        let builders: Vec<AnnotationBuilder> = self.map(|annotation| {
+            let store = annotation.store();
+            let via = store.annotation(via.handle).or_fail()?;
+            annotation.translate(&via, translate_config)
+        })?;
+        let annotations =
+            self.map_store_mut(|store| store.annotate_from_iter(builders.into_iter()))?;
+        Ok(PyAnnotations {
+            annotations,
+            store: self.store.clone(),
+            cursor: 0,
+        })
+    }
+
     fn substore(&self) -> PyResult<Option<PyAnnotationSubStore>> {
         self.map(|annotation| {
             let substore = annotation.substore();
@@ -1178,6 +1203,51 @@ pub fn get_transpose_config(kwargs: &Bound<PyDict>) -> PyResult<TransposeConfig>
                 }
             }
             _ => eprintln!("Ignored unknown kwargs option for transpose(): {}", key),
+        }
+    }
+    Ok(config)
+}
+
+pub fn get_translate_config(kwargs: &Bound<PyDict>) -> PyResult<TranslateConfig> {
+    let mut config = TranslateConfig::default();
+    for (key, value) in kwargs {
+        match key.downcast()?.extract()? {
+            "debug" => {
+                if let Ok(Some(value)) = value.extract() {
+                    config.debug = value;
+                }
+            }
+            "allow_simple" => {
+                if let Ok(Some(value)) = value.extract() {
+                    config.allow_simple = value;
+                }
+            }
+            "no_translation" => {
+                if let Ok(Some(value)) = value.extract() {
+                    config.no_translation = value;
+                }
+            }
+            "no_resegmentation" => {
+                if let Ok(Some(value)) = value.extract() {
+                    config.no_resegmentation = value;
+                }
+            }
+            "existing_source_side" => {
+                if let Ok(Some(value)) = value.extract() {
+                    config.existing_source_side = value;
+                }
+            }
+            "translation_id" => {
+                if let Ok(Some(value)) = value.extract() {
+                    config.translation_id = value;
+                }
+            }
+            "resegmentation_id" => {
+                if let Ok(Some(value)) = value.extract() {
+                    config.resegmentation_id = value;
+                }
+            }
+            _ => eprintln!("Ignored unknown kwargs option for translate(): {}", key),
         }
     }
     Ok(config)

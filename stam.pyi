@@ -880,6 +880,9 @@ class Annotation:
 
         `context_namespaces`: `[(str,str)]`
             Automatically generate a JSON-LD context alias for all URIs in keys, maps URI prefixes to namespace prefixes
+
+        `extra_target_templates`: `[str]`
+            Adds an extra target alongside the usual target with TextPositionSelector. This extra target can be used for provide a direct IRI/URI to fetch the exact textselection (if the backend system supports it). In the template, you should specify an IRI with the variables {resource} (which is the resource IRI), {begin}, and {end}, they will be substituted accordingly. A common value is: {resource}/{begin}/{end}
         """
 
     def test(self, operator: TextSelectionOperator, other: Annotation) -> bool:

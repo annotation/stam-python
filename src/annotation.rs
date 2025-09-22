@@ -522,6 +522,15 @@ impl PyAnnotation {
                     namespaces
                 }
             }
+            if let Ok(Some(v)) = kwargs.get_item("extra_target_templates") {
+                config.extra_target_templates = {
+                    let mut extra_target_templates = Vec::new();
+                    for template in v.extract::<Vec<String>>()? {
+                        extra_target_templates.push(template);
+                    }
+                    extra_target_templates
+                }
+            }
         }
         self.map(|annotation| {
             if auto_context {

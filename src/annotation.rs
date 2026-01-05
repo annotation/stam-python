@@ -1180,7 +1180,7 @@ impl PyAnnotation {
 pub fn get_transpose_config(kwargs: &Bound<PyDict>) -> PyResult<TransposeConfig> {
     let mut config = TransposeConfig::default();
     for (key, value) in kwargs {
-        match key.downcast()?.extract()? {
+        match key.cast()?.extract()? {
             "debug" => {
                 if let Ok(Some(value)) = value.extract() {
                     config.debug = value;
@@ -1220,7 +1220,7 @@ pub fn get_transpose_config(kwargs: &Bound<PyDict>) -> PyResult<TransposeConfig>
 pub fn get_translate_config(kwargs: &Bound<PyDict>) -> PyResult<TranslateConfig> {
     let mut config = TranslateConfig::default();
     for (key, value) in kwargs {
-        match key.downcast()?.extract()? {
+        match key.cast()?.extract()? {
             "debug" => {
                 if let Ok(Some(value)) = value.extract() {
                     config.debug = value;

@@ -1,5 +1,6 @@
 use pyo3::exceptions::{PyRuntimeError, PyTypeError, PyValueError};
 use pyo3::prelude::*;
+use pyo3::pyclass::PyClassGuardError;
 use pyo3::types::*;
 use rayon::iter::{IntoParallelIterator, ParallelIterator};
 use std::ops::FnOnce;
@@ -45,7 +46,7 @@ impl PyAnnotationStore {
         if let Some(kwargs) = kwargs {
             let mut config = PyDict::new(py);
             for (key, value) in kwargs.iter() {
-                match key.downcast()?.extract()? {
+                match key.cast()?.extract()? {
                     "config" => {
                         if let Ok(Some(value)) = value.extract() {
                             config = value;
@@ -55,10 +56,10 @@ impl PyAnnotationStore {
                 }
             }
             for (key, value) in kwargs.iter() {
-                match key.downcast()?.extract()? {
+                match key.cast()?.extract()? {
                     "config" => continue, //already handled
                     "file" => {
-                        let value = value.downcast()?.extract()?;
+                        let value = value.cast()?.extract()?;
                         return match AnnotationStore::from_file(value, get_config(&config)?) {
                             Ok(store) => Ok(PyAnnotationStore {
                                 store: Arc::new(RwLock::new(store)),
@@ -67,7 +68,7 @@ impl PyAnnotationStore {
                         };
                     }
                     "string" => {
-                        let value = value.downcast()?.extract()?;
+                        let value = value.cast()?.extract()?;
                         return match AnnotationStore::from_str(value, get_config(&config)?) {
                             Ok(store) => Ok(PyAnnotationStore {
                                 store: Arc::new(RwLock::new(store)),
@@ -76,7 +77,7 @@ impl PyAnnotationStore {
                         };
                     }
                     "id" => {
-                        let value: String = value.downcast()?.extract()?;
+                        let value: String = value.cast()?.extract()?;
                         return Ok(PyAnnotationStore {
                             store: Arc::new(RwLock::new(
                                 AnnotationStore::default()
@@ -284,7 +285,7 @@ impl PyAnnotationStore {
         }
         builder = builder.with_target(target.build());
         if data.is_instance_of::<PyList>() {
-            let data: Bound<'py, PyList> = data.downcast()?.clone();
+            let data: Bound<'py, PyList> = data.cast()?.clone();
             for databuilder in data.iter() {
                 let databuilder = annotationdata_builder(databuilder)?;
                 builder = builder.with_data_builder(databuilder);
@@ -420,11 +421,11 @@ impl PyAnnotationStore {
             if let Some(kwargs) = kwargs {
                 //bind keyword arguments as variables in the query
                 for (varname, value) in kwargs.iter() {
-                    if let Ok(varname) = varname.downcast::<PyString>() {
+                    if let Ok(varname) = varname.cast::<PyString>() {
                         if let Ok(varname) = varname.to_str() {
                             if value.is_instance_of::<PyAnnotation>() {
                                 let annotation: PyResult<PyRef<'py, PyAnnotation>> =
-                                    value.extract();
+                                    value.extract().map_err(|e: PyClassGuardError<'_, 'py>| e.into());
                                 if let Ok(annotation) = annotation {
                                     let annotation =
                                         store.annotation(annotation.handle).or_fail()?;
@@ -432,7 +433,7 @@ impl PyAnnotationStore {
                                 }
                             } else if value.is_instance_of::<PyAnnotationData>() {
                                 let data: PyResult<PyRef<'py, PyAnnotationData>> =
-                                    value.extract();
+                                    value.extract().map_err(|e: PyClassGuardError<'_, 'py>| e.into());
                                 if let Ok(data) = data {
                                     let data =
                                         store.annotationdata(data.set, data.handle).or_fail()?;
@@ -440,7 +441,7 @@ impl PyAnnotationStore {
                                 }
                             } else if value.is_instance_of::<PyDataKey>() {
                                 let key: PyResult<PyRef<'py, PyDataKey>> =
-                                    value.extract();
+                                    value.extract().map_err(|e: PyClassGuardError<'_, 'py>| e.into());
                                 if let Ok(key) = key {
                                     let key =
                                         store.key(key.set, key.handle).or_fail()?;
@@ -448,7 +449,7 @@ impl PyAnnotationStore {
                                 }
                             } else if value.is_instance_of::<PyTextResource>() {
                                 let resource: PyResult<PyRef<'py, PyTextResource>> =
-                                    value.extract();
+                                    value.extract().map_err(|e: PyClassGuardError<'_, 'py>| e.into());
                                 if let Ok(resource) = resource {
                                     let resource =
                                         store.resource(resource.handle).or_fail()?;
@@ -456,7 +457,7 @@ impl PyAnnotationStore {
                                 }
                             } else if value.is_instance_of::<PyAnnotationDataSet>() {
                                 let dataset: PyResult<PyRef<'py, PyAnnotationDataSet>> =
-                                    value.extract();
+                                    value.extract().map_err(|e: PyClassGuardError<'_, 'py>| e.into());
                                 if let Ok(dataset) = dataset {
                                     let dataset =
                                         store.dataset(dataset.handle).or_fail()?;
@@ -464,7 +465,7 @@ impl PyAnnotationStore {
                                 }
                             } else if value.is_instance_of::<PyTextSelection>() {
                                 let textselection: PyResult<PyRef<'py, PyTextSelection>> =
-                                    value.extract();
+                                    value.extract().map_err(|e: PyClassGuardError<'_, 'py>| e.into());
                                 if let Ok(textselection) = textselection {
                                     if let Some(handle) = textselection.textselection.handle() {
                                         if let Some(textselection) =

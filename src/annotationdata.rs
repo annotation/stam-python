@@ -293,7 +293,7 @@ pub(crate) fn datavalue_from_py<'py>(value: Bound<'py, PyAny>) -> Result<DataVal
         Ok(DataValue::Datetime(value))
     } else {
         if value.is_instance_of::<PyList>() {
-            let value: &Bound<'py, PyList> = value.downcast().expect("downcast must succeed");
+            let value: &Bound<'py, PyList> = value.cast().expect("cast must succeed");
             let mut list: Vec<DataValue> = Vec::new();
             for item in value {
                 let pyitem = datavalue_from_py(item)?;
@@ -301,7 +301,7 @@ pub(crate) fn datavalue_from_py<'py>(value: Bound<'py, PyAny>) -> Result<DataVal
             }
             return Ok(DataValue::List(list));
         } else if value.is_instance_of::<PyDict>() {
-            let value: &Bound<'py, PyDict> = value.downcast().expect("downcast must succeed");
+            let value: &Bound<'py, PyDict> = value.cast().expect("cast must succeed");
             let mut map: BTreeMap<String, DataValue> = BTreeMap::new();
             for (key, item) in value.iter() {
                 let pyitem = datavalue_from_py(item)?;
@@ -639,7 +639,7 @@ pub(crate) fn annotationdata_builder<'py>(
         builder = builder.with_dataset(adata.set.into());
         Ok(builder)
     } else if data.is_instance_of::<PyDict>() {
-        let data = data.downcast::<PyDict>()?;
+        let data = data.cast::<PyDict>()?;
         if let Ok(Some(id)) = data.get_item("id") {
             if id.is_instance_of::<PyAnnotationData>() {
                 let adata: PyRef<'_, PyAnnotationData> = id.extract()?;
@@ -676,7 +676,7 @@ pub(crate) fn annotationdata_builder<'py>(
         }
         Ok(builder)
     } else if data.is_instance_of::<PyString>() {
-        let id: String = data.downcast()?.extract()?;
+        let id: String = data.cast()?.extract()?;
         Ok(AnnotationDataBuilder::new().with_id(id.into()))
     } else {
         Err(PyValueError::new_err(
@@ -720,7 +720,7 @@ pub(crate) fn dataoperator_from_kwargs<'py>(
         ))))
     } else if let Ok(Some(values)) = kwargs.get_item("value_in") {
         if values.is_instance_of::<PyTuple>() {
-            let values: &Bound<'py, PyTuple> = values.downcast().unwrap();
+            let values: &Bound<'py, PyTuple> = values.cast().unwrap();
             let mut suboperators = Vec::with_capacity(values.len());
             for value in values {
                 suboperators.push(dataoperator_from_py(value)?)
@@ -731,7 +731,7 @@ pub(crate) fn dataoperator_from_kwargs<'py>(
         }
     } else if let Ok(Some(values)) = kwargs.get_item("value_not_in") {
         if values.is_instance_of::<PyTuple>() {
-            let values: &Bound<'py, PyTuple> = values.downcast().unwrap();
+            let values: &Bound<'py, PyTuple> = values.cast().unwrap();
             let mut suboperators = Vec::with_capacity(values.len());
             for value in values {
                 suboperators.push(dataoperator_from_py(value)?)

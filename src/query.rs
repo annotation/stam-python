@@ -38,7 +38,7 @@ where
     'context: 'store,
 {
     if filter.is_instance_of::<PyDict>() {
-        let filter = filter.downcast()?;
+        let filter = filter.cast()?;
         let operator = dataoperator_from_kwargs(&filter)
             .map_err(|err| PyValueError::new_err(format!("{}", err)))?
             .or(operator);
@@ -92,7 +92,7 @@ where
                 }
             } else if filter.contains("set")? {
                 if key.is_instance_of::<PyString>() {
-                    let key = key.downcast::<PyString>()?;
+                    let key = key.cast::<PyString>()?;
                     let set = filter.get_item("set")?.expect("already checked");
                     let key = if set.is_instance_of::<PyAnnotationDataSet>() {
                         let set: PyRef<'py, PyAnnotationDataSet> = filter.extract()?;
@@ -110,7 +110,7 @@ where
                             ));
                         }
                     } else if set.is_instance_of::<PyString>() {
-                        let set = set.downcast::<PyString>()?;
+                        let set = set.cast::<PyString>()?;
                         if let Some(dataset) = store.dataset(set.to_str()?) {
                             if let Some(key) = dataset.key(key.to_str()?) {
                                 Some(key)
@@ -317,7 +317,7 @@ where
         } else if let Ok(Some(filter)) = kwargs.get_item("filters") {
             //backwards compatibility
             if filter.is_instance_of::<PyList>() {
-                let vec = filter.downcast::<PyList>()?;
+                let vec = filter.cast::<PyList>()?;
                 for filter in vec {
                     used_contextvarnames = add_filter(
                         &mut query,
@@ -328,7 +328,7 @@ where
                     )?;
                 }
             } else if filter.is_instance_of::<PyTuple>() {
-                let vec = filter.downcast::<PyTuple>()?;
+                let vec = filter.cast::<PyTuple>()?;
                 for filter in vec {
                     used_contextvarnames = add_filter(
                         &mut query,
@@ -364,8 +364,8 @@ pub(crate) fn has_filters<'py>(
         for key in kwargs.keys() {
             if key.is_instance_of::<PyString>() {
                 let key: &str = key
-                    .downcast()
-                    .expect("downcast must work")
+                    .cast()
+                    .expect("cast must work")
                     .extract()
                     .expect("extract must work");
                 if let "limit" | "recursive" | "substore" = key {

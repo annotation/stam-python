@@ -8,7 +8,7 @@ use stamtools::align::{AbsoluteOrRelative, AlignmentAlgorithm, AlignmentConfig};
 pub fn get_config<'py>(kwargs: &Bound<'py, PyDict>) -> PyResult<Config> {
     let mut config = Config::default();
     for (key, value) in kwargs {
-        match key.downcast()?.extract()? {
+        match key.cast()?.extract()? {
             "use_include" => {
                 if let Ok(Some(value)) = value.extract() {
                     config = config.with_use_include(value);

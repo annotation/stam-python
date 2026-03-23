@@ -8,7 +8,7 @@
 [![GitHub build](https://github.com/annotation/stam-rust/actions/workflows/stam.yml/badge.svg?branch=master)](https://github.com/annotation/stam-rust/actions/)
 [![GitHub release](https://img.shields.io/github/release/annotation/stam-python.svg)](https://GitHub.com/annotation/stam-python/releases/)
 [![Project Status: Active – The project has reached a stable, usable state and is being actively developed.](https://www.repostatus.org/badges/latest/active.svg)](https://www.repostatus.org/#active)
-![Technology Readiness Level 7/9 - Release Candidate - Technology ready enough and in initial use by end-users in intended scholarly environments. Further validation in progress.](https://w3id.org/research-technology-readiness-levels/Level7ReleaseCandidate.svg)
+![Technology Readiness Level 8/9 - Complete - Technology complete and qualified, released for all end-users in scholarly environments.](https://w3id.org/research-technology-readiness-levels/Level8Complete.svg)
 
 # STAM Python binding
 
